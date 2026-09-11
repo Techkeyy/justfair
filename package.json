@@ -1,0 +1,23 @@
+{
+  "name": "justfair",
+  "version": "1.0.0",
+  "description": "Consumer-facing tokenized-stock pre-trade safety application and Equity Preflight API on Solana",
+  "main": "src/preflight.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test/preflight.test.js",
+    "check": "node src/cli.js check",
+    "doctor": "node src/cli.js doctor"
+  },
+  "keywords": [
+    "solana",
+    "tokenized-stocks",
+    "xstocks",
+    "jupiter",
+    "preflight",
+    "safety",
+    "rwa"
+  ],
+  "author": "Techkeyy",
+  "license": "MIT"
+}
