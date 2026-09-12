@@ -1,6 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
-  <!-- SPDR Official Brand Icon (Red Spider / Geometric Mark of SPDR ETFs) -->
-  <circle cx="50" cy="50" r="46" fill="#003366"/>
-  <path d="M50 20 L58 35 L75 35 L62 46 L67 63 L50 52 L33 63 L38 46 L25 35 L42 35 Z" fill="#E31837"/>
-  <text x="50" y="82" font-family="'Inter', sans-serif" font-weight="900" font-size="16" fill="#FFFFFF" text-anchor="middle" letter-spacing="1">SPDR</text>
+  <!-- SPDR Official Brand Mark (State Street Global Advisors SPDR ETFs) -->
+  <rect width="100" height="100" rx="20" fill="#002B49"/>
+  <!-- SPDR Starburst Mark -->
+  <path d="M50 18 L55 32 L69 32 L58 41 L62 55 L50 46 L38 55 L42 41 L31 32 L45 32 Z" fill="#E31837"/>
+  <!-- Vectorized SPDR Letterforms -->
+  <!-- S -->
+  <path d="M22 68 C22 65 24 63 28 63 C32 63 34 65 34 67 L30 67 C30 66 29 65 28 65 C27 65 26 66 26 67 C26 68 27 68 29 69 C32 70 34 71 34 74 C34 77 31 79 28 79 C24 79 22 77 22 74 L26 74 C26 76 27 77 28 77 C29 77 30 76 30 74 C30 73 29 72 27 71 C24 70 22 69 22 68 Z" fill="#FFFFFF"/>
+  <!-- P -->
+  <path d="M37 63 L45 63 C48 63 50 65 50 68 C50 71 48 73 45 73 L41 73 L41 79 L37 79 Z M41 66 L41 70 L45 70 C46 70 47 69 47 68 C47 67 46 66 45 66 Z" fill="#FFFFFF"/>
+  <!-- D -->
+  <path d="M53 63 L60 63 C64 63 67 66 67 71 C67 76 64 79 60 79 L53 79 Z M57 66 L57 76 L60 76 C62 76 63 74 63 71 C63 68 62 66 60 66 Z" fill="#FFFFFF"/>
+  <!-- R -->
+  <path d="M70 63 L77 63 C80 63 82 65 82 68 C82 70 81 72 79 72 L83 79 L79 79 L75.5 73 L74 73 L74 79 L70 79 Z M74 66 L74 70 L77 70 C78 70 79 69 79 68 C79 67 78 66 77 66 Z" fill="#FFFFFF"/>
 </svg>
