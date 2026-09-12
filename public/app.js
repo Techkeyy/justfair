@@ -30,7 +30,7 @@ const paymentInput = document.getElementById("payment-select");
 const amountInput = document.getElementById("amount-input");
 const amountPrefix = document.getElementById("amount-prefix");
 const amountUsdEquiv = document.getElementById("amount-usd-equivalent");
-const stockChips = document.querySelectorAll(".stock-chip");
+const stockCards = document.querySelectorAll(".stock-row-card, .stock-chip");
 const paymentTabs = document.querySelectorAll(".payment-tab");
 const presetBtns = document.querySelectorAll(".preset-btn");
 const walletBtn = document.getElementById("wallet-toggle-btn");
@@ -122,6 +122,7 @@ window.addEventListener("DOMContentLoaded", () => {
   } else {
     switchView("dashboard");
   }
+  initScrollReveal();
 });
 
 window.addEventListener("hashchange", () => {
@@ -134,18 +135,50 @@ window.addEventListener("hashchange", () => {
 });
 
 // ==========================================
-// 2. Stock Selection Handler
+// 2. Scroll Reveal Motion (IntersectionObserver)
 // ==========================================
-stockChips.forEach(chip => {
-  chip.addEventListener("click", () => {
-    stockChips.forEach(c => {
+function initScrollReveal() {
+  const revealElements = document.querySelectorAll(".reveal-section, .reveal-item");
+  if (!revealElements.length) return;
+
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (prefersReducedMotion || !("IntersectionObserver" in window)) {
+    revealElements.forEach(el => el.classList.add("is-revealed"));
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    (entries, obs) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-revealed");
+          obs.unobserve(entry.target);
+        }
+      });
+    },
+    {
+      root: null,
+      rootMargin: "0px 0px -40px 0px",
+      threshold: 0.12
+    }
+  );
+
+  revealElements.forEach(el => observer.observe(el));
+}
+
+// ==========================================
+// 3. Stock Selection Handler (Vertical Cards)
+// ==========================================
+stockCards.forEach(card => {
+  card.addEventListener("click", () => {
+    stockCards.forEach(c => {
       c.classList.remove("active");
       c.setAttribute("aria-checked", "false");
     });
-    chip.classList.add("active");
-    chip.setAttribute("aria-checked", "true");
-    const sym = chip.getAttribute("data-symbol");
-    stockInput.value = sym;
+    card.classList.add("active");
+    card.setAttribute("aria-checked", "true");
+    const sym = card.getAttribute("data-symbol");
+    if (stockInput) stockInput.value = sym;
   });
 });
 

@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="site-wrapper">
@@ -64,41 +64,44 @@
       <!-- VIEW 1: DASHBOARD / LANDING VIEW           -->
       <!-- ========================================== -->
       <div id="dashboard-view" class="view-section">
-        <!-- Hero Section -->
-        <section class="dashboard-hero">
-          <div class="hero-badge">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            </svg>
-            <span>Non-Custodial Equity Preflight Engine</span>
-          </div>
-          <h1 class="hero-headline">Before you buy the stock, check the fill.</h1>
-          <p class="hero-subheadline">
-            JustFair inspects live Solana DEX routes and calculates the exact dollar value of underlying stock exposure you receive before any transaction is executed.
-          </p>
-          <div class="hero-cta-group">
-            <button type="button" class="btn btn-primary btn-lg" id="hero-open-app-btn">
-              <span>Launch Preflight App</span>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 12h14"></path>
-                <path d="M12 5l7 7-7 7"></path>
+        <!-- Full-Bleed Hero Section with Downloaded Image Background -->
+        <section class="dashboard-hero full-bleed-hero">
+          <div class="hero-overlay"></div>
+          <div class="hero-inner">
+            <div class="hero-badge">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
               </svg>
-            </button>
-            <a href="#how-it-works" class="btn btn-secondary btn-lg">
-              <span>Learn How It Works</span>
-            </a>
+              <span>Non-Custodial Equity Preflight Engine</span>
+            </div>
+            <h1 class="hero-headline">Before you buy the stock,<br>check the fill.</h1>
+            <p class="hero-subheadline">
+              JustFair inspects live Solana DEX routes and calculates the exact dollar value of underlying stock exposure you receive before any transaction is executed.
+            </p>
+            <div class="hero-cta-group">
+              <button type="button" class="btn btn-primary btn-lg" id="hero-open-app-btn">
+                <span>Launch Preflight App</span>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14"></path>
+                  <path d="M12 5l7 7-7 7"></path>
+                </svg>
+              </button>
+              <a href="#how-it-works" class="btn btn-hero-secondary btn-lg">
+                <span>Learn How It Works</span>
+              </a>
+            </div>
           </div>
         </section>
 
         <!-- Value Proposition: Why JustFair (Consumer Outcomes) -->
-        <section class="dashboard-section" id="why-justfair">
+        <section class="dashboard-section reveal-section" id="why-justfair">
           <div class="section-header">
             <h2 class="section-title">Pre-trade inspection for tokenized stocks</h2>
             <p class="section-subtitle">Tokenized equities on Solana do not behave like standard SPL tokens. JustFair bridges on-chain DEX routing with equity truth.</p>
           </div>
 
           <div class="feature-grid">
-            <div class="feature-card">
+            <div class="feature-card reveal-item">
               <div class="feature-icon-box">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -111,7 +114,7 @@
               </p>
             </div>
 
-            <div class="feature-card">
+            <div class="feature-card reveal-item">
               <div class="feature-icon-box">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -124,7 +127,7 @@
               </p>
             </div>
 
-            <div class="feature-card">
+            <div class="feature-card reveal-item">
               <div class="feature-icon-box">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="12" y1="1" x2="12" y2="23"></line>
@@ -140,32 +143,32 @@
         </section>
 
         <!-- How It Works Sequence -->
-        <section class="dashboard-section" id="how-it-works">
+        <section class="dashboard-section reveal-section" id="how-it-works">
           <div class="section-header">
             <h2 class="section-title">How the Preflight Engine works</h2>
             <p class="section-subtitle">Four deterministic steps ensure complete economic transparency before you trade.</p>
           </div>
 
           <div class="steps-container">
-            <div class="step-card">
+            <div class="step-card reveal-item">
               <div class="step-number">01</div>
               <h3 class="step-heading">Select Asset &amp; Spend</h3>
               <p class="step-desc">Pick your target tokenized stock (AAPLx, NVDAx, SPYx, TSLAx) and specify your intended payment in USDC or SOL.</p>
             </div>
 
-            <div class="step-card">
+            <div class="step-card reveal-item">
               <div class="step-number">02</div>
               <h3 class="step-heading">Discover Live Route</h3>
               <p class="step-desc">JustFair queries Jupiter Swap V2 for the most optimal liquidity route across Raydium CLMM and Orca Whirlpools.</p>
             </div>
 
-            <div class="step-card">
+            <div class="step-card reveal-item">
               <div class="step-number">03</div>
               <h3 class="step-heading">Apply Token Multipliers</h3>
               <p class="step-desc">The engine queries Token-2022 account parameters to calculate the true underlying stock share quantity delivered.</p>
             </div>
 
-            <div class="step-card">
+            <div class="step-card reveal-item">
               <div class="step-number">04</div>
               <h3 class="step-heading">Measure Economic Truth</h3>
               <p class="step-desc">The delivered share value is priced against independent equity data to produce the final plain-money verdict.</p>
@@ -174,7 +177,7 @@
         </section>
 
         <!-- Demoted Developer & Wallet API Card -->
-        <section class="dashboard-section" id="api-docs">
+        <section class="dashboard-section reveal-section" id="api-docs">
           <div class="api-compact-card">
             <div class="api-compact-header">
               <div class="api-compact-content">
@@ -209,7 +212,7 @@
         </section>
 
         <!-- Bottom CTA -->
-        <section class="dashboard-cta">
+        <section class="dashboard-cta reveal-section">
           <h2 class="cta-headline">Ready to inspect your tokenized stock trade?</h2>
           <p class="cta-subtitle">Check real DEX fill economics in seconds without moving funds.</p>
           <button type="button" class="btn btn-primary btn-lg" id="bottom-open-app-btn">
@@ -238,139 +241,185 @@
             <span class="safety-text">Quote Check analyzes proposed route economics. Exact Simulation tests unsigned transactions. Neither mode signs or broadcasts transactions.</span>
           </div>
 
-          <!-- Trade Inspector Card -->
+          <!-- Trade Inspector Card with 2-Column Desktop Grid -->
           <div class="trade-card" aria-label="Pre-Trade Safety Inspector">
             <form id="preflight-form" novalidate>
-              <!-- Stock Selector -->
-              <div class="form-group">
-                <div class="form-label-row">
-                  <label class="form-label" for="stock-select">Choose Tokenized Stock</label>
-                  <span class="form-label-hint">Supported xStocks</span>
-                </div>
-                <div class="stock-grid" role="radiogroup" aria-label="Select Stock Asset">
-                  <button type="button" class="stock-chip active" data-symbol="AAPLx" role="radio" aria-checked="true">
-                    <span class="stock-symbol">AAPL</span>
-                    <span class="stock-name">Apple Inc.</span>
-                    <span class="stock-tag">xStock</span>
-                  </button>
-                  <button type="button" class="stock-chip" data-symbol="NVDAx" role="radio" aria-checked="false">
-                    <span class="stock-symbol">NVDA</span>
-                    <span class="stock-name">NVIDIA Corp.</span>
-                    <span class="stock-tag">xStock</span>
-                  </button>
-                  <button type="button" class="stock-chip" data-symbol="SPYx" role="radio" aria-checked="false">
-                    <span class="stock-symbol">SPY</span>
-                    <span class="stock-name">S&amp;P 500 ETF</span>
-                    <span class="stock-tag">xStock</span>
-                  </button>
-                  <button type="button" class="stock-chip" data-symbol="TSLAx" role="radio" aria-checked="false">
-                    <span class="stock-symbol">TSLA</span>
-                    <span class="stock-name">Tesla Inc.</span>
-                    <span class="stock-tag">xStock</span>
-                  </button>
-                </div>
-                <input type="hidden" id="stock-select" name="stock" value="AAPLx">
-              </div>
-
-              <!-- Payment Asset Selector & Amount -->
-              <div class="form-row">
-                <div class="form-col">
-                  <label class="form-label" for="payment-select">Pay With</label>
-                  <div class="payment-tabs" role="radiogroup" aria-label="Select Payment Currency">
-                    <button type="button" class="payment-tab active" data-asset="USDC" role="radio" aria-checked="true">
-                      <div class="token-icon-wrap">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <path d="M12 6v12"></path>
-                          <path d="M15 9.5a3 3 0 0 0-3-2.5c-2 0-3 1-3 2.5s1 2.5 3 2.5 3 1 3 2.5-1 2.5-3 2.5a3 3 0 0 1-3-2.5"></path>
-                        </svg>
-                      </div>
-                      <div class="token-info">
-                        <span class="token-symbol">USDC</span>
-                        <span class="token-sub">1:1 USD</span>
-                      </div>
-                    </button>
-                    <button type="button" class="payment-tab" data-asset="SOL" role="radio" aria-checked="false">
-                      <div class="token-icon-wrap">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="12" cy="12" r="4"></circle>
-                          <path d="M12 2v2"></path>
-                          <path d="M12 20v2"></path>
-                          <path d="M4.93 4.93l1.41 1.41"></path>
-                          <path d="M17.66 17.66l1.41 1.41"></path>
-                          <path d="M2 12h2"></path>
-                          <path d="M20 12h2"></path>
-                          <path d="M4.93 19.07l1.41-1.41"></path>
-                          <path d="M17.66 6.34l1.41-1.41"></path>
-                        </svg>
-                      </div>
-                      <div class="token-info">
-                        <span class="token-symbol">SOL</span>
-                        <span class="token-sub" id="sol-spot-sub">Live Price</span>
-                      </div>
-                    </button>
-                  </div>
-                  <input type="hidden" id="payment-select" name="inputAsset" value="USDC">
-                </div>
-
-                <div class="form-col">
+              <div class="trade-grid">
+                
+                <!-- Left Column: Vertical Tokenized Stock Selector -->
+                <div class="trade-col-stocks">
                   <div class="form-label-row">
-                    <label class="form-label" for="amount-input">Amount to Spend</label>
-                    <span class="label-sub" id="amount-usd-equivalent">$500.00 USD</span>
+                    <label class="form-label" for="stock-select">Choose Tokenized Stock</label>
+                    <span class="form-label-hint">Supported xStocks</span>
                   </div>
-                  <div class="input-wrapper">
-                    <span class="input-prefix" id="amount-prefix">$</span>
-                    <input 
-                      type="number" 
-                      id="amount-input" 
-                      name="amount" 
-                      class="form-input" 
-                      value="500" 
-                      min="1" 
-                      max="1000000" 
-                      step="any" 
-                      required 
-                      aria-describedby="amount-presets"
-                    >
-                  </div>
-                  <div class="amount-presets" id="amount-presets">
-                    <button type="button" class="preset-btn" data-val="100">$100</button>
-                    <button type="button" class="preset-btn active" data-val="500">$500</button>
-                    <button type="button" class="preset-btn" data-val="1000">$1,000</button>
-                    <button type="button" class="preset-btn" data-val="2500">$2,500</button>
-                  </div>
-                </div>
-              </div>
+                  
+                  <div class="vertical-stock-list" role="radiogroup" aria-label="Select Stock Asset">
+                    <!-- Apple -->
+                    <button type="button" class="stock-row-card active" data-symbol="AAPLx" role="radio" aria-checked="true">
+                      <div class="stock-logo-wrap">
+                        <img src="/assets/stocks/apple.svg" alt="Apple logo" class="stock-logo-img">
+                      </div>
+                      <div class="stock-row-info">
+                        <div class="stock-row-top">
+                          <span class="stock-symbol-title">Apple</span>
+                          <span class="stock-ticker-pill">AAPLx</span>
+                        </div>
+                        <span class="stock-company-name">Apple Inc.</span>
+                      </div>
+                      <div class="stock-radio-indicator"></div>
+                    </button>
 
-              <!-- Wallet / Exact Simulation Option -->
-              <div class="wallet-section" id="wallet-drawer">
-                <div class="wallet-info-bar">
-                  <div class="wallet-status-group">
-                    <span class="wallet-dot" id="wallet-dot"></span>
-                    <span class="wallet-status-label" id="wallet-status-text">Mode: Quote Precheck (No wallet required)</span>
-                  </div>
-                  <button type="button" id="manual-key-toggle" class="btn-link" aria-expanded="false">
-                    Enter address manually
-                  </button>
-                </div>
-                <div class="manual-key-input-box hidden" id="manual-key-box">
-                  <label class="form-label" for="wallet-input">Solana Public Address for Exact RPC Simulation</label>
-                  <input 
-                    type="text" 
-                    id="wallet-input" 
-                    class="form-input font-mono" 
-                    placeholder="e.g. 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
-                  >
-                  <p class="form-hint">Only your public wallet address is used for non-broadcast simulation. Never enter a seed phrase or private key.</p>
-                </div>
-              </div>
+                    <!-- NVIDIA -->
+                    <button type="button" class="stock-row-card" data-symbol="NVDAx" role="radio" aria-checked="false">
+                      <div class="stock-logo-wrap">
+                        <img src="/assets/stocks/nvidia.svg" alt="NVIDIA logo" class="stock-logo-img">
+                      </div>
+                      <div class="stock-row-info">
+                        <div class="stock-row-top">
+                          <span class="stock-symbol-title">NVIDIA</span>
+                          <span class="stock-ticker-pill">NVDAx</span>
+                        </div>
+                        <span class="stock-company-name">NVIDIA Corp.</span>
+                      </div>
+                      <div class="stock-radio-indicator"></div>
+                    </button>
 
-              <!-- Primary Submit Button -->
-              <div class="form-actions">
-                <button type="submit" id="submit-btn" class="btn btn-primary btn-block btn-lg">
-                  <span class="btn-text">CHECK TRADE</span>
-                  <span class="btn-spinner hidden" aria-hidden="true"></span>
-                </button>
+                    <!-- SPY / SPDR -->
+                    <button type="button" class="stock-row-card" data-symbol="SPYx" role="radio" aria-checked="false">
+                      <div class="stock-logo-wrap">
+                        <img src="/assets/stocks/spdr.svg" alt="SPDR logo" class="stock-logo-img">
+                      </div>
+                      <div class="stock-row-info">
+                        <div class="stock-row-top">
+                          <span class="stock-symbol-title">SPY</span>
+                          <span class="stock-ticker-pill">SPYx</span>
+                        </div>
+                        <span class="stock-company-name">SPDR S&amp;P 500 ETF Trust</span>
+                      </div>
+                      <div class="stock-radio-indicator"></div>
+                    </button>
+
+                    <!-- Tesla -->
+                    <button type="button" class="stock-row-card" data-symbol="TSLAx" role="radio" aria-checked="false">
+                      <div class="stock-logo-wrap">
+                        <img src="/assets/stocks/tesla.svg" alt="Tesla logo" class="stock-logo-img">
+                      </div>
+                      <div class="stock-row-info">
+                        <div class="stock-row-top">
+                          <span class="stock-symbol-title">Tesla</span>
+                          <span class="stock-ticker-pill">TSLAx</span>
+                        </div>
+                        <span class="stock-company-name">Tesla Inc.</span>
+                      </div>
+                      <div class="stock-radio-indicator"></div>
+                    </button>
+                  </div>
+                  
+                  <input type="hidden" id="stock-select" name="stock" value="AAPLx">
+                </div>
+
+                <!-- Right Column: Trade Payment & Amount Controls -->
+                <div class="trade-col-controls">
+                  <!-- Payment Asset Selector -->
+                  <div class="form-group">
+                    <label class="form-label" for="payment-select">Pay With</label>
+                    <div class="payment-tabs" role="radiogroup" aria-label="Select Payment Currency">
+                      <button type="button" class="payment-tab active" data-asset="USDC" role="radio" aria-checked="true">
+                        <div class="token-icon-wrap">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M12 6v12"></path>
+                            <path d="M15 9.5a3 3 0 0 0-3-2.5c-2 0-3 1-3 2.5s1 2.5 3 2.5 3 1 3 2.5-1 2.5-3 2.5a3 3 0 0 1-3-2.5"></path>
+                          </svg>
+                        </div>
+                        <div class="token-info">
+                          <span class="token-symbol">USDC</span>
+                          <span class="token-sub">1:1 USD</span>
+                        </div>
+                      </button>
+                      <button type="button" class="payment-tab" data-asset="SOL" role="radio" aria-checked="false">
+                        <div class="token-icon-wrap">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="4"></circle>
+                            <path d="M12 2v2"></path>
+                            <path d="M12 20v2"></path>
+                            <path d="M4.93 4.93l1.41 1.41"></path>
+                            <path d="M17.66 17.66l1.41 1.41"></path>
+                            <path d="M2 12h2"></path>
+                            <path d="M20 12h2"></path>
+                            <path d="M4.93 19.07l1.41-1.41"></path>
+                            <path d="M17.66 6.34l1.41-1.41"></path>
+                          </svg>
+                        </div>
+                        <div class="token-info">
+                          <span class="token-symbol">SOL</span>
+                          <span class="token-sub" id="sol-spot-sub">Live Price</span>
+                        </div>
+                      </button>
+                    </div>
+                    <input type="hidden" id="payment-select" name="inputAsset" value="USDC">
+                  </div>
+
+                  <!-- Amount Input & Presets -->
+                  <div class="form-group">
+                    <div class="form-label-row">
+                      <label class="form-label" for="amount-input">Amount to Spend</label>
+                      <span class="label-sub" id="amount-usd-equivalent">$500.00 USD</span>
+                    </div>
+                    <div class="input-wrapper">
+                      <span class="input-prefix" id="amount-prefix">$</span>
+                      <input 
+                        type="number" 
+                        id="amount-input" 
+                        name="amount" 
+                        class="form-input" 
+                        value="500" 
+                        min="1" 
+                        max="1000000" 
+                        step="any" 
+                        required 
+                        aria-describedby="amount-presets"
+                      >
+                    </div>
+                    <div class="amount-presets" id="amount-presets">
+                      <button type="button" class="preset-btn" data-val="100">$100</button>
+                      <button type="button" class="preset-btn active" data-val="500">$500</button>
+                      <button type="button" class="preset-btn" data-val="1000">$1,000</button>
+                      <button type="button" class="preset-btn" data-val="2500">$2,500</button>
+                    </div>
+                  </div>
+
+                  <!-- Wallet / Exact Simulation Option -->
+                  <div class="wallet-section" id="wallet-drawer">
+                    <div class="wallet-info-bar">
+                      <div class="wallet-status-group">
+                        <span class="wallet-dot" id="wallet-dot"></span>
+                        <span class="wallet-status-label" id="wallet-status-text">Mode: Quote Precheck (No wallet required)</span>
+                      </div>
+                      <button type="button" id="manual-key-toggle" class="btn-link" aria-expanded="false">
+                        Enter address manually
+                      </button>
+                    </div>
+                    <div class="manual-key-input-box hidden" id="manual-key-box">
+                      <label class="form-label" for="wallet-input">Solana Public Address for Exact RPC Simulation</label>
+                      <input 
+                        type="text" 
+                        id="wallet-input" 
+                        class="form-input font-mono" 
+                        placeholder="e.g. 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+                      >
+                      <p class="form-hint">Only your public wallet address is used for non-broadcast simulation. Never enter a seed phrase or private key.</p>
+                    </div>
+                  </div>
+
+                  <!-- Primary Submit Button -->
+                  <div class="form-actions">
+                    <button type="submit" id="submit-btn" class="btn btn-primary btn-block btn-lg">
+                      <span class="btn-text">CHECK TRADE</span>
+                      <span class="btn-spinner hidden" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </form>
           </div>

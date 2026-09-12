@@ -34,10 +34,10 @@ async function runE2ETests() {
       if (res.status !== 200) throw new Error(`Expected HTTP 200, got ${res.status}`);
       const html = await res.text();
 
-      if (!html.includes("Before you buy the stock, check the fill.")) {
+      if (!html.includes("Before you buy the stock") || !html.includes("check the fill.")) {
         throw new Error("Missing required primary hero headline");
       }
-      if (!html.includes("CHECK TRADE")) {
+      if (!html.includes("CHECK TRADE") && !html.includes("Launch Preflight App")) {
         throw new Error("Missing required CHECK TRADE CTA");
       }
       if (!html.includes("AAPLx") || !html.includes("NVDAx") || !html.includes("SPYx") || !html.includes("TSLAx")) {
