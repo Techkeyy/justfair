@@ -160,7 +160,6 @@ export function switchView(viewName, targetSymbol = null) {
     tabDashboardBtn.classList.remove("active");
     tabAppBtn.classList.add("active");
     headerLaunchBtn.classList.add("hidden");
-    window.location.hash = "app";
 
     if (targetSymbol) {
       expandStockCard(targetSymbol);
@@ -171,22 +170,112 @@ export function switchView(viewName, targetSymbol = null) {
     tabAppBtn.classList.remove("active");
     tabDashboardBtn.classList.add("active");
     headerLaunchBtn.classList.remove("hidden");
-    window.location.hash = "dashboard";
   }
-  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+export function navigateToSection(target, targetStock = null) {
+  if (target === "app") {
+    switchView("app", targetStock);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (window.location.hash !== "#app") {
+      history.pushState(null, "", "#app");
+    }
+  } else if (target === "dashboard") {
+    switchView("dashboard");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (window.location.hash !== "#dashboard" && window.location.hash !== "") {
+      history.pushState(null, "", "#dashboard");
+    }
+  } else if (target === "how-it-works") {
+    switchView("dashboard");
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const el = document.getElementById("how-it-works") || document.getElementById("why-justfair");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        history.pushState(null, "", "#how-it-works");
+      }, 50);
+    });
+  } else if (target === "api" || target === "api-docs") {
+    switchView("dashboard");
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const el = document.getElementById("api-docs") || document.getElementById("api-showcase");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        history.pushState(null, "", "#api-docs");
+      }, 50);
+    });
+  }
 }
 
 // Event Listeners for Navigation
-if (tabDashboardBtn) tabDashboardBtn.addEventListener("click", () => switchView("dashboard"));
-if (tabAppBtn) tabAppBtn.addEventListener("click", () => switchView("app"));
+if (tabDashboardBtn) tabDashboardBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("dashboard");
+});
+if (tabAppBtn) tabAppBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("app");
+});
 if (navBrandLink) navBrandLink.addEventListener("click", (e) => {
   e.preventDefault();
-  switchView("dashboard");
+  navigateToSection("dashboard");
 });
-if (headerLaunchBtn) headerLaunchBtn.addEventListener("click", () => switchView("app"));
-if (heroOpenAppBtn) heroOpenAppBtn.addEventListener("click", () => switchView("app", "AAPLx"));
-if (apiCtaOpenApp) apiCtaOpenApp.addEventListener("click", () => switchView("app"));
-if (bottomOpenAppBtn) bottomOpenAppBtn.addEventListener("click", () => switchView("app"));
+const navHowBtn = document.getElementById("nav-how-btn");
+if (navHowBtn) navHowBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("how-it-works");
+});
+const navApiBtn = document.getElementById("nav-api-btn");
+if (navApiBtn) navApiBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("api-docs");
+});
+const heroLearnBtn = document.getElementById("hero-learn-btn");
+if (heroLearnBtn) heroLearnBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("how-it-works");
+});
+if (headerLaunchBtn) headerLaunchBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("app");
+});
+if (heroOpenAppBtn) heroOpenAppBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("app", "AAPLx");
+});
+if (apiCtaOpenApp) apiCtaOpenApp.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("app");
+});
+if (bottomOpenAppBtn) bottomOpenAppBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("app");
+});
+
+function handleRoute() {
+  const hash = window.location.hash.toLowerCase();
+  if (hash === "#app") {
+    switchView("app");
+  } else if (hash === "#how-it-works") {
+    switchView("dashboard");
+    setTimeout(() => {
+      const el = document.getElementById("how-it-works") || document.getElementById("why-justfair");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+  } else if (hash === "#api" || hash === "#api-docs") {
+    switchView("dashboard");
+    setTimeout(() => {
+      const el = document.getElementById("api-docs") || document.getElementById("api-showcase");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+  } else {
+    switchView("dashboard");
+  }
+}
 
 // Handle initial load & hash changes
 window.addEventListener("DOMContentLoaded", () => {
@@ -194,22 +283,11 @@ window.addEventListener("DOMContentLoaded", () => {
   initSearchAndFilters();
   initApiDrawer();
   initScrollReveal();
-
-  const hash = window.location.hash;
-  if (hash === "#app") {
-    switchView("app");
-  } else {
-    switchView("dashboard");
-  }
+  handleRoute();
 });
 
 window.addEventListener("hashchange", () => {
-  const hash = window.location.hash;
-  if (hash === "#app") {
-    switchView("app");
-  } else if (hash === "#dashboard" || hash === "") {
-    switchView("dashboard");
-  }
+  handleRoute();
 });
 
 // ==========================================
@@ -529,13 +607,14 @@ function initSearchAndFilters() {
 
   if (clearSearchBtn) {
     clearSearchBtn.addEventListener("click", () => {
-      if (stockSearchInput) {
-        stockSearchInput.value = "";
-        currentSearchQuery = "";
-        clearSearchBtn.classList.add("hidden");
-        applyFilters();
-        stockSearchInput.focus();
-      }
+      clearSearch();
+    });
+  }
+
+  const emptyClearBtn = document.getElementById("empty-clear-search-btn");
+  if (emptyClearBtn) {
+    emptyClearBtn.addEventListener("click", () => {
+      clearSearch();
     });
   }
 
@@ -553,8 +632,20 @@ function initSearchAndFilters() {
   });
 }
 
+function clearSearch() {
+  if (stockSearchInput) {
+    stockSearchInput.value = "";
+    currentSearchQuery = "";
+    if (clearSearchBtn) clearSearchBtn.classList.add("hidden");
+    applyFilters();
+    stockSearchInput.focus();
+  }
+}
+
 function applyFilters() {
   const cards = document.querySelectorAll(".stock-card-standalone");
+  let visibleCount = 0;
+
   cards.forEach(card => {
     const rawCat = card.getAttribute("data-category") || "";
     const cardCatSlug = normalizeCategory(rawCat);
@@ -567,11 +658,17 @@ function applyFilters() {
     if (matchesCategory && matchesSearch) {
       card.classList.remove("hidden");
       card.classList.remove("search-hidden");
+      visibleCount++;
     } else {
       card.classList.add("hidden");
       card.classList.add("search-hidden");
     }
   });
+
+  const emptyState = document.getElementById("stock-search-empty-state");
+  if (emptyState) {
+    emptyState.classList.toggle("hidden", visibleCount > 0);
+  }
 }
 
 // ==========================================

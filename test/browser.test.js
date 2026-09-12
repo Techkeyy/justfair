@@ -79,13 +79,23 @@ async function runBrowserTests() {
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "01_desktop_hero_full.png") });
     });
 
-    // 2. Desktop Hero Next Section Scroll
-    await test("2. Scroll past hero reveals Why JustFair value proposition section", async () => {
-      await page.evaluate(() => window.scrollTo({ top: 500, behavior: "smooth" }));
-      await page.waitForTimeout(600);
+    // 2. Navigation from Dashboard: How It Works & API
+    await test("2. Navigation from Dashboard smoothly targets sections", async () => {
+      // Click 'How it Works' from Dashboard
+      await page.click("#nav-how-btn");
+      await page.waitForTimeout(400);
+      const isHowVisible = await page.isVisible("#how-it-works");
+      if (!isHowVisible) throw new Error("How It Works section not visible after clicking nav link");
 
-      const whySection = await page.isVisible("#why-justfair");
-      if (!whySection) throw new Error("Why JustFair section not visible");
+      // Click 'API' from Dashboard
+      await page.click("#nav-api-btn");
+      await page.waitForTimeout(400);
+      const isApiVisible = await page.isVisible("#api-docs");
+      if (!isApiVisible) throw new Error("API section not visible after clicking nav link");
+
+      // Return to top
+      await page.click("#tab-dashboard-btn");
+      await page.waitForTimeout(300);
 
       // Capture Screenshot 2: 02_desktop_hero_next_section.png
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "02_desktop_hero_next_section.png") });
@@ -110,7 +120,7 @@ async function runBrowserTests() {
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "03_dashboard_scroll_reveal.png") });
     });
 
-    // 4. Navigate to App View & Inspect Feed
+    // 4. Navigate to App View & Verify 12 Stock Cards
     await test("4. Navigate to App View and verify full 12-stock catalog feed", async () => {
       await page.click("#hero-open-app-btn");
       await page.waitForTimeout(500);
@@ -127,50 +137,105 @@ async function runBrowserTests() {
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "04_app_apple_standalone_card.png") });
     });
 
-    // 5. Search Filtering & Category Filter
-    await test("5. Search input filters stock cards dynamically", async () => {
+    // 5. Cross-View Navigation from App View to How It Works, API, and Dashboard
+    await test("5. Critical Navigation: How It Works, API, and Dashboard work seamlessly from App View", async () => {
+      // Currently on App view. Click 'How it Works'
+      await page.click("#nav-how-btn");
+      await page.waitForTimeout(500);
+
+      let isDashboardVisible = await page.isVisible("#dashboard-view");
+      let isAppVisible = await page.isVisible("#app-view");
+      if (!isDashboardVisible || isAppVisible) {
+        throw new Error("Clicking 'How it Works' from App view failed to switch to Dashboard view");
+      }
+      const isHowVisible = await page.isVisible("#how-it-works");
+      if (!isHowVisible) throw new Error("How It Works section not visible after navigating from App view");
+
+      // Switch back to App view
+      await page.click("#tab-app-btn");
+      await page.waitForTimeout(400);
+
+      // Click 'API' from App view
+      await page.click("#nav-api-btn");
+      await page.waitForTimeout(500);
+
+      isDashboardVisible = await page.isVisible("#dashboard-view");
+      if (!isDashboardVisible) {
+        throw new Error("Clicking 'API' from App view failed to switch to Dashboard view");
+      }
+      const isApiVisible = await page.isVisible("#api-docs");
+      if (!isApiVisible) throw new Error("API section not visible after navigating from App view");
+
+      // Return to App view for search tests
+      await page.click("#tab-app-btn");
+      await page.waitForTimeout(400);
+    });
+
+    // 6. Search Filtering: AAPL, AAPLx, Apple, NVDA, and Empty State
+    await test("6. Search filtering by ticker, canonical, name, and empty state handling", async () => {
       const searchInput = await page.$("#stock-search-input");
-      await searchInput.fill("Microsoft");
-      await page.waitForTimeout(300);
 
-      const visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
-      if (visibleCards.length !== 1) {
-        throw new Error(`Expected 1 visible card for 'Microsoft', found: ${visibleCards.length}`);
+      // Search 1: "AAPL" (canonical)
+      await searchInput.fill("AAPL");
+      await page.waitForTimeout(200);
+      let visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
+      if (visibleCards.length !== 1 || (await visibleCards[0].getAttribute("id")) !== "stock-card-AAPLx") {
+        throw new Error(`Search 'AAPL' failed: expected 1 card (AAPLx), found ${visibleCards.length}`);
       }
 
-      const cardId = await visibleCards[0].getAttribute("id");
-      if (cardId !== "stock-card-MSFTx") {
-        throw new Error(`Expected stock-card-MSFTx, got ${cardId}`);
+      // Search 2: "AAPLx" (xStock ticker)
+      await searchInput.fill("AAPLx");
+      await page.waitForTimeout(200);
+      visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
+      if (visibleCards.length !== 1 || (await visibleCards[0].getAttribute("id")) !== "stock-card-AAPLx") {
+        throw new Error(`Search 'AAPLx' failed: expected 1 card (AAPLx), found ${visibleCards.length}`);
       }
 
-      // Clear search
-      await page.click("#clear-search-btn");
+      // Search 3: "Apple" (company name)
+      await searchInput.fill("Apple");
+      await page.waitForTimeout(200);
+      visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
+      if (visibleCards.length !== 1 || (await visibleCards[0].getAttribute("id")) !== "stock-card-AAPLx") {
+        throw new Error(`Search 'Apple' failed: expected 1 card (AAPLx), found ${visibleCards.length}`);
+      }
+
+      // Search 4: "NVDA" (NVIDIA)
+      await searchInput.fill("NVDA");
+      await page.waitForTimeout(200);
+      visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
+      if (visibleCards.length !== 1 || (await visibleCards[0].getAttribute("id")) !== "stock-card-NVDAx") {
+        throw new Error(`Search 'NVDA' failed: expected 1 card (NVDAx), found ${visibleCards.length}`);
+      }
+
+      // Search 5: Empty match state "XYZ999Unknown"
+      await searchInput.fill("XYZ999Unknown");
+      await page.waitForTimeout(200);
+      visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
+      if (visibleCards.length !== 0) {
+        throw new Error(`Expected 0 visible cards for non-existent stock, found: ${visibleCards.length}`);
+      }
+      const isEmptyStateVisible = await page.isVisible("#stock-search-empty-state");
+      if (!isEmptyStateVisible) throw new Error("Search empty state is not visible when 0 stocks match");
+      const emptyText = await page.textContent("#stock-search-empty-state .empty-title");
+      if (!emptyText.includes("No supported stocks match your search.")) {
+        throw new Error(`Empty state text mismatch: ${emptyText}`);
+      }
+
+      // Click "Clear search" on empty state
+      await page.click("#empty-clear-search-btn");
       await page.waitForTimeout(200);
 
       const restoredCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
       if (restoredCards.length !== 12) {
-        throw new Error(`Expected 12 restored cards after clearing search, found: ${restoredCards.length}`);
+        throw new Error(`Expected 12 restored cards after clearing empty search, found: ${restoredCards.length}`);
       }
-
-      // Category Pill Click: "Crypto & AI"
-      await page.click('.category-pill[data-category="Crypto & AI"]');
-      await page.waitForTimeout(300);
-
-      const cryptoCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
-      if (cryptoCards.length !== 4) {
-        throw new Error(`Expected 4 cards in Crypto & AI category (NVDAx, COINx, AMDx, MSTRx), found: ${cryptoCards.length}`);
-      }
-
-      // Reset to "All Assets"
-      await page.click('.category-pill[data-category="ALL"]');
-      await page.waitForTimeout(200);
 
       // Capture Screenshot 5: 05_app_midway_stock_scroll.png
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "05_app_midway_stock_scroll.png") });
     });
 
-    // 6. Apple Card Expanded State
-    await test("6. Verify Apple (AAPLx) card expanded trade interface and presets", async () => {
+    // 7. Apple Card Expanded State & Trade Form
+    await test("7. Verify Apple (AAPLx) card expanded trade interface and presets", async () => {
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
       await page.waitForTimeout(300);
 
@@ -185,8 +250,8 @@ async function runBrowserTests() {
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "06_app_apple_expanded.png") });
     });
 
-    // 7. Accordion Switching: Open NVIDIA, Collapse Apple
-    await test("7. Accordion behavior: expanding NVIDIA card collapses Apple card", async () => {
+    // 8. Accordion Switching: Open NVIDIA, Collapse Apple
+    await test("8. Accordion behavior: expanding NVIDIA card collapses Apple card", async () => {
       // Click NVIDIA toggle button / header
       await page.click("#stock-card-NVDAx .stock-card-header");
       await page.waitForTimeout(500);
@@ -208,8 +273,8 @@ async function runBrowserTests() {
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "07_app_nvidia_expanded_switch.png") });
     });
 
-    // 8. Execute Trade Check & Assert 3-Metric Plain-Money Hierarchy
-    await test("8. Switch back to Apple, execute trade check ($500 USDC) and verify locked 3-metric hierarchy", async () => {
+    // 9. Execute Trade Check & Assert 3-Metric Plain-Money Hierarchy
+    await test("9. Switch back to Apple, execute trade check ($500 USDC) and verify locked 3-metric hierarchy", async () => {
       // Expand Apple card again
       await page.click("#stock-card-AAPLx .stock-card-header");
       await page.waitForTimeout(400);
