@@ -1,4 +1,4 @@
-// JustFair Supported Assets & Endpoints Configuration (Jupiter Swap V2 + Official Nasdaq Benchmarks)
+// JustFair Core Configuration (Jupiter Swap V2 + Token-2022 Verified Registry)
 
 export const SUPPORTED_PAYMENTS = {
   USDC: {
@@ -65,10 +65,15 @@ export const SUPPORTED_STOCKS = {
 };
 
 export const API_ENDPOINTS = {
-  // Official Jupiter Swap V2 Architecture
+  // Official Jupiter Swap V2 Order API
   JUPITER_ORDER_V2: "https://api.jup.ag/swap/v2/order",
   SOLANA_RPC: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
-  // Official Nasdaq Public Quote API
+  // Official Stock Reference Sources
   NASDAQ_QUOTE_BASE: "https://api.nasdaq.com/api/quote",
   COINGECKO_SIMPLE_PRICE: "https://api.coingecko.com/api/v3/simple/price"
+};
+
+export const SERVER_CONFIG = {
+  PORT: process.env.PORT || 3001,
+  HOST: "0.0.0.0"
 };

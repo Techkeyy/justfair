@@ -7,17 +7,21 @@
   "scripts": {
     "test": "node test/preflight.test.js",
     "check": "node src/cli.js check",
-    "doctor": "node src/cli.js doctor"
+    "doctor": "node src/cli.js doctor",
+    "start": "node src/server.js"
   },
   "keywords": [
     "solana",
     "tokenized-stocks",
     "xstocks",
-    "jupiter",
+    "jupiter-v2",
     "preflight",
     "safety",
     "rwa"
   ],
   "author": "Techkeyy",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@solana/web3.js": "^1.98.0"
+  }
 }
