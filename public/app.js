@@ -221,6 +221,21 @@ function updateAmountUsdEquiv() {
 // ==========================================
 // 5. Wallet Connection & Manual Address Management
 // ==========================================
+const toggleApiCodeBtn = document.getElementById("toggle-api-code-btn");
+const apiCodeDrawer = document.getElementById("api-code-drawer");
+
+if (toggleApiCodeBtn && apiCodeDrawer) {
+  toggleApiCodeBtn.addEventListener("click", () => {
+    const isHidden = apiCodeDrawer.classList.contains("hidden");
+    apiCodeDrawer.classList.toggle("hidden", !isHidden);
+    toggleApiCodeBtn.setAttribute("aria-expanded", String(isHidden));
+    const btnSpan = toggleApiCodeBtn.querySelector("span");
+    if (btnSpan) {
+      btnSpan.textContent = isHidden ? "Hide API details" : "View API details";
+    }
+  });
+}
+
 manualKeyToggle.addEventListener("click", () => {
   const isHidden = manualKeyBox.classList.contains("hidden");
   manualKeyBox.classList.toggle("hidden", !isHidden);
@@ -237,7 +252,7 @@ walletInput.addEventListener("input", (e) => {
   }
 });
 
-walletBtn.addEventListener("click", async () => {
+async function handleWalletConnect() {
   if (activeWalletAddress) {
     // Disconnect
     setWalletState(null, "Mode: Quote Precheck (No wallet required)");
@@ -245,20 +260,31 @@ walletBtn.addEventListener("click", async () => {
     return;
   }
 
-  // Check for window.solana (Phantom / Standard Wallet)
-  if (window.solana && typeof window.solana.connect === "function") {
+  // Check for Solana Wallet Standard or Injected Extension (Phantom, Solflare, etc.)
+  const provider = window.solana || window.phantom?.solana || window.solflare;
+  if (provider && typeof provider.connect === "function") {
     try {
       walletBtnLabel.textContent = "Connecting...";
-      const resp = await window.solana.connect();
-      const pubkey = resp.publicKey ? resp.publicKey.toString() : window.solana.publicKey.toString();
-      setWalletState(pubkey, `Connected: ${pubkey.slice(0, 4)}...${pubkey.slice(-4)}`);
-      walletInput.value = pubkey;
+      const resp = await provider.connect();
+      const pubkey = resp.publicKey ? resp.publicKey.toString() : (provider.publicKey ? provider.publicKey.toString() : null);
+      if (pubkey) {
+        setWalletState(pubkey, `Connected: ${pubkey.slice(0, 4)}...${pubkey.slice(-4)}`);
+        walletInput.value = pubkey;
+      } else {
+        throw new Error("No public key returned by wallet provider");
+      }
     } catch (err) {
-      walletBtnLabel.textContent = "Connect Wallet";
-      alert("Wallet connection was cancelled or rejected.");
+      setWalletState(null, "Mode: Quote Precheck (No wallet required)");
+      // Fallback: reveal manual address drawer
+      if (appView.classList.contains("hidden")) {
+        switchView("app");
+      }
+      manualKeyBox.classList.remove("hidden");
+      manualKeyToggle.textContent = "Hide manual address";
+      walletInput.focus();
     }
   } else {
-    // Reveal manual address box
+    // No injected wallet extension detected: reveal manual public address entry
     if (appView.classList.contains("hidden")) {
       switchView("app");
     }
@@ -266,7 +292,9 @@ walletBtn.addEventListener("click", async () => {
     manualKeyToggle.textContent = "Hide manual address";
     walletInput.focus();
   }
-});
+}
+
+walletBtn.addEventListener("click", handleWalletConnect);
 
 function setWalletState(address, label) {
   activeWalletAddress = address;

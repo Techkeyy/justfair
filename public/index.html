@@ -90,51 +90,50 @@
           </div>
         </section>
 
-        <!-- Value Proposition: Why JustFair -->
+        <!-- Value Proposition: Why JustFair (Consumer Outcomes) -->
         <section class="dashboard-section" id="why-justfair">
           <div class="section-header">
-            <h2 class="section-title">Why tokenized stocks need pre-trade inspection</h2>
-            <p class="section-subtitle">Tokenized equities on Solana do not behave like simple SPL tokens. JustFair bridges on-chain routing with off-chain equity truth.</p>
+            <h2 class="section-title">Pre-trade inspection for tokenized stocks</h2>
+            <p class="section-subtitle">Tokenized equities on Solana do not behave like standard SPL tokens. JustFair bridges on-chain DEX routing with equity truth.</p>
           </div>
 
           <div class="feature-grid">
             <div class="feature-card">
               <div class="feature-icon-box">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
                 </svg>
               </div>
-              <h3 class="feature-heading">Dynamic Multiplier Awareness</h3>
+              <h3 class="feature-heading">SEE WHAT YOU'RE ACTUALLY GETTING</h3>
               <p class="feature-desc">
-                xStocks use Token-2022 scaled amounts where token balances and corporate action multipliers evolve dynamically. JustFair reads live on-chain multipliers.
+                Understand how much stock exposure the route gives you after pool fees, liquidity slippage, and Token-2022 share multiplier adjustments.
               </p>
             </div>
 
             <div class="feature-card">
               <div class="feature-icon-box">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  <path d="M9 12l2 2 4-4"></path>
                 </svg>
               </div>
-              <h3 class="feature-heading">Non-Custodial Simulation</h3>
+              <h3 class="feature-heading">CHECK BEFORE MONEY MOVES</h3>
               <p class="feature-desc">
-                Pre-trade checking only. Quote check inspects proposed economics without a wallet, while exact simulation runs Solana RPC simulation with zero fund access.
+                Preview the route and transaction before anything is signed or sent. Non-custodial Quote Precheck requires no wallet at all.
               </p>
             </div>
 
             <div class="feature-card">
               <div class="feature-icon-box">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                  <line x1="12" y1="1" x2="12" y2="23"></line>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
                 </svg>
               </div>
-              <h3 class="feature-heading">Real-Time Market Benchmark</h3>
+              <h3 class="feature-heading">UNDERSTAND THE DIFFERENCE</h3>
               <p class="feature-desc">
-                Compares DEX routing output against real-time equity market benchmarks to show the true dollar premium or discount before committing capital.
+                See the execution gap in plain dollar terms compared against equity benchmark reference prices before committing capital.
               </p>
             </div>
           </div>
@@ -169,26 +168,31 @@
             <div class="step-card">
               <div class="step-number">04</div>
               <h3 class="step-heading">Measure Economic Truth</h3>
-              <p class="step-desc">The delivered share value is priced against Nasdaq benchmark data to produce the final plain-money verdict.</p>
+              <p class="step-desc">The delivered share value is priced against independent equity data to produce the final plain-money verdict.</p>
             </div>
           </div>
         </section>
 
-        <!-- Developer & Wallet API Card -->
+        <!-- Demoted Developer & Wallet API Card -->
         <section class="dashboard-section" id="api-docs">
-          <div class="api-banner-card">
-            <div class="api-banner-content">
-              <div class="api-badge">Developer &amp; Wallet API</div>
-              <h2 class="api-headline">Built for users. Embeddable by wallets.</h2>
-              <p class="api-description">
-                Protect your users from illiquid routing and mispriced tokenized assets. Call our high-throughput REST API endpoint directly from wallets and dApps.
-              </p>
-              <div class="api-links">
+          <div class="api-compact-card">
+            <div class="api-compact-header">
+              <div class="api-compact-content">
+                <div class="api-badge">Developer &amp; Wallet API</div>
+                <h3 class="api-compact-title">Built for users. Embeddable by wallets.</h3>
+                <p class="api-compact-desc">
+                  The same Equity Preflight Engine is available through the JustFair REST API.
+                </p>
+              </div>
+              <div class="api-compact-actions">
+                <button type="button" class="btn btn-outline btn-sm" id="toggle-api-code-btn" aria-expanded="false">
+                  <span>View API details</span>
+                  <svg class="accordion-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
                 <a href="/api/v1/stocks" target="_blank" class="btn btn-secondary btn-sm">GET /api/v1/stocks</a>
-                <button type="button" class="btn btn-primary btn-sm" id="api-cta-open-app">Try in App</button>
               </div>
             </div>
-            <div class="api-banner-code">
+            <div class="api-code-collapse hidden" id="api-code-drawer">
               <div class="code-topbar">
                 <span class="code-method">POST</span>
                 <span class="code-endpoint">/api/v1/preflight</span>
