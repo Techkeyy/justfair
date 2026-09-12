@@ -1,16 +1,134 @@
 // JustFair Consumer Client Application
 // Zero-Custody, Pre-Trade Economic Safety Inspector on Solana
-// White + Purple Modern Dashboard & Standalone Stock Feed System (Order 007.4)
+// 12-Stock Verified Catalog & Standalone Feed System (Order 007.5)
 
-const STOCK_META = {
-  AAPLx: { name: "Apple", canonical: "AAPL", fullName: "Apple Inc.", mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp" },
-  NVDAx: { name: "NVIDIA", canonical: "NVDA", fullName: "NVIDIA Corp.", mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh" },
-  SPYx: { name: "S&P 500", canonical: "SPY", fullName: "SPDR S&P 500 ETF Trust", mint: "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W" },
-  TSLAx: { name: "Tesla", canonical: "TSLA", fullName: "Tesla Inc.", mint: "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB" }
+export const STOCK_META = {
+  AAPLx: {
+    symbol: "AAPLx",
+    name: "Apple",
+    canonical: "AAPL",
+    fullName: "Apple Inc.",
+    mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+    logo: "/assets/stocks/apple.svg",
+    category: "Mega-Cap Tech",
+    desc: "Tokenized Apple equity on Solana"
+  },
+  NVDAx: {
+    symbol: "NVDAx",
+    name: "NVIDIA",
+    canonical: "NVDA",
+    fullName: "NVIDIA Corporation",
+    mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+    logo: "/assets/stocks/nvidia.svg",
+    category: "Crypto & AI",
+    desc: "Tokenized NVIDIA AI computing equity on Solana"
+  },
+  SPYx: {
+    symbol: "SPYx",
+    name: "S&P 500 ETF",
+    canonical: "SPY",
+    fullName: "SPDR S&P 500 ETF Trust",
+    mint: "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+    logo: "/assets/stocks/spdr.svg",
+    category: "Index ETFs",
+    desc: "Tokenized SPDR S&P 500 ETF Trust exposure on Solana"
+  },
+  TSLAx: {
+    symbol: "TSLAx",
+    name: "Tesla",
+    canonical: "TSLA",
+    fullName: "Tesla Inc.",
+    mint: "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+    logo: "/assets/stocks/tesla.svg",
+    category: "Mega-Cap Tech",
+    desc: "Tokenized Tesla electric vehicle equity on Solana"
+  },
+  MSFTx: {
+    symbol: "MSFTx",
+    name: "Microsoft",
+    canonical: "MSFT",
+    fullName: "Microsoft Corporation",
+    mint: "XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX",
+    logo: "/assets/stocks/microsoft.svg",
+    category: "Mega-Cap Tech",
+    desc: "Tokenized Microsoft cloud & software equity on Solana"
+  },
+  AMZNx: {
+    symbol: "AMZNx",
+    name: "Amazon",
+    canonical: "AMZN",
+    fullName: "Amazon.com Inc.",
+    mint: "Xs3eBt7uRfJX8QUs4suhyU8p2M6DoUDrJyWBa8LLZsg",
+    logo: "/assets/stocks/amazon.svg",
+    category: "Mega-Cap Tech",
+    desc: "Tokenized Amazon e-commerce & cloud equity on Solana"
+  },
+  GOOGLx: {
+    symbol: "GOOGLx",
+    name: "Alphabet (Google)",
+    canonical: "GOOGL",
+    fullName: "Alphabet Inc.",
+    mint: "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN",
+    logo: "/assets/stocks/google.svg",
+    category: "Mega-Cap Tech",
+    desc: "Tokenized Google search & AI equity on Solana"
+  },
+  METAx: {
+    symbol: "METAx",
+    name: "Meta Platforms",
+    canonical: "META",
+    fullName: "Meta Platforms Inc.",
+    mint: "Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu",
+    logo: "/assets/stocks/meta.svg",
+    category: "Mega-Cap Tech",
+    desc: "Tokenized Meta social & AI equity on Solana"
+  },
+  COINx: {
+    symbol: "COINx",
+    name: "Coinbase",
+    canonical: "COIN",
+    fullName: "Coinbase Global Inc.",
+    mint: "Xs7ZdzSHLU9ftNJsii5fCeJhoRWSC32SQGzGQtePxNu",
+    logo: "/assets/stocks/coinbase.svg",
+    category: "Crypto & AI",
+    desc: "Tokenized Coinbase exchange equity on Solana"
+  },
+  AMDx: {
+    symbol: "AMDx",
+    name: "AMD",
+    canonical: "AMD",
+    fullName: "Advanced Micro Devices Inc.",
+    mint: "XsXcJ6GZ9kVnjqGsjBnktRcuwMBmvKWh8S93RefZ1rF",
+    logo: "/assets/stocks/amd.svg",
+    category: "Crypto & AI",
+    desc: "Tokenized AMD semiconductor equity on Solana"
+  },
+  MSTRx: {
+    symbol: "MSTRx",
+    name: "MicroStrategy",
+    canonical: "MSTR",
+    fullName: "MicroStrategy Incorporated",
+    mint: "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ",
+    logo: "/assets/stocks/microstrategy.svg",
+    category: "Crypto & AI",
+    desc: "Tokenized MicroStrategy Bitcoin treasury equity on Solana"
+  },
+  QQQx: {
+    symbol: "QQQx",
+    name: "Invesco QQQ (Nasdaq 100)",
+    canonical: "QQQ",
+    fullName: "Invesco QQQ Trust Series 1",
+    mint: "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ",
+    logo: "/assets/stocks/qqq.svg",
+    category: "Index ETFs",
+    desc: "Tokenized Invesco QQQ Nasdaq 100 ETF exposure on Solana"
+  }
 };
 
 let currentSolPrice = 135.0; // Dynamic estimate
 let activeWalletAddress = null;
+let currentSearchQuery = "";
+let currentCategoryFilter = "all";
 
 // Navigation Elements
 const dashboardView = document.getElementById("dashboard-view");
@@ -25,6 +143,12 @@ const bottomOpenAppBtn = document.getElementById("bottom-open-app-btn");
 const walletBtn = document.getElementById("wallet-toggle-btn");
 const walletBtnLabel = document.getElementById("wallet-btn-label");
 const walletDot = document.getElementById("wallet-dot");
+
+// Search & Filter Elements
+const stockSearchInput = document.getElementById("stock-search-input");
+const clearSearchBtn = document.getElementById("clear-search-btn");
+const categoryPills = document.querySelectorAll(".category-pill");
+const stockCardsContainer = document.getElementById("stock-cards-container");
 
 // ==========================================
 // 1. Navigation & View Switching
@@ -66,7 +190,8 @@ if (bottomOpenAppBtn) bottomOpenAppBtn.addEventListener("click", () => switchVie
 
 // Handle initial load & hash changes
 window.addEventListener("DOMContentLoaded", () => {
-  initStockCards();
+  renderAllStockCards("AAPLx");
+  initSearchAndFilters();
   initApiDrawer();
   initScrollReveal();
 
@@ -112,7 +237,7 @@ function initScrollReveal() {
     {
       root: null,
       rootMargin: "0px 0px -50px 0px",
-      threshold: 0.18
+      threshold: 0.12
     }
   );
 
@@ -140,38 +265,69 @@ function initApiDrawer() {
 }
 
 // ==========================================
-// 4. Standalone Stock Cards Controller
+// 4. Data-Driven Stock Cards Rendering & Feed
 // ==========================================
-function initStockCards() {
-  const cards = document.querySelectorAll(".stock-card-standalone");
+function renderAllStockCards(initiallyExpandedSymbol = "AAPLx") {
+  if (!stockCardsContainer) return;
+  stockCardsContainer.innerHTML = "";
 
-  cards.forEach(card => {
-    const symbol = card.getAttribute("data-symbol");
-    const body = card.querySelector(".stock-card-body");
+  const symbols = Object.keys(STOCK_META);
 
-    // Populate inner markup for non-Apple cards if empty
-    if (symbol !== "AAPLx" && body && !body.querySelector(".stock-trade-form")) {
-      body.innerHTML = renderCardBodyMarkup(symbol);
-    }
+  symbols.forEach((symbol, index) => {
+    const meta = STOCK_META[symbol];
+    const isExpanded = symbol === initiallyExpandedSymbol;
+    const cardEl = document.createElement("div");
+    cardEl.className = `stock-card-standalone ${isExpanded ? "is-expanded" : ""}`;
+    cardEl.id = `stock-card-${symbol}`;
+    cardEl.setAttribute("data-symbol", symbol);
+    cardEl.setAttribute("data-category", meta.category);
+    cardEl.setAttribute("data-keywords", `${meta.name} ${meta.canonical} ${meta.fullName} ${symbol}`.toLowerCase());
 
-    // Attach Header / Toggle Button Event
-    const header = card.querySelector(".stock-card-header");
-    const toggleBtn = card.querySelector(".stock-toggle-btn");
+    cardEl.innerHTML = `
+      <!-- Card Header / Collapsed Summary -->
+      <div class="stock-card-header" role="button" tabindex="0" aria-expanded="${isExpanded}" aria-controls="stock-body-${symbol}">
+        <div class="stock-card-brand">
+          <div class="stock-logo-wrap">
+            <img src="${meta.logo}" alt="${meta.name} logo" class="stock-logo-img" loading="lazy">
+          </div>
+          <div class="stock-brand-info">
+            <div class="stock-title-row">
+              <h3 class="stock-name">${meta.name}</h3>
+              <span class="stock-ticker-badge">${meta.symbol}</span>
+              <span class="stock-canonical-pill">${meta.canonical}</span>
+            </div>
+            <p class="stock-desc">${meta.desc}</p>
+          </div>
+        </div>
+        <div class="stock-header-action">
+          <button type="button" class="btn ${isExpanded ? 'btn-primary' : 'btn-outline'} btn-sm stock-toggle-btn">
+            <span class="toggle-btn-text">${isExpanded ? 'Close Trade' : `Check ${meta.name} Trade`}</span>
+            <svg class="toggle-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="${isExpanded ? '18 15 12 9 6 15' : '6 9 12 15 18 9'}"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
 
-    if (header) {
-      header.addEventListener("click", (e) => {
-        // Prevent toggle if clicking inside a button that might bubble
-        toggleStockCard(symbol);
-      });
-    }
+      <!-- Card Body (Active Trade Interface) -->
+      <div class="stock-card-body ${isExpanded ? '' : 'hidden'}" id="stock-body-${symbol}">
+        ${renderCardBodyMarkup(symbol)}
+      </div>
+    `;
 
-    // Setup interactive handlers inside this card's body
-    setupCardInteractivity(card, symbol);
+    // Attach Header Toggle Event
+    const header = cardEl.querySelector(".stock-card-header");
+    header.addEventListener("click", () => {
+      toggleStockCard(symbol);
+    });
+
+    stockCardsContainer.appendChild(cardEl);
+    setupCardInteractivity(cardEl, symbol);
   });
 }
 
 function renderCardBodyMarkup(symbol) {
-  const stock = STOCK_META[symbol] || { name: symbol, canonical: symbol, mint: "" };
+  const stock = STOCK_META[symbol] || { name: symbol, canonical: symbol, mint: "", fullName: symbol };
   return `
     <form class="stock-trade-form" data-symbol="${symbol}" novalidate>
       <div class="form-row-grid">
@@ -340,7 +496,7 @@ function renderCardBodyMarkup(symbol) {
             <div class="evidence-item"><span class="ev-label">Multiplier</span><span class="ev-val ev-multiplier">1.0</span></div>
             <div class="evidence-item"><span class="ev-label">DEX Router</span><span class="ev-val ev-router">Jupiter Swap V2</span></div>
             <div class="evidence-item"><span class="ev-label">Routing Steps</span><span class="ev-val ev-steps">DEX Pool</span></div>
-            <div class="evidence-item"><span class="ev-label">Price Impact</span><span class="ev-val ev-impact">0.00%</span></div>
+            <div class="evidence-item"><span class="ev-label">Price Impact</span><span class="ev-label">0.00%</span></div>
             <div class="evidence-item"><span class="ev-label">Benchmark Provider</span><span class="ev-val ev-benchmark-source">Stock Market Tape</span></div>
             <div class="evidence-item"><span class="ev-label">Market Session</span><span class="ev-val ev-session">POST_MARKET</span></div>
             <div class="evidence-item"><span class="ev-label">Preflight Level</span><span class="ev-val ev-preflight-level">QUOTE_CHECK</span></div>
@@ -352,6 +508,75 @@ function renderCardBodyMarkup(symbol) {
   `;
 }
 
+function normalizeCategory(cat) {
+  if (!cat || cat.toLowerCase() === "all") return "all";
+  if (cat === "Mega-Cap Tech" || cat === "mega-cap") return "mega-cap";
+  if (cat === "Crypto & AI" || cat === "crypto-ai") return "crypto-ai";
+  if (cat === "Index ETFs" || cat === "etf") return "etf";
+  return cat.toLowerCase().replace(/[^a-z0-9]/g, "-");
+}
+
+function initSearchAndFilters() {
+  if (stockSearchInput) {
+    stockSearchInput.addEventListener("input", (e) => {
+      currentSearchQuery = e.target.value.trim().toLowerCase();
+      if (clearSearchBtn) {
+        clearSearchBtn.classList.toggle("hidden", currentSearchQuery.length === 0);
+      }
+      applyFilters();
+    });
+  }
+
+  if (clearSearchBtn) {
+    clearSearchBtn.addEventListener("click", () => {
+      if (stockSearchInput) {
+        stockSearchInput.value = "";
+        currentSearchQuery = "";
+        clearSearchBtn.classList.add("hidden");
+        applyFilters();
+        stockSearchInput.focus();
+      }
+    });
+  }
+
+  categoryPills.forEach(pill => {
+    pill.addEventListener("click", () => {
+      categoryPills.forEach(p => {
+        p.classList.remove("active");
+        p.setAttribute("aria-checked", "false");
+      });
+      pill.classList.add("active");
+      pill.setAttribute("aria-checked", "true");
+      currentCategoryFilter = pill.getAttribute("data-category") || "all";
+      applyFilters();
+    });
+  });
+}
+
+function applyFilters() {
+  const cards = document.querySelectorAll(".stock-card-standalone");
+  cards.forEach(card => {
+    const rawCat = card.getAttribute("data-category") || "";
+    const cardCatSlug = normalizeCategory(rawCat);
+    const filterCatSlug = normalizeCategory(currentCategoryFilter);
+
+    const matchesCategory = filterCatSlug === "all" || cardCatSlug === filterCatSlug;
+    const keywords = card.getAttribute("data-keywords") || "";
+    const matchesSearch = currentSearchQuery === "" || keywords.includes(currentSearchQuery);
+
+    if (matchesCategory && matchesSearch) {
+      card.classList.remove("hidden");
+      card.classList.remove("search-hidden");
+    } else {
+      card.classList.add("hidden");
+      card.classList.add("search-hidden");
+    }
+  });
+}
+
+// ==========================================
+// 6. Accordion Card Toggling
+// ==========================================
 export function toggleStockCard(symbol) {
   const card = document.getElementById(`stock-card-${symbol}`);
   if (!card) return;
@@ -372,6 +597,9 @@ export function toggleStockCard(symbol) {
 export function expandStockCard(symbol) {
   const card = document.getElementById(`stock-card-${symbol}`);
   if (!card) return;
+
+  // Make sure it is visible if filtered
+  card.classList.remove("hidden");
 
   // Collapse others
   document.querySelectorAll(".stock-card-standalone.is-expanded").forEach(c => {
@@ -423,6 +651,9 @@ function collapseCard(card, symbol) {
   }
 }
 
+// ==========================================
+// 7. Card Form & Preflight Logic
+// ==========================================
 function setupCardInteractivity(card, symbol) {
   const form = card.querySelector(".stock-trade-form");
   if (!form) return;
@@ -436,13 +667,8 @@ function setupCardInteractivity(card, symbol) {
   const manualKeyToggle = form.querySelector(".manual-key-toggle");
   const manualKeyBox = form.querySelector(".manual-key-input-box");
   const walletInput = form.querySelector(".wallet-input");
-  const submitBtn = form.querySelector(".submit-trade-btn");
-  const loadingState = card.querySelector(".inline-loading-state");
   const errorState = card.querySelector(".inline-error-state");
-  const errorTitle = errorState?.querySelector(".error-title");
-  const errorMessage = errorState?.querySelector(".error-message");
   const errorRetryBtn = errorState?.querySelector(".error-retry-btn");
-  const resultContainer = card.querySelector(".inline-result-container");
 
   // Payment Selection
   paymentTabs.forEach(tab => {
@@ -788,7 +1014,7 @@ function renderCardResult(card, data, symbol) {
 }
 
 // ==========================================
-// 5. Global Wallet State Management
+// 8. Global Wallet State Management
 // ==========================================
 function setGlobalWalletState(address) {
   activeWalletAddress = address;

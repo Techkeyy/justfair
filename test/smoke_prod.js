@@ -25,14 +25,19 @@ async function smokeTest() {
   const pData = await pRes.json();
   console.log('Preflight status:', pData.request_status, '| Spend: $' + pData.trade?.input_usd_value, '| Exposure: $' + pData.economics?.expected_stock_exposure_usd, '| Verdict:', pData.verdict);
 
-  // 4. HTML
+  // 4. HTML & Client Bundle
   const htmlRes = await fetch(base + '/');
   console.log('GET / status:', htmlRes.status);
   const html = await htmlRes.text();
   console.log('Contains Dashboard view:', html.includes('id="dashboard-view"'));
   console.log('Contains App view:', html.includes('id="app-view"'));
-  console.log('Contains locked hierarchy:', html.includes("YOU'RE SPENDING"));
   console.log('Contains zero-risk claim:', /zero-risk/i.test(html));
+
+  const jsRes = await fetch(base + '/app.js');
+  console.log('GET /app.js status:', jsRes.status);
+  const js = await jsRes.text();
+  console.log("Contains locked hierarchy in app.js (YOU'RE SPENDING):", js.includes("YOU'RE SPENDING"));
+  console.log("Contains 12 stocks in app.js:", js.includes("MSFTx") && js.includes("QQQx") && js.includes("MSTRx"));
 }
 
 smokeTest().catch(err => {

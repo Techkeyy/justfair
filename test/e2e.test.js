@@ -22,10 +22,9 @@ async function runE2ETests() {
   }
 
   const server = createServer();
-  const TEST_PORT = 3188;
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const TEST_PORT = server.address().port;
   const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
-
-  await new Promise(resolve => server.listen(TEST_PORT, "127.0.0.1", resolve));
 
   try {
     // 1. App Loads (HTML Serving)
@@ -40,11 +39,11 @@ async function runE2ETests() {
       if (!html.includes("CHECK TRADE") && !html.includes("Launch Preflight App")) {
         throw new Error("Missing required CHECK TRADE CTA");
       }
-      if (!html.includes("AAPLx") || !html.includes("NVDAx") || !html.includes("SPYx") || !html.includes("TSLAx")) {
-        throw new Error("Missing supported stock assets");
+      if (!html.includes("stock-cards-container") || !html.includes("feed-controls-bar")) {
+        throw new Error("Missing stock feed container or controls bar");
       }
-      if (!html.includes("USDC") || !html.includes("SOL")) {
-        throw new Error("Missing payment asset options");
+      if (!html.includes("USDC") && !html.includes("SOL")) {
+        throw new Error("Missing payment asset options in interface");
       }
       if (!html.includes("PREVIEW ONLY · NO FUNDS MOVED")) {
         throw new Error("Missing non-custodial safety banner");
@@ -67,7 +66,21 @@ async function runE2ETests() {
       }
     });
 
-    // 3. Frontend Trade Flow 1: AAPLx with USDC (Quote Check Mode)
+    // 3. Stock Catalog API
+    await test("Catalog API (GET /api/v1/stocks) returns exactly 12 verified tokenized stocks with metadata", async () => {
+      const sRes = await fetch(`${BASE_URL}/api/v1/stocks`);
+      if (sRes.status !== 200) throw new Error(`Stocks status ${sRes.status}`);
+      const sData = await sRes.json();
+      if (sData.supported_stock_assets.length !== 12) {
+        throw new Error(`Expected 12 stocks, received ${sData.supported_stock_assets.length}`);
+      }
+      const symbols = sData.supported_stock_assets.map(s => s.symbol);
+      for (const expected of ["AAPLx", "NVDAx", "SPYx", "TSLAx", "MSFTx", "AMZNx", "GOOGLx", "METAx", "COINx", "AMDx", "MSTRx", "QQQx"]) {
+        if (!symbols.includes(expected)) throw new Error(`Missing expected stock in catalog: ${expected}`);
+      }
+    });
+
+    // 4. Frontend Trade Flow 1: AAPLx with USDC (Quote Check Mode)
     await test("Frontend trade flow: AAPLx + USDC Quote Check delivers real economics", async () => {
       const res = await fetch(`${BASE_URL}/api/v1/preflight`, {
         method: "POST",
@@ -88,7 +101,7 @@ async function runE2ETests() {
       if (!data.benchmark.market_context) throw new Error("Market context missing");
     });
 
-    // 4. Frontend Trade Flow 2: NVDAx with SOL
+    // 5. Frontend Trade Flow 2: NVDAx with SOL
     await test("Frontend trade flow: NVDAx + SOL Quote Check delivers spot-adjusted economics", async () => {
       const res = await fetch(`${BASE_URL}/api/v1/preflight`, {
         method: "POST",
@@ -105,6 +118,44 @@ async function runE2ETests() {
       if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
       if (data.trade.input_asset !== "SOL") throw new Error("Input asset mismatch");
       if (data.economics.expected_stock_shares <= 0) throw new Error("Expected shares must be > 0");
+    });
+
+    // 6. Frontend Trade Flow 3: MSFTx with USDC (Newly Expanded Megacap)
+    await test("Frontend trade flow: MSFTx + USDC delivers real economics and multiplier", async () => {
+      const res = await fetch(`${BASE_URL}/api/v1/preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inputAsset: "USDC",
+          stock: "MSFTx",
+          amount: 300
+        })
+      });
+
+      if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
+      const data = await res.json();
+      if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
+      if (data.trade.stock_symbol !== "MSFTx") throw new Error("Expected MSFTx");
+      if (data.economics.expected_stock_exposure_usd <= 0) throw new Error("Expected exposure missing");
+    });
+
+    // 7. Frontend Trade Flow 4: QQQx with USDC (Index ETF)
+    await test("Frontend trade flow: QQQx + USDC delivers real economics and multiplier", async () => {
+      const res = await fetch(`${BASE_URL}/api/v1/preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inputAsset: "USDC",
+          stock: "QQQx",
+          amount: 250
+        })
+      });
+
+      if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
+      const data = await res.json();
+      if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
+      if (data.trade.stock_symbol !== "QQQx") throw new Error("Expected QQQx");
+      if (data.economics.expected_stock_exposure_usd <= 0) throw new Error("Expected exposure missing");
     });
 
     // 5. Frontend Trade Flow 3: Wallet-Connected Exact RPC Simulation

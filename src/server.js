@@ -151,7 +151,9 @@ export async function handleRequest(req, res) {
         canonical_symbol: SUPPORTED_STOCKS[k].canonicalSymbol,
         mint: SUPPORTED_STOCKS[k].mint,
         decimals: SUPPORTED_STOCKS[k].decimals,
-        program: SUPPORTED_STOCKS[k].programId
+        program: SUPPORTED_STOCKS[k].programId,
+        category: SUPPORTED_STOCKS[k].category,
+        logo_url: SUPPORTED_STOCKS[k].logo
       }))
     });
   }

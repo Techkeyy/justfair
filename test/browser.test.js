@@ -50,6 +50,8 @@ async function runBrowserTests() {
   });
 
   const page = await context.newPage();
+  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+  page.on('pageerror', err => console.log('PAGE ERROR:', err.message));
 
   try {
     // 1. Desktop Hero Split-White Canvas & Initial View
@@ -109,7 +111,7 @@ async function runBrowserTests() {
     });
 
     // 4. Navigate to App View & Inspect Feed
-    await test("4. Navigate to App View and verify vertical standalone stock feed", async () => {
+    await test("4. Navigate to App View and verify full 12-stock catalog feed", async () => {
       await page.click("#hero-open-app-btn");
       await page.waitForTimeout(500);
 
@@ -117,18 +119,51 @@ async function runBrowserTests() {
       if (!isAppVisible) throw new Error("App view is not visible after hero button click");
 
       const stockCards = await page.$$(".stock-card-standalone");
-      if (stockCards.length !== 4) {
-        throw new Error(`Expected 4 standalone stock cards, found: ${stockCards.length}`);
+      if (stockCards.length !== 12) {
+        throw new Error(`Expected 12 standalone stock cards, found: ${stockCards.length}`);
       }
 
       // Capture Screenshot 4: 04_app_apple_standalone_card.png
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "04_app_apple_standalone_card.png") });
     });
 
-    // 5. Scroll Midway in App Stock Feed
-    await test("5. Midway scroll through the 4-stock standalone card feed", async () => {
-      await page.evaluate(() => window.scrollTo({ top: 350, behavior: "smooth" }));
-      await page.waitForTimeout(400);
+    // 5. Search Filtering & Category Filter
+    await test("5. Search input filters stock cards dynamically", async () => {
+      const searchInput = await page.$("#stock-search-input");
+      await searchInput.fill("Microsoft");
+      await page.waitForTimeout(300);
+
+      const visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
+      if (visibleCards.length !== 1) {
+        throw new Error(`Expected 1 visible card for 'Microsoft', found: ${visibleCards.length}`);
+      }
+
+      const cardId = await visibleCards[0].getAttribute("id");
+      if (cardId !== "stock-card-MSFTx") {
+        throw new Error(`Expected stock-card-MSFTx, got ${cardId}`);
+      }
+
+      // Clear search
+      await page.click("#clear-search-btn");
+      await page.waitForTimeout(200);
+
+      const restoredCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
+      if (restoredCards.length !== 12) {
+        throw new Error(`Expected 12 restored cards after clearing search, found: ${restoredCards.length}`);
+      }
+
+      // Category Pill Click: "Crypto & AI"
+      await page.click('.category-pill[data-category="Crypto & AI"]');
+      await page.waitForTimeout(300);
+
+      const cryptoCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
+      if (cryptoCards.length !== 4) {
+        throw new Error(`Expected 4 cards in Crypto & AI category (NVDAx, COINx, AMDx, MSTRx), found: ${cryptoCards.length}`);
+      }
+
+      // Reset to "All Assets"
+      await page.click('.category-pill[data-category="ALL"]');
+      await page.waitForTimeout(200);
 
       // Capture Screenshot 5: 05_app_midway_stock_scroll.png
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "05_app_midway_stock_scroll.png") });

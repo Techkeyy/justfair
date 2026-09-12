@@ -214,8 +214,24 @@ async function runTests() {
       const sRes = await fetch("http://127.0.0.1:3099/api/v1/stocks");
       if (sRes.status !== 200) throw new Error(`Stocks status ${sRes.status}`);
       const sData = await sRes.json();
-      if (!Array.isArray(sData.supported_stock_assets) || sData.supported_stock_assets.length < 4) {
-        throw new Error("Stocks registry incomplete");
+      if (!Array.isArray(sData.supported_stock_assets) || sData.supported_stock_assets.length !== 12) {
+        throw new Error(`Expected 12 supported stocks, got ${sData.supported_stock_assets?.length}`);
+      }
+
+      // Assert no duplicate mints across the 12 stocks
+      const mints = sData.supported_stock_assets.map(s => s.mint);
+      const uniqueMints = new Set(mints);
+      if (uniqueMints.size !== 12) {
+        throw new Error(`Duplicate mint detected: ${mints.length} total, ${uniqueMints.size} unique`);
+      }
+
+      // Assert local SVG logo file exists for every stock
+      for (const stock of sData.supported_stock_assets) {
+        const logoPath = new URL(`../public${stock.logo_url}`, import.meta.url);
+        const svgContent = readFileSync(logoPath, "utf8");
+        if (!svgContent || !svgContent.includes("<svg")) {
+          throw new Error(`Invalid or missing SVG for stock ${stock.symbol} at ${stock.logo_url}`);
+        }
       }
     } finally {
       await new Promise(resolve => server.close(resolve));

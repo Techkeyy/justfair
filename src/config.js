@@ -30,7 +30,9 @@ export const SUPPORTED_STOCKS = {
     decimals: 8,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "AAPL",
-    assetClass: "stocks"
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/apple.svg"
   },
   NVDAx: {
     symbol: "NVDAx",
@@ -40,7 +42,9 @@ export const SUPPORTED_STOCKS = {
     decimals: 8,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "NVDA",
-    assetClass: "stocks"
+    assetClass: "stocks",
+    category: "Crypto & AI",
+    logo: "/assets/stocks/nvidia.svg"
   },
   SPYx: {
     symbol: "SPYx",
@@ -50,7 +54,9 @@ export const SUPPORTED_STOCKS = {
     decimals: 8,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "SPY",
-    assetClass: "etf"
+    assetClass: "etf",
+    category: "Index ETFs",
+    logo: "/assets/stocks/spdr.svg"
   },
   TSLAx: {
     symbol: "TSLAx",
@@ -60,7 +66,105 @@ export const SUPPORTED_STOCKS = {
     decimals: 8,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "TSLA",
-    assetClass: "stocks"
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/tesla.svg"
+  },
+  MSFTx: {
+    symbol: "MSFTx",
+    name: "Microsoft Corporation (Tokenized)",
+    canonicalSymbol: "MSFT",
+    mint: "XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX",
+    decimals: 8,
+    programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
+    referenceSymbol: "MSFT",
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/microsoft.svg"
+  },
+  AMZNx: {
+    symbol: "AMZNx",
+    name: "Amazon.com Inc. (Tokenized)",
+    canonicalSymbol: "AMZN",
+    mint: "Xs3eBt7uRfJX8QUs4suhyU8p2M6DoUDrJyWBa8LLZsg",
+    decimals: 8,
+    programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
+    referenceSymbol: "AMZN",
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/amazon.svg"
+  },
+  GOOGLx: {
+    symbol: "GOOGLx",
+    name: "Alphabet Inc. (Tokenized)",
+    canonicalSymbol: "GOOGL",
+    mint: "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN",
+    decimals: 8,
+    programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
+    referenceSymbol: "GOOGL",
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/google.svg"
+  },
+  METAx: {
+    symbol: "METAx",
+    name: "Meta Platforms Inc. (Tokenized)",
+    canonicalSymbol: "META",
+    mint: "Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu",
+    decimals: 8,
+    programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
+    referenceSymbol: "META",
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/meta.svg"
+  },
+  COINx: {
+    symbol: "COINx",
+    name: "Coinbase Global Inc. (Tokenized)",
+    canonicalSymbol: "COIN",
+    mint: "Xs7ZdzSHLU9ftNJsii5fCeJhoRWSC32SQGzGQtePxNu",
+    decimals: 8,
+    programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
+    referenceSymbol: "COIN",
+    assetClass: "stocks",
+    category: "Crypto & AI",
+    logo: "/assets/stocks/coinbase.svg"
+  },
+  AMDx: {
+    symbol: "AMDx",
+    name: "Advanced Micro Devices Inc. (Tokenized)",
+    canonicalSymbol: "AMD",
+    mint: "XsXcJ6GZ9kVnjqGsjBnktRcuwMBmvKWh8S93RefZ1rF",
+    decimals: 8,
+    programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
+    referenceSymbol: "AMD",
+    assetClass: "stocks",
+    category: "Crypto & AI",
+    logo: "/assets/stocks/amd.svg"
+  },
+  MSTRx: {
+    symbol: "MSTRx",
+    name: "MicroStrategy Incorporated (Tokenized)",
+    canonicalSymbol: "MSTR",
+    mint: "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ",
+    decimals: 8,
+    programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
+    referenceSymbol: "MSTR",
+    assetClass: "stocks",
+    category: "Crypto & AI",
+    logo: "/assets/stocks/microstrategy.svg"
+  },
+  QQQx: {
+    symbol: "QQQx",
+    name: "Invesco QQQ Trust Series 1 (Tokenized)",
+    canonicalSymbol: "QQQ",
+    mint: "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ",
+    decimals: 8,
+    programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
+    referenceSymbol: "QQQ",
+    assetClass: "etf",
+    category: "Index ETFs",
+    logo: "/assets/stocks/qqq.svg"
   }
 };
 
