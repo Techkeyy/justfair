@@ -1,73 +1,66 @@
-# JustFair — Real Execution Evidence & Proof of Chain (Phase 0/1 Corrected)
+# JustFair — Real Execution Evidence & Proof of Chain (Order 003 Corrected)
 
-This document contains live, unedited verification evidence from Solana Mainnet, Official Jupiter Swap Routing (`api.jup.ag`), and Canonical Market Reference feeds.
+This document contains live, unedited verification evidence from Solana Mainnet, Official Jupiter Swap V2 (`api.jup.ag/swap/v2/order`), and Official Nasdaq API (`api.nasdaq.com`).
 
 ---
 
-## 1. Verified Asset & On-Chain Dynamic Multiplier
+## 1. Verified Asset & On-Chain Dynamic Effective Multiplier
 * **Target Stock:** Apple Inc. Tokenized Stock (`AAPLx`)
 * **Solana Mainnet Mint:** `XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp`
 * **Token Program:** `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` (Solana Token Extensions / Token-2022)
 * **Decimals:** `8` (`10^8`)
-* **Active On-Chain Multiplier:** `1.0026642075893797`
-* **Pending Multiplier:** `1.0032690125398187` (Effective Timestamp: `1786149000`)
-* **Multiplier Source:** Solana Token-2022 `scaledUiAmountConfig` on-chain extension via RPC
-* **Economic Share Formula:**
-  $$\text{Economic Shares} = \frac{\text{raw\_out\_amount}}{10^8} \times 1.0026642075893797$$
+* **Stored Multiplier:** `1.0026642075893797`
+* **New Multiplier:** `1.0032690125398187`
+* **New Multiplier Effective Timestamp:** `1786149000` (August 8, 2026, 00:30:00 UTC)
+* **Current Unix Timestamp:** `1789177611` (September 12, 2026)
+* **Current Effective Multiplier:** `1.0032690125398187`
+* **Reasoning:** `newMultiplier effective timestamp (1786149000) has passed`
+* **Corporate Action Safety Window:** `false` (Current time is well outside the ±2 hour activation transition)
+* **Multiplier Source:** Solana Token-2022 `scaledUiAmountConfig` on-chain state via RPC `getAccountInfo`
 
 ---
 
-## 2. Real Execution Run: USDC → AAPLx (Exact Preflight Mode)
-* **API Endpoint:** `https://api.jup.ag/swap/v1/quote` & `https://api.jup.ag/swap/v1/swap`
+## 2. Real Execution Run: USDC → AAPLx (Exact Preflight Mode via Jupiter Swap V2)
+* **API Endpoint:** `https://api.jup.ag/swap/v2/order` (Swap V2)
 * **Input Raw Amount:** `500000000` (500.00 USDC)
 * **Input USD Value:** `$500.00`
-* **Output Raw Amount:** `149939275` base units
-* **Expected Stock Shares:** `1.503387 AAPL`
-* **Market Benchmark Source:** `Market Aggregator (Yahoo / Nasdaq Tape Reference)` (`MARKET_DATA_AGGREGATOR`)
-* **Benchmark Price:** `$332.27 / share`
-* **Benchmark Timestamp:** `2026-09-11T20:00:01.000Z`
-* **Market Session:** `POST_MARKET` / `CLOSED` (Friday Post-Close)
-* **Expected Stock Exposure:** `1.503387 * $332.27 = $499.53`
-* **Dollar Difference:** `-$0.47`
-* **Percentage Difference:** `-0.09%`
-* **DEX Route:** Raydium CLMM (Price Impact: `0.002%`)
+* **Output Raw Amount:** `149679075` base units
+* **Expected Stock Shares:** `1.501684 AAPL`
+* **Benchmark Source:** `Nasdaq Official Public Equity Quote API (api.nasdaq.com)`
+* **Benchmark Price:** `$332.58 / share`
+* **Benchmark Timestamp:** `2026-09-12T00:46:51.809Z`
+* **Reference Session:** `OVERNIGHT`
+* **Current Market Session:** `OVERNIGHT`
+* **Freshness Status:** `AFTER_HOURS_CLOSE`
+* **Expected Stock Exposure:** `1.501684 * $332.58 = $499.43`
+* **Dollar Difference:** `-$0.57`
+* **Percentage Difference:** `-0.11%`
+* **DEX Route:** Whirlpool $\to$ Raydium CLMM (Router: `metis`, Price Impact: `-0.001%`)
 * **Transaction Construction:**
-  * **Endpoint:** `POST https://api.jup.ag/swap/v1/swap`
-  * **Status:** HTTP 200 (Constructed VersionedTransaction Base64)
+  * **Status:** Assembled VersionedTransaction Base64 in `orderData.transaction` (length: 776 chars)
 * **Solana RPC Simulation:**
   * **Endpoint:** `https://api.mainnet-beta.solana.com` (`simulateTransaction`)
   * **Simulation Mode:** `EXACT_PREFLIGHT`
   * **Simulation Status:** `PASS`
   * **Exact `err` Field:** `null`
-  * **Units Consumed:** `76,042 compute units`
-  * **Logs Count:** `43 log traces`
-* **Verification Status:** `VERIFIED`
+  * **Units Consumed:** `128,222 compute units`
+  * **Logs Count:** `60 log traces`
+* **Verification Status:** `UNABLE_TO_VERIFY` (Reason: `MARKET_CLOSED_OR_AFTER_HOURS` — truthfully blocks verified status during overnight market close)
 
 ---
 
-## 3. Real Execution Run: SOL → AAPLx (Quote Precheck Mode)
-* **API Endpoint:** `https://api.jup.ag/swap/v1/quote`
+## 3. Real Execution Run: SOL → AAPLx (Quote Precheck Mode via Jupiter Swap V2)
+* **API Endpoint:** `https://api.jup.ag/swap/v2/order`
 * **Input Raw Amount:** `2000000000` (2.000000000 SOL)
 * **SOL Reference Price:** `$102.10 / SOL`
 * **Total Spend Value:** `2 * $102.10 = $204.20`
-* **Output Raw Amount:** `61253617` base units
-* **Expected Stock Shares:** `0.614168 AAPL`
-* **Benchmark Price:** `$332.27 / share`
-* **Expected Stock Exposure:** `0.614168 * $332.27 = $204.07`
-* **Dollar Difference:** `-$0.13`
-* **Percentage Difference:** `-0.06%`
-* **DEX Route:** Multi-hop (`Flux` $\to$ `Raydium CLMM`)
+* **Output Raw Amount:** `61151516` base units
+* **Expected Stock Shares:** `0.613514 AAPL`
+* **Benchmark Price:** `$332.58 / share`
+* **Expected Stock Exposure:** `0.613514 * $332.58 = $204.04`
+* **Dollar Difference:** `-$0.16`
+* **Percentage Difference:** `-0.08%`
+* **DEX Route:** JupiterZ
 * **Simulation Mode:** `QUOTE_PRECHECK` (No wallet required)
 * **Simulation Status:** `NOT_RUN` (`err: null`)
-* **Verification Status:** `VERIFIED`
-
----
-
-## 4. Failure Mode & Edge Case Verification
-| Failure Mode | Test Input | Observed Behavior | Final Verdict |
-| :--- | :--- | :--- | :--- |
-| **Unfunded / Invalid Wallet** | Unfunded Pubkey | Simulation returns `err !== null` | `UNABLE_TO_VERIFY` |
-| **Unsupported Mint** | `NON_EXISTENT_COIN` | Trapped at configuration check | `UNABLE_TO_VERIFY` |
-| **Unsupported Payment** | `ETH_ON_SOLANA` | Trapped at configuration check | `UNABLE_TO_VERIFY` |
-| **Negative / Zero Amount**| `-100` | Trapped at input validator | `UNABLE_TO_VERIFY` |
-| **Rate Limit 429** | Rapid burst calls | Exponential backoff auto-recovery | Self-healing |
+* **Verification Status:** `UNABLE_TO_VERIFY` (Reason: `MARKET_CLOSED_OR_AFTER_HOURS`)

@@ -1,4 +1,4 @@
-// JustFair Supported Assets & Endpoints Configuration
+// JustFair Supported Assets & Endpoints Configuration (Jupiter Swap V2 + Official Nasdaq Benchmarks)
 
 export const SUPPORTED_PAYMENTS = {
   USDC: {
@@ -17,7 +17,7 @@ export const SUPPORTED_PAYMENTS = {
     decimals: 9,
     programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     isStable: false,
-    referenceSymbol: "SOL-USD"
+    cryptoPriceId: "solana"
   }
 };
 
@@ -30,7 +30,7 @@ export const SUPPORTED_STOCKS = {
     decimals: 8,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "AAPL",
-    pythQuery: "Equity.US.AAPL/USD"
+    assetClass: "stocks"
   },
   NVDAx: {
     symbol: "NVDAx",
@@ -40,7 +40,7 @@ export const SUPPORTED_STOCKS = {
     decimals: 8,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "NVDA",
-    pythQuery: "Equity.US.NVDA/USD"
+    assetClass: "stocks"
   },
   SPYx: {
     symbol: "SPYx",
@@ -50,7 +50,7 @@ export const SUPPORTED_STOCKS = {
     decimals: 8,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "SPY",
-    pythQuery: "Equity.US.SPY/USD"
+    assetClass: "etf"
   },
   TSLAx: {
     symbol: "TSLAx",
@@ -60,15 +60,15 @@ export const SUPPORTED_STOCKS = {
     decimals: 8,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "TSLA",
-    pythQuery: "Equity.US.TSLA/USD"
+    assetClass: "stocks"
   }
 };
 
 export const API_ENDPOINTS = {
-  // Official Jupiter Swap v1/v2 endpoints on api.jup.ag
-  JUPITER_QUOTE: "https://api.jup.ag/swap/v1/quote",
-  JUPITER_SWAP: "https://api.jup.ag/swap/v1/swap",
+  // Official Jupiter Swap V2 Architecture
+  JUPITER_ORDER_V2: "https://api.jup.ag/swap/v2/order",
   SOLANA_RPC: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
-  MARKET_DATA_CHART: "https://query1.finance.yahoo.com/v8/finance/chart",
-  PYTH_FEEDS: "https://hermes.pyth.network/v2/price_feeds"
+  // Official Nasdaq Public Quote API
+  NASDAQ_QUOTE_BASE: "https://api.nasdaq.com/api/quote",
+  COINGECKO_SIMPLE_PRICE: "https://api.coingecko.com/api/v3/simple/price"
 };

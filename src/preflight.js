@@ -1,10 +1,20 @@
-// JustFair Preflight Calculation Engine (Phase 0/1 Corrected with Resilient Retry)
+// JustFair Preflight Calculation Engine (Jupiter Swap V2 + Token-2022 Effective Multipliers)
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, API_ENDPOINTS } from "./config.js";
+
+const BASE58_ALPHABET = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+/**
+ * Validate a Solana public key string format before dispatching network calls
+ */
+export function isValidSolanaPublicKey(pubkey) {
+  if (!pubkey || typeof pubkey !== "string") return false;
+  return BASE58_ALPHABET.test(pubkey.trim());
+}
 
 /**
  * Resilient fetch with exponential backoff on HTTP 429 rate limits
  */
-async function fetchWithRetry(url, options = {}, retries = 2, delayMs = 600) {
+async function fetchWithRetry(url, options = {}, retries = 3, delayMs = 800) {
   for (let i = 0; i <= retries; i++) {
     const res = await fetch(url, options);
     if (res.status === 429 && i < retries) {
@@ -17,7 +27,7 @@ async function fetchWithRetry(url, options = {}, retries = 2, delayMs = 600) {
 }
 
 /**
- * Determine market session from date in US Eastern Time
+ * Calculate canonical US market session for a given Date object (in US Eastern Time)
  */
 export function calculateMarketSession(date = new Date()) {
   const etStr = date.toLocaleString("en-US", { timeZone: "America/New_York" });
@@ -43,9 +53,52 @@ export function calculateMarketSession(date = new Date()) {
 }
 
 /**
- * Fetch dynamic multiplier from on-chain Token-2022 ScaledUiAmount extension
+ * Calculate effective Token-2022 multiplier following Solana Scaled UI Amount semantics:
+ * IF currentUnixTimestamp >= newMultiplierEffectiveTimestamp: currentMultiplier = newMultiplier
+ * ELSE: currentMultiplier = storedMultiplier
  */
-export async function fetchOnChainTokenMultiplier(mintAddress) {
+export function calculateEffectiveMultiplier(storedMultiplier, newMultiplier, newMultiplierEffectiveTimestamp, currentUnixSec = Math.floor(Date.now() / 1000)) {
+  const stored = parseFloat(storedMultiplier) || 1.0;
+  const next = newMultiplier ? parseFloat(newMultiplier) : null;
+  const effectiveTs = parseInt(newMultiplierEffectiveTimestamp, 10) || 0;
+
+  let currentMultiplier = stored;
+  let reason = "Using stored multiplier; no new multiplier scheduled";
+
+  if (next && effectiveTs > 0) {
+    if (currentUnixSec >= effectiveTs) {
+      currentMultiplier = next;
+      reason = `newMultiplier effective timestamp (${effectiveTs}) has passed`;
+    } else {
+      currentMultiplier = stored;
+      reason = `newMultiplier is pending (effective at timestamp ${effectiveTs})`;
+    }
+  }
+
+  // Safety Window: ±2 hours (7200 seconds) around effective activation timestamp
+  const SAFETY_WINDOW_SECONDS = 7200;
+  let isInsideCorporateActionWindow = false;
+  if (effectiveTs > 0) {
+    const timeDelta = Math.abs(currentUnixSec - effectiveTs);
+    if (timeDelta <= SAFETY_WINDOW_SECONDS) {
+      isInsideCorporateActionWindow = true;
+    }
+  }
+
+  return {
+    stored_multiplier: stored,
+    new_multiplier: next,
+    new_multiplier_effective_timestamp: effectiveTs,
+    current_multiplier: currentMultiplier,
+    current_multiplier_reason: reason,
+    is_inside_corporate_action_window: isInsideCorporateActionWindow
+  };
+}
+
+/**
+ * Fetch on-chain Token-2022 extension metadata and evaluate effective multiplier
+ */
+export async function fetchOnChainTokenMultiplier(mintAddress, currentUnixSec = Math.floor(Date.now() / 1000)) {
   const res = await fetch(API_ENDPOINTS.SOLANA_RPC, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -68,78 +121,114 @@ export async function fetchOnChainTokenMultiplier(mintAddress) {
   }
 
   const scaledExt = parsed.extensions?.find(e => e.extension === "scaledUiAmountConfig");
-  let activeMultiplier = 1.0;
-  let pendingMultiplier = null;
-  let pendingEffectiveTimestamp = 0;
+  const storedMultiplier = scaledExt?.state?.multiplier || "1.0";
+  const newMultiplier = scaledExt?.state?.newMultiplier || null;
+  const effectiveTs = scaledExt?.state?.newMultiplierEffectiveTimestamp || 0;
 
-  if (scaledExt && scaledExt.state) {
-    activeMultiplier = parseFloat(scaledExt.state.multiplier) || 1.0;
-    if (scaledExt.state.newMultiplier) {
-      pendingMultiplier = parseFloat(scaledExt.state.newMultiplier);
-      pendingEffectiveTimestamp = scaledExt.state.newMultiplierEffectiveTimestamp || 0;
-    }
-  }
+  const evaluated = calculateEffectiveMultiplier(storedMultiplier, newMultiplier, effectiveTs, currentUnixSec);
 
   return {
-    active_multiplier: activeMultiplier,
-    pending_multiplier: pendingMultiplier,
-    pending_effective_timestamp: pendingEffectiveTimestamp,
+    ...evaluated,
     decimals: parsed.decimals ?? 8,
     source: "Solana Token-2022 scaledUiAmountConfig on-chain state"
   };
 }
 
 /**
- * Fetch independent market reference benchmark price
+ * Fetch independent market reference benchmark price from official Nasdaq API
  */
-export async function fetchMarketReference(symbol) {
-  const url = `${API_ENDPOINTS.MARKET_DATA_CHART}/${symbol}?interval=1m`;
+export async function fetchMarketReference(symbol, assetClass = "stocks") {
+  const url = `${API_ENDPOINTS.NASDAQ_QUOTE_BASE}/${symbol}/info?assetclass=${assetClass}`;
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) JustFair/1.0" }
   });
+
   if (!res.ok) {
-    throw new Error(`Failed to fetch reference for ${symbol}: HTTP ${res.status}`);
+    throw new Error(`Failed to fetch official Nasdaq quote for ${symbol}: HTTP ${res.status}`);
   }
+
   const data = await res.json();
-  const meta = data.chart?.result?.[0]?.meta;
-  if (!meta) {
-    throw new Error(`Invalid benchmark response for ${symbol}`);
-  }
-  const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
-  if (!price || typeof price !== "number") {
-    throw new Error(`Price unavailable for ${symbol}`);
+  const primary = data.data?.primaryData;
+  if (!primary || !primary.lastSalePrice) {
+    throw new Error(`Price unavailable from Nasdaq API for ${symbol}`);
   }
 
-  const refTimeMs = meta.regularMarketTime ? meta.regularMarketTime * 1000 : Date.now();
+  const rawPriceStr = primary.lastSalePrice.replace(/[^0-9.]/g, "");
+  const price = parseFloat(rawPriceStr);
+  if (isNaN(price) || price <= 0) {
+    throw new Error(`Invalid price value returned for ${symbol}: ${primary.lastSalePrice}`);
+  }
+
+  const refTimestampStr = primary.lastTradeTimestamp || new Date().toISOString();
+  const refTimeMs = Date.parse(refTimestampStr) || Date.now();
   const ageMs = Math.max(0, Date.now() - refTimeMs);
-  const session = calculateMarketSession(new Date(refTimeMs));
 
-  let freshness = "FRESH";
-  if (session === "CLOSED" || session === "OVERNIGHT") {
-    freshness = "AFTER_HOURS_CLOSE";
+  const referenceSession = calculateMarketSession(new Date(refTimeMs));
+  const currentSession = calculateMarketSession(new Date());
+
+  let freshnessStatus = "FRESH";
+  if (currentSession === "CLOSED" || currentSession === "OVERNIGHT") {
+    freshnessStatus = "AFTER_HOURS_CLOSE";
   } else if (ageMs > 900000) {
-    freshness = "STALE";
+    freshnessStatus = "STALE";
   }
 
   return {
     symbol,
     price,
-    source: "Market Aggregator (Yahoo / Nasdaq Tape Reference)",
-    source_type: "MARKET_DATA_AGGREGATOR",
+    source: "Nasdaq Official Public Equity Quote API (api.nasdaq.com)",
+    source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+    provider: "Nasdaq Real-Time Stock Market Tape",
     timestamp: new Date(refTimeMs).toISOString(),
     age_ms: ageMs,
-    market_session: session,
-    freshness_status: freshness
+    reference_session: referenceSession,
+    current_market_session: currentSession,
+    freshness_status: freshnessStatus,
+    is_real_time: Boolean(primary.isRealTime)
   };
 }
 
 /**
- * Fetch real Jupiter DEX quote via official api.jup.ag
+ * Fetch independent spot price for payment assets (e.g. SOL)
  */
-export async function fetchJupiterQuote(inputAssetConfig, stockConfig, amountHuman, slippageBps = 50) {
+export async function fetchCryptoSpotPrice(cryptoPriceId = "solana") {
+  const url = `${API_ENDPOINTS.COINGECKO_SIMPLE_PRICE}?ids=${cryptoPriceId}&vs_currencies=usd`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": "JustFair/1.0" }
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch crypto spot price for ${cryptoPriceId}`);
+  }
+  const data = await res.json();
+  const price = data[cryptoPriceId]?.usd;
+  if (!price || typeof price !== "number") {
+    throw new Error(`Crypto price unavailable for ${cryptoPriceId}`);
+  }
+  return {
+    price,
+    symbol: "SOL",
+    source: "CoinGecko Real-Time Spot Feed",
+    source_type: "CRYPTO_SPOT_ORACLE",
+    timestamp: new Date().toISOString(),
+    age_ms: 0,
+    reference_session: "24/7",
+    current_market_session: "24/7",
+    freshness_status: "FRESH"
+  };
+}
+
+/**
+ * Fetch real route from official Jupiter Swap V2 API (/swap/v2/order)
+ */
+export async function fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountHuman, slippageBps = 50, taker = null) {
   const rawAmount = Math.floor(amountHuman * Math.pow(10, inputAssetConfig.decimals));
   if (rawAmount <= 0) {
     throw new Error("Amount must be greater than zero");
+  }
+
+  let url = `${API_ENDPOINTS.JUPITER_ORDER_V2}?inputMint=${inputAssetConfig.mint}&outputMint=${stockConfig.mint}&amount=${rawAmount}&slippageBps=${slippageBps}`;
+  if (taker) {
+    url += `&taker=${encodeURIComponent(taker)}`;
   }
 
   const headers = { "User-Agent": "JustFair/1.0" };
@@ -147,54 +236,24 @@ export async function fetchJupiterQuote(inputAssetConfig, stockConfig, amountHum
     headers["x-api-key"] = process.env.JUPITER_API_KEY;
   }
 
-  const url = `${API_ENDPOINTS.JUPITER_QUOTE}?inputMint=${inputAssetConfig.mint}&outputMint=${stockConfig.mint}&amount=${rawAmount}&slippageBps=${slippageBps}`;
+  const quoteStartTime = Date.now();
   const res = await fetchWithRetry(url, { headers });
+  const latencyMs = Date.now() - quoteStartTime;
+
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Jupiter quote failed: ${errText}`);
+    throw new Error(`Jupiter Swap V2 order failed: ${errText}`);
   }
-  const quote = await res.json();
-  if (quote.error) {
-    throw new Error(`Jupiter quote error: ${quote.error}`);
-  }
-  return quote;
-}
-
-/**
- * Build unsigned VersionedTransaction via official api.jup.ag/swap/v1/swap
- */
-export async function buildUnsignedSwapTransaction(quoteResponse, userPublicKey) {
-  const headers = { "Content-Type": "application/json", "User-Agent": "JustFair/1.0" };
-  if (process.env.JUPITER_API_KEY) {
-    headers["x-api-key"] = process.env.JUPITER_API_KEY;
+  const orderData = await res.json();
+  if (orderData.error) {
+    throw new Error(`Jupiter Swap V2 order error: ${orderData.error}`);
   }
 
-  const payload = {
-    quoteResponse,
-    userPublicKey,
-    wrapAndUnwrapSol: true,
-    dynamicComputeUnitLimit: true
+  return {
+    orderData,
+    obtained_at: new Date().toISOString(),
+    fetch_latency_ms: latencyMs
   };
-
-  if (quoteResponse.platformFee && parseInt(quoteResponse.platformFee.amount, 10) > 0) {
-    payload.feeAccount = quoteResponse.inputMint;
-  }
-
-  const res = await fetchWithRetry(API_ENDPOINTS.JUPITER_SWAP, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Jupiter swap build failed: ${errText}`);
-  }
-  const data = await res.json();
-  if (!data.swapTransaction) {
-    throw new Error(data.error || "No swapTransaction returned by Jupiter Swap API");
-  }
-  return data.swapTransaction;
 }
 
 /**
@@ -206,7 +265,7 @@ export async function simulateSolanaTransaction(swapTransactionBase64) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       jsonrpc: "2.0",
-      id: "justfair-sim-main",
+      id: "justfair-sim-v2",
       method: "simulateTransaction",
       params: [
         swapTransactionBase64,
@@ -236,7 +295,7 @@ export async function simulateSolanaTransaction(swapTransactionBase64) {
 }
 
 /**
- * Execute JustFair Preflight Verification (Supports Quote Precheck & Exact Preflight)
+ * Execute JustFair Preflight Verification (Supports Quote Precheck & Exact Preflight via Jupiter V2)
  */
 export async function runPreflight({ inputSymbol, stockSymbol, amount, userPublicKey = null }) {
   const startTime = Date.now();
@@ -247,6 +306,7 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
     return {
       status: "ERROR",
       verification_status: "UNABLE_TO_VERIFY",
+      reason_code: "UNSUPPORTED_PAYMENT_ASSET",
       reason: `Unsupported payment asset: ${inputSymbol}. Supported: ${Object.keys(SUPPORTED_PAYMENTS).join(", ")}`
     };
   }
@@ -257,6 +317,7 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
     return {
       status: "ERROR",
       verification_status: "UNABLE_TO_VERIFY",
+      reason_code: "UNSUPPORTED_STOCK_ASSET",
       reason: `Unsupported tokenized stock: ${stockSymbol}. Supported: ${Object.keys(SUPPORTED_STOCKS).join(", ")}`
     };
   }
@@ -267,34 +328,62 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
     return {
       status: "ERROR",
       verification_status: "UNABLE_TO_VERIFY",
+      reason_code: "INVALID_AMOUNT",
       reason: `Invalid input amount: ${amount}`
     };
   }
 
-  try {
-    // 4. Fetch Live Data: Jupiter Quote, On-Chain Multiplier, Market Benchmark
-    const quoteStartTime = Date.now();
-    const [quote, onChainMultiplierData, stockBenchmark, inputBenchmark] = await Promise.all([
-      fetchJupiterQuote(inputAsset, stockAsset, numAmount),
-      fetchOnChainTokenMultiplier(stockAsset.mint),
-      fetchMarketReference(stockAsset.referenceSymbol),
-      inputAsset.isStable
-        ? Promise.resolve({ price: 1.0, symbol: "USD", timestamp: new Date().toISOString(), age_ms: 0, market_session: "24/7", freshness_status: "FRESH" })
-        : fetchMarketReference(inputAsset.referenceSymbol)
-    ]);
-    const quoteAgeMs = Date.now() - quoteStartTime;
+  // 4. Validate Public Key if provided
+  if (userPublicKey) {
+    if (!isValidSolanaPublicKey(userPublicKey)) {
+      return {
+        status: "ERROR",
+        verification_status: "UNABLE_TO_VERIFY",
+        reason_code: "INVALID_PUBLIC_KEY",
+        reason: `Malformed Solana public key: ${userPublicKey}`
+      };
+    }
+  }
 
-    // 5. Calculate Financial Exposure using dynamic on-chain multiplier
+  try {
+    // 5. Fetch Live Data: Jupiter V2 Order (with taker fallback handling), Multiplier, Benchmark
+    let v2Result;
+    let takerBuildError = null;
+
+    try {
+      v2Result = await fetchJupiterOrderV2(inputAsset, stockAsset, numAmount, 50, userPublicKey);
+    } catch (v2Err) {
+      if (userPublicKey) {
+        // Fallback to Quote-only route to inspect quote economics even if taker build had issues
+        takerBuildError = v2Err.message;
+        v2Result = await fetchJupiterOrderV2(inputAsset, stockAsset, numAmount, 50, null);
+      } else {
+        throw v2Err;
+      }
+    }
+
+    const [onChainMultiplierData, stockBenchmark, inputBenchmark] = await Promise.all([
+      fetchOnChainTokenMultiplier(stockAsset.mint),
+      fetchMarketReference(stockAsset.referenceSymbol, stockAsset.assetClass),
+      inputAsset.isStable
+        ? Promise.resolve({ price: 1.0, symbol: "USD", timestamp: new Date().toISOString(), age_ms: 0, reference_session: "24/7", current_market_session: "24/7", freshness_status: "FRESH" })
+        : fetchCryptoSpotPrice(inputAsset.cryptoPriceId)
+    ]);
+
+    const orderData = v2Result.orderData;
+    const quoteAgeMs = Date.now() - Date.parse(v2Result.obtained_at);
+
+    // 6. Calculate Financial Exposure using current effective multiplier
     const inputUsdValue = numAmount * inputBenchmark.price;
-    const rawOutAmount = parseInt(quote.outAmount, 10);
+    const rawOutAmount = parseInt(orderData.outAmount, 10);
     const rawTokens = rawOutAmount / Math.pow(10, onChainMultiplierData.decimals);
-    const expectedStockShares = rawTokens * onChainMultiplierData.active_multiplier;
+    const expectedStockShares = rawTokens * onChainMultiplierData.current_multiplier;
     const expectedStockExposureUsd = expectedStockShares * stockBenchmark.price;
 
     const diffUsd = expectedStockExposureUsd - inputUsdValue;
     const diffPct = (diffUsd / inputUsdValue) * 100;
 
-    // 6. Handle Simulation Modes (Quote Precheck vs Exact Preflight)
+    // 7. Handle Simulation (Quote Precheck vs Exact Preflight)
     let simulationResult = {
       status: "NOT_RUN",
       err: null,
@@ -303,13 +392,20 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
       mode: "QUOTE_PRECHECK"
     };
 
-    let verificationStatus = "VERIFIED";
+    let simulationPassed = true;
 
     if (userPublicKey) {
-      // EXACT PREFLIGHT MODE
-      try {
-        const swapTxBase64 = await buildUnsignedSwapTransaction(quote, userPublicKey);
-        const sim = await simulateSolanaTransaction(swapTxBase64);
+      if (takerBuildError) {
+        simulationResult = {
+          status: "FAIL",
+          err: takerBuildError,
+          units_consumed: 0,
+          logs_count: 0,
+          mode: "EXACT_PREFLIGHT"
+        };
+        simulationPassed = false;
+      } else if (orderData.transaction) {
+        const sim = await simulateSolanaTransaction(orderData.transaction);
         simulationResult = {
           status: sim.status,
           err: sim.err,
@@ -317,24 +413,40 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
           logs_count: sim.logs_count,
           mode: "EXACT_PREFLIGHT"
         };
-        if (sim.status !== "PASS") {
-          verificationStatus = "UNABLE_TO_VERIFY";
+        if (sim.status !== "PASS" || sim.err !== null) {
+          simulationPassed = false;
         }
-      } catch (simErr) {
+      } else {
         simulationResult = {
           status: "FAIL",
-          err: simErr.message,
+          err: "Jupiter V2 did not assemble transaction for taker",
           units_consumed: 0,
           logs_count: 0,
           mode: "EXACT_PREFLIGHT"
         };
-        verificationStatus = "UNABLE_TO_VERIFY";
+        simulationPassed = false;
       }
+    }
+
+    // 8. Strict Verification Prerequisites Evaluation
+    let verificationStatus = "VERIFIED";
+    let reasonCode = "ALL_PREREQUISITES_PASSED";
+
+    if (onChainMultiplierData.is_inside_corporate_action_window) {
+      verificationStatus = "UNABLE_TO_VERIFY";
+      reasonCode = "CORPORATE_ACTION_WINDOW";
+    } else if (stockBenchmark.freshness_status === "STALE" || stockBenchmark.freshness_status === "AFTER_HOURS_CLOSE") {
+      verificationStatus = "UNABLE_TO_VERIFY";
+      reasonCode = stockBenchmark.freshness_status === "STALE" ? "STALE_REFERENCE" : "MARKET_CLOSED_OR_AFTER_HOURS";
+    } else if (!simulationPassed) {
+      verificationStatus = "UNABLE_TO_VERIFY";
+      reasonCode = "SIMULATION_FAILED";
     }
 
     return {
       status: "SUCCESS",
       verification_status: verificationStatus,
+      reason_code: reasonCode,
       stock: stockAsset.canonicalSymbol,
       token_mint: stockAsset.mint,
       token_program: stockAsset.programId,
@@ -346,9 +458,12 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
       difference_usd: parseFloat(diffUsd.toFixed(2)),
       difference_pct: parseFloat(diffPct.toFixed(2)),
       multiplier: {
-        active: onChainMultiplierData.active_multiplier,
-        pending: onChainMultiplierData.pending_multiplier,
-        pending_effective_timestamp: onChainMultiplierData.pending_effective_timestamp,
+        stored_multiplier: onChainMultiplierData.stored_multiplier,
+        new_multiplier: onChainMultiplierData.new_multiplier,
+        new_multiplier_effective_timestamp: onChainMultiplierData.new_multiplier_effective_timestamp,
+        current_multiplier: onChainMultiplierData.current_multiplier,
+        current_multiplier_reason: onChainMultiplierData.current_multiplier_reason,
+        is_inside_corporate_action_window: onChainMultiplierData.is_inside_corporate_action_window,
         source: onChainMultiplierData.source
       },
       benchmark: {
@@ -356,18 +471,24 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
         price: stockBenchmark.price,
         source: stockBenchmark.source,
         source_type: stockBenchmark.source_type,
+        provider: stockBenchmark.provider,
         timestamp: stockBenchmark.timestamp,
         age_ms: stockBenchmark.age_ms,
-        market_session: stockBenchmark.market_session,
-        freshness_status: stockBenchmark.freshness_status
+        reference_session: stockBenchmark.reference_session,
+        current_market_session: stockBenchmark.current_market_session,
+        freshness_status: stockBenchmark.freshness_status,
+        is_real_time: stockBenchmark.is_real_time
       },
       dex_route: {
-        endpoint: API_ENDPOINTS.JUPITER_QUOTE,
+        endpoint: API_ENDPOINTS.JUPITER_ORDER_V2,
+        router: orderData.router || "jupiterz",
+        quote_obtained_at: v2Result.obtained_at,
         quote_age_ms: quoteAgeMs,
-        in_amount_raw: quote.inAmount,
-        out_amount_raw: quote.outAmount,
-        price_impact_pct: quote.priceImpactPct || "0",
-        steps: quote.routePlan?.map(r => r.swapInfo.label) || []
+        quote_fetch_latency_ms: v2Result.fetch_latency_ms,
+        in_amount_raw: orderData.inAmount,
+        out_amount_raw: orderData.outAmount,
+        price_impact_pct: orderData.priceImpactPct || "0",
+        steps: orderData.routePlan?.map(r => r.swapInfo?.label || "DEX") || []
       },
       simulation: simulationResult,
       execution_time_ms: Date.now() - startTime
@@ -376,6 +497,7 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
     return {
       status: "ERROR",
       verification_status: "UNABLE_TO_VERIFY",
+      reason_code: "EXECUTION_ERROR",
       reason: err.message,
       execution_time_ms: Date.now() - startTime
     };
