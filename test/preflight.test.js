@@ -70,35 +70,81 @@ async function runTests() {
     }
   });
 
-  // --- 3. SOURCE-AWARE SESSION ELIGIBILITY (OVERNIGHT / EXTENDED ELIGIBLE) ---
-  await test("Fresh overnight/extended underlying reference can be eligible", async () => {
-    // A Wednesday 22:00 ET date (Overnight session)
-    const overnightDate = new Date("2026-09-09T22:00:00-04:00");
-    const session = calculateMarketSession(overnightDate);
-    if (session !== "OVERNIGHT") {
-      throw new Error(`Expected OVERNIGHT session for Wed 22:00 ET, got ${session}`);
+  // --- 3. SOURCE-AWARE SESSION ELIGIBILITY (REGULAR / EXTENDED / OVERNIGHT / CLOSED) ---
+  await test("Session calculator accurately detects regular, pre-market, post-market, overnight, and closed sessions", async () => {
+    // Wednesday 14:00 ET (Regular session)
+    const regDate = new Date("2026-09-09T14:00:00-04:00");
+    if (calculateMarketSession(regDate) !== "REGULAR") {
+      throw new Error(`Expected REGULAR session, got ${calculateMarketSession(regDate)}`);
     }
 
-    // A Wednesday 08:00 ET date (Pre-market session)
-    const preMarketDate = new Date("2026-09-09T08:00:00-04:00");
-    const preSession = calculateMarketSession(preMarketDate);
-    if (preSession !== "PRE_MARKET") {
-      throw new Error(`Expected PRE_MARKET session for Wed 08:00 ET, got ${preSession}`);
+    // Wednesday 08:00 ET (Pre-market session)
+    const preDate = new Date("2026-09-09T08:00:00-04:00");
+    if (calculateMarketSession(preDate) !== "PRE_MARKET") {
+      throw new Error(`Expected PRE_MARKET session, got ${calculateMarketSession(preDate)}`);
+    }
+
+    // Wednesday 17:00 ET (Post-market session)
+    const postDate = new Date("2026-09-09T17:00:00-04:00");
+    if (calculateMarketSession(postDate) !== "POST_MARKET") {
+      throw new Error(`Expected POST_MARKET session, got ${calculateMarketSession(postDate)}`);
+    }
+
+    // Wednesday 22:00 ET (Overnight session)
+    const overnightDate = new Date("2026-09-09T22:00:00-04:00");
+    if (calculateMarketSession(overnightDate) !== "OVERNIGHT") {
+      throw new Error(`Expected OVERNIGHT session, got ${calculateMarketSession(overnightDate)}`);
+    }
+
+    // Saturday 12:00 ET (Weekend / Closed)
+    const satDate = new Date("2026-09-12T12:00:00-04:00");
+    if (calculateMarketSession(satDate) !== "CLOSED") {
+      throw new Error(`Expected CLOSED session on Saturday, got ${calculateMarketSession(satDate)}`);
+    }
+
+    // Sunday 14:00 ET (Weekend / Closed before overnight opens at 20:00)
+    const sunDate = new Date("2026-09-13T14:00:00-04:00");
+    if (calculateMarketSession(sunDate) !== "CLOSED") {
+      throw new Error(`Expected CLOSED session on Sunday afternoon, got ${calculateMarketSession(sunDate)}`);
     }
   });
 
-  // --- 4. UNAVAILABLE WEEKEND / CLOSED REFERENCE CANNOT BE ELIGIBLE ---
-  await test("Unavailable weekend reference cannot be eligible", async () => {
+  // --- 4. UNAVAILABLE WEEKEND / STALE FRIDAY REFERENCE IS INELIGIBLE ---
+  await test("Stale Friday / weekend reference evaluates to INELIGIBLE_CLOSED and UNABLE_TO_VERIFY", async () => {
+    // Saturday date check
     const saturdayDate = new Date("2026-09-12T12:00:00-04:00");
     const session = calculateMarketSession(saturdayDate);
     if (session !== "CLOSED") {
       throw new Error(`Expected CLOSED session on Saturday, got ${session}`);
     }
+
+    // Live preflight execution on Saturday must yield UNABLE_TO_VERIFY with MARKET_CLOSED_OR_AFTER_HOURS
+    const pf = await runPreflight({
+      inputSymbol: "USDC",
+      stockSymbol: "AAPLx",
+      amount: 100
+    });
+    if (pf.verification_status !== "UNABLE_TO_VERIFY") {
+      throw new Error(`Expected UNABLE_TO_VERIFY on weekend, got ${pf.verification_status}`);
+    }
+    if (!pf.reason_codes.includes("MARKET_CLOSED_OR_AFTER_HOURS")) {
+      throw new Error(`Expected MARKET_CLOSED_OR_AFTER_HOURS reason code, got ${pf.reason_codes.join(", ")}`);
+    }
+    if (pf.benchmark.market_context.reference_eligibility !== "INELIGIBLE_CLOSED") {
+      throw new Error(`Expected INELIGIBLE_CLOSED, got ${pf.benchmark.market_context.reference_eligibility}`);
+    }
   });
 
-  // --- 5. COINGECKO MISSING TIMESTAMP BECOMES UNKNOWN ---
-  await test("CoinGecko missing timestamp truthfully returns UNKNOWN freshness without inventing timestamps", async () => {
-    // Test the strict freshness logic
+  // --- 5. NULL QUOTE & UNKNOWN TIMESTAMP EVALUATE SAFELY ---
+  await test("Null quote or unknown timestamp evaluates to ineligible without errors", async () => {
+    // Null quote payload
+    const nullParsed = parseXStocksPriceData(null, "AAPLx");
+    if (nullParsed !== null) throw new Error("Expected null for null payload");
+
+    const emptyQuoteParsed = parseXStocksPriceData({ quote: {} }, "AAPLx");
+    if (emptyQuoteParsed !== null) throw new Error("Expected null for empty quote");
+
+    // Missing timestamp in crypto spot
     const missingTimestamp = null;
     let freshnessStatus = "UNKNOWN";
     let isEligible = false;

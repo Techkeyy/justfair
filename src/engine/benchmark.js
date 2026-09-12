@@ -128,14 +128,12 @@ export async function fetchMarketReference(symbol, assetClass = "stocks") {
 
   // Choose the best underlying equity reference
   let chosenQuote = xStocksQuote;
-  let provider = chosenQuote?.provider || "Nasdaq Real-Time Stock Market Tape";
   let source = chosenQuote?.source || "Nasdaq Official Public Equity Quote API (api.nasdaq.com)";
   let price = chosenQuote?.price;
   let rawTs = chosenQuote?.raw_timestamp;
   let isRealTime = chosenQuote?.is_real_time || false;
 
   if (!chosenQuote && nasdaqQuote) {
-    provider = "Nasdaq Real-Time Stock Market Tape";
     source = "Nasdaq Official Public Equity Quote API (api.nasdaq.com)";
     price = nasdaqQuote.price;
     rawTs = nasdaqQuote.rawTs;
@@ -185,9 +183,25 @@ export async function fetchMarketReference(symbol, assetClass = "stocks") {
     }
   }
 
+  // Truthful Source-Specific Provider Labeling (Director Order 007.5C)
+  let provider = chosenQuote?.provider;
+  if (!provider) {
+    if (currentSession === "CLOSED" || referenceEligibility !== "ELIGIBLE") {
+      provider = "Last known Nasdaq reference — not eligible";
+    } else if (currentSession === "REGULAR") {
+      provider = isRealTime ? "Nasdaq regular-session reference" : "Last known Nasdaq reference — not eligible";
+    } else if (currentSession === "PRE_MARKET" || currentSession === "POST_MARKET") {
+      provider = "Nasdaq extended-hours reference";
+    } else if (currentSession === "OVERNIGHT") {
+      provider = "Blue Ocean overnight reference";
+    } else {
+      provider = "Last known Nasdaq reference — not eligible";
+    }
+  }
+
   const marketContext = {
     session: currentSession,
-    underlying_reference_available: true,
+    underlying_reference_available: referenceEligibility === "ELIGIBLE",
     underlying_reference_provider: provider,
     underlying_reference_timestamp: timestampIso,
     underlying_reference_age_ms: ageMs,
@@ -205,7 +219,7 @@ export async function fetchMarketReference(symbol, assetClass = "stocks") {
     reference_session: refSession,
     current_market_session: currentSession,
     freshness_status: freshnessStatus,
-    is_real_time: isRealTime,
+    is_real_time: isRealTime && referenceEligibility === "ELIGIBLE",
     market_context: marketContext
   };
 }
