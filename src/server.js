@@ -234,7 +234,7 @@ export async function handleRequest(req, res) {
       status: "SUCCESS",
       streaming_infrastructure: {
         pyth_auth_present: isPythAuthAvailable(),
-        pyth_endpoint: "https://hermes.pyth.network/v2/updates/price/stream",
+        pyth_endpoint: "https://pyth.dourolabs.app/hermes/v2/updates/price/stream",
         supported_feeds_count: Object.keys(PYTH_FEEDS_REGISTRY).length,
         supported_feeds: Object.keys(PYTH_FEEDS_REGISTRY),
         auth_mode: isPythAuthAvailable() ? "SERVER_AUTHENTICATED_BEARER" : "BLOCKED_PYTH_API_KEY_REQUIRED",
@@ -271,8 +271,82 @@ export async function handleRequest(req, res) {
       res.write(`:keep-alive ${Date.now()}\n\n`);
     }, 15000);
 
+    // Upstream Pyth Hermes SSE connection
+    const upstreamAbort = new AbortController();
+    const idList = Object.values(PYTH_FEEDS_REGISTRY).map(f => `ids[]=${f.id}`).join("&");
+    const upstreamUrl = `https://pyth.dourolabs.app/hermes/v2/updates/price/stream?${idList}&parsed=true`;
+
+    (async () => {
+      try {
+        const upstreamRes = await fetch(upstreamUrl, {
+          headers: {
+            "Authorization": `Bearer ${process.env.PYTH_API_KEY.trim()}`
+          },
+          signal: upstreamAbort.signal
+        });
+
+        if (!upstreamRes.ok) {
+          res.write(`event: upstream_error\ndata: ${JSON.stringify({ status: upstreamRes.status, message: "Upstream streaming provider returned non-200 status" })}\n\n`);
+          return;
+        }
+
+        const reader = upstreamRes.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop(); // Keep partial line in buffer
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("data:")) {
+              const jsonStr = trimmed.slice(5).trim();
+              if (!jsonStr) continue;
+              try {
+                const parsedData = JSON.parse(jsonStr);
+                if (Array.isArray(parsedData.parsed)) {
+                  for (const p of parsedData.parsed) {
+                    const feedId = p.id?.replace(/^0x/, "");
+                    const matchedFeed = Object.values(PYTH_FEEDS_REGISTRY).find(f => f.id === feedId);
+                    if (matchedFeed && p.price) {
+                      const numPrice = Number(p.price.price) * Math.pow(10, p.price.expo);
+                      const publishSec = p.price.publish_time || Math.floor(Date.now() / 1000);
+                      const publishIso = new Date(publishSec * 1000).toISOString();
+                      
+                      const eventPayload = {
+                        type: "PRICE_UPDATE",
+                        symbol: matchedFeed.symbol === "SOL/USD" ? "SOL" : matchedFeed.symbol,
+                        feed_id: feedId,
+                        price: parseFloat(numPrice.toFixed(4)),
+                        publish_time: publishIso,
+                        age_ms: Math.max(0, Date.now() - (publishSec * 1000)),
+                        timestamp: new Date().toISOString()
+                      };
+                      res.write(`data: ${JSON.stringify(eventPayload)}\n\n`);
+                    }
+                  }
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          try {
+            res.write(`event: stream_disconnected\ndata: ${JSON.stringify({ reason: err.message, timestamp: new Date().toISOString() })}\n\n`);
+          } catch {}
+        }
+      }
+    })();
+
     req.on("close", () => {
       clearInterval(heartbeatTimer);
+      try { upstreamAbort.abort(); } catch {}
     });
 
     return;
