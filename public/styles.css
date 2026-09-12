@@ -942,6 +942,14 @@ body {
   .hero-subheadline {
     font-size: 16px;
   }
+  .brand-pill {
+    display: none;
+  }
+  .safety-banner {
+    flex-direction: column;
+    text-align: center;
+    gap: 6px;
+  }
   .stock-grid {
     grid-template-columns: repeat(2, 1fr);
   }

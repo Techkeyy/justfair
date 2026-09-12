@@ -32,3 +32,12 @@
   * Gate user-facing `FAIR`/`CAUTION`/`BAD_FILL` verdicts behind `THRESHOLD_CALIBRATION_STATUS === "COMPLETE"`, emitting `MEASURED` in production prior to tape calibration.
   * Migrate address validation to `@solana/kit` (`isAddress`) and remove legacy `@solana/web3.js`.
   * Add in-memory rate limiting (60 req/min), body limits (1MB), and fetch abort timeouts (7s) for public service resilience.
+
+## Decision 006: Playwright Automated Visual Testing & Vercel Edge Serverless Deployment
+* **Context:** A static configuration file (`vercel.json`) is insufficient proof of a live product. Comprehensive verification requires real browser rendering tests, automated visual screenshot capture, and public HTTPS edge serverless execution.
+* **Decision:**
+  * Implement headless Chromium browser testing via Playwright (`test/browser.test.js`), capturing full visual evidence for desktop and mobile viewports with zero horizontal overflow.
+  * Implement unified HTTP handler in `src/server.js` and `api/index.js` supporting both streaming and pre-parsed bodies across local Node server and Vercel serverless functions.
+  * Deploy unified production application to Vercel global edge network (`https://justfair-theta.vercel.app`).
+  * Verify live production API endpoints (`/`, `/api/v1/health`, `/api/v1/stocks`, `/api/v1/preflight`) under both Quote Check and Exact Simulation modes.
+

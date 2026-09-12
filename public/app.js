@@ -336,10 +336,11 @@ function renderResult(data) {
   }
 
   // Plain English Explanation
+  const cleanStockName = stockMeta.name.replace(/\.+$/, "");
   if (mkt.session === "CLOSED") {
-    resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. Note that traditional stock markets are closed right now, so the underlying reference price ($${bench.price}) is from the previous market close.`;
+    resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${cleanStockName}. Note that traditional stock markets are closed right now, so the underlying reference price ($${bench.price}) is from the previous market close.`;
   } else {
-    resExplanation.textContent = `This trade route would spend $${trade.input_usd_value.toFixed(2)} to acquire approximately ${econ.expected_stock_shares} shares of ${stockMeta.name} on Solana, delivering $${econ.expected_stock_exposure_usd.toFixed(2)} of underlying exposure (difference: ${diffPrefix}$${econ.difference_usd.toFixed(2)} or ${diffPrefix}${diffPct.toFixed(2)}%).`;
+    resExplanation.textContent = `This trade route would spend $${trade.input_usd_value.toFixed(2)} to acquire approximately ${econ.expected_stock_shares} shares of ${cleanStockName} on Solana, delivering $${econ.expected_stock_exposure_usd.toFixed(2)} of underlying exposure (difference: ${diffPrefix}$${econ.difference_usd.toFixed(2)} or ${diffPrefix}${diffPct.toFixed(2)}%).`;
   }
 
   // Exact Simulation Banner
