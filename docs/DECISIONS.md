@@ -20,5 +20,15 @@
 ## Decision 004: Corporate Action Safety Window & Stale Data Gating
 * **Context:** Multiplier transitions and after-hours/stale market sessions create pricing ambiguity.
 * **Decision:**
-  * Implement ±2 hour (`7200s`) corporate action safety window around multiplier transitions.
+  * Implement documented ±15 minute (`900s`) corporate action safety window around multiplier transitions per xStocks integrator specs.
   * Require all verification prerequisites (fresh benchmark, simulation pass `err === null`, outside corporate action window) before emitting `VERIFIED`. Any prerequisite failure strictly returns `UNABLE_TO_VERIFY` with descriptive reason codes.
+
+## Decision 005: xStocks V2 Benchmark Adapter, Source-Aware Market Context, & Gated Calibration
+* **Context:** Integrator price data should leverage official `api.xstocks.fi/api/v2/public/assets/{SYMBOL}/price-data` while filtering internal DEX pool prices to isolate genuine underlying equity feeds (Nasdaq / Blue Ocean). Furthermore, provisional threshold percentages must not emit safety verdicts until regular tape calibration is complete.
+* **Decision:**
+  * Integrate xStocks V2 price-data adapter with fallback to direct Nasdaq tape feeds.
+  * Implement source-aware session eligibility exposing structured `market_context` (REGULAR, PRE_MARKET, POST_MARKET, OVERNIGHT eligible; CLOSED/WEEKEND truthfully ineligible).
+  * Enforce strict CoinGecko timestamp handling without manufacturing timestamps when upstream `last_updated_at` is absent.
+  * Gate user-facing `FAIR`/`CAUTION`/`BAD_FILL` verdicts behind `THRESHOLD_CALIBRATION_STATUS === "COMPLETE"`, emitting `MEASURED` in production prior to tape calibration.
+  * Migrate address validation to `@solana/kit` (`isAddress`) and remove legacy `@solana/web3.js`.
+  * Add in-memory rate limiting (60 req/min), body limits (1MB), and fetch abort timeouts (7s) for public service resilience.

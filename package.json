@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "node test/preflight.test.js",
+    "test:e2e": "node test/e2e.test.js",
     "check": "node src/cli.js check",
     "doctor": "node src/cli.js doctor",
     "start": "node src/server.js"

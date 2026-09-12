@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JustFair: Check Tokenized Stock Trade Fairness Before Buying on Solana</title>
+  <meta name="description" content="Verify the true economic fairness of tokenized stock trades on Solana before execution. Real-time DEX quotes vs independent equity market benchmarks.">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="site-header">
+      <div class="header-inner">
+        <a href="/" class="brand-logo" aria-label="JustFair Home">
+          <span class="brand-icon">⚖️</span>
+          <span class="brand-name">JustFair</span>
+          <span class="brand-pill">Solana Equity Preflight</span>
+        </a>
+        <div class="header-actions">
+          <button id="wallet-toggle-btn" class="btn btn-secondary btn-sm" type="button" aria-expanded="false">
+            <span class="wallet-icon">👛</span>
+            <span id="wallet-btn-label">Connect Wallet</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Hero Section -->
+      <section class="hero-section">
+        <h1 class="hero-headline">Before you buy the stock, check the fill.</h1>
+        <p class="hero-subheadline">
+          JustFair inspects the live Solana DEX route and calculates the exact dollar value of underlying stock exposure you receive before any transaction is executed.
+        </p>
+      </section>
+
+      <!-- Safety Notice -->
+      <div class="safety-banner" role="status">
+        <span class="safety-badge">🛡️ Zero-Risk Preflight</span>
+        <span class="safety-text">Simulation only. JustFair never requests private keys, never asks to sign, and never moves funds.</span>
+      </div>
+
+      <!-- Trade Inspector Form -->
+      <section class="trade-card" aria-label="Pre-Trade Safety Inspector">
+        <form id="preflight-form" novalidate>
+          <!-- Stock Selector -->
+          <div class="form-group">
+            <label class="form-label" for="stock-select">Choose Tokenized Stock</label>
+            <div class="stock-grid" role="radiogroup" aria-label="Select Stock Asset">
+              <button type="button" class="stock-chip active" data-symbol="AAPLx" role="radio" aria-checked="true">
+                <span class="stock-symbol">AAPL</span>
+                <span class="stock-name">Apple Inc.</span>
+                <span class="stock-tag">xStock</span>
+              </button>
+              <button type="button" class="stock-chip" data-symbol="NVDAx" role="radio" aria-checked="false">
+                <span class="stock-symbol">NVDA</span>
+                <span class="stock-name">NVIDIA Corp.</span>
+                <span class="stock-tag">xStock</span>
+              </button>
+              <button type="button" class="stock-chip" data-symbol="SPYx" role="radio" aria-checked="false">
+                <span class="stock-symbol">SPY</span>
+                <span class="stock-name">S&amp;P 500 ETF</span>
+                <span class="stock-tag">xStock</span>
+              </button>
+              <button type="button" class="stock-chip" data-symbol="TSLAx" role="radio" aria-checked="false">
+                <span class="stock-symbol">TSLA</span>
+                <span class="stock-name">Tesla Inc.</span>
+                <span class="stock-tag">xStock</span>
+              </button>
+            </div>
+            <input type="hidden" id="stock-select" name="stock" value="AAPLx">
+          </div>
+
+          <!-- Payment Asset Selector & Amount -->
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label class="form-label" for="payment-select">Pay With</label>
+              <div class="payment-tabs" role="radiogroup" aria-label="Select Payment Currency">
+                <button type="button" class="payment-tab active" data-asset="USDC" role="radio" aria-checked="true">
+                  <span class="token-icon">💵</span>
+                  <span class="token-symbol">USDC</span>
+                  <span class="token-sub">1:1 USD</span>
+                </button>
+                <button type="button" class="payment-tab" data-asset="SOL" role="radio" aria-checked="false">
+                  <span class="token-icon">☀️</span>
+                  <span class="token-symbol">SOL</span>
+                  <span class="token-sub" id="sol-spot-sub">Live Price</span>
+                </button>
+              </div>
+              <input type="hidden" id="payment-select" name="inputAsset" value="USDC">
+            </div>
+
+            <div class="form-group flex-1">
+              <label class="form-label" for="amount-input">
+                <span>Amount to Spend</span>
+                <span class="label-sub" id="amount-usd-equivalent">$500.00 USD</span>
+              </label>
+              <div class="input-wrapper">
+                <span class="input-prefix" id="amount-prefix">$</span>
+                <input 
+                  type="number" 
+                  id="amount-input" 
+                  name="amount" 
+                  class="form-input" 
+                  value="500" 
+                  min="1" 
+                  max="1000000" 
+                  step="any" 
+                  required 
+                  aria-describedby="amount-helper"
+                >
+              </div>
+              <div class="amount-presets" id="amount-presets">
+                <button type="button" class="preset-btn" data-val="100">$100</button>
+                <button type="button" class="preset-btn active" data-val="500">$500</button>
+                <button type="button" class="preset-btn" data-val="1000">$1,000</button>
+                <button type="button" class="preset-btn" data-val="2500">$2,500</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Wallet / Exact Simulation Option -->
+          <div class="wallet-section" id="wallet-drawer">
+            <div class="wallet-info-bar">
+              <div class="wallet-status-group">
+                <span class="wallet-dot" id="wallet-dot"></span>
+                <span class="wallet-status-label" id="wallet-status-text">Mode: Quote Precheck (No wallet required)</span>
+              </div>
+              <button type="button" id="manual-key-toggle" class="btn-link" aria-expanded="false">
+                Enter address manually
+              </button>
+            </div>
+            <div class="manual-key-input-box hidden" id="manual-key-box">
+              <label class="form-label" for="wallet-input">Solana Public Address for Exact RPC Simulation</label>
+              <input 
+                type="text" 
+                id="wallet-input" 
+                class="form-input font-mono" 
+                placeholder="e.g. 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+                spellcheck="false"
+              >
+              <p class="form-hint">Used exclusively for unsigned transaction assembly and simulated execution. Zero signature required.</p>
+            </div>
+          </div>
+
+          <!-- Primary Submit Button -->
+          <div class="form-actions">
+            <button type="submit" id="submit-btn" class="btn btn-primary btn-lg">
+              <span class="btn-text">CHECK TRADE</span>
+              <span class="btn-spinner hidden" aria-hidden="true"></span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Loading State -->
+      <section id="loading-state" class="state-card hidden" aria-live="polite">
+        <div class="loading-spinner"></div>
+        <h2 class="state-title">Analyzing Trade Route...</h2>
+        <p class="state-desc" id="loading-step-text">Checking live Jupiter Swap V2 route, Token-2022 multiplier, and independent equity benchmark.</p>
+      </section>
+
+      <!-- Error State -->
+      <section id="error-state" class="state-card error-card hidden" aria-live="assertive">
+        <div class="error-icon">⚠️</div>
+        <h2 class="state-title" id="error-title">Unable to Check Trade</h2>
+        <p class="state-desc" id="error-message">An error occurred while inspecting the trade.</p>
+        <button type="button" id="error-retry-btn" class="btn btn-secondary">Try Again</button>
+      </section>
+
+      <!-- Result State -->
+      <section id="result-state" class="result-container hidden" aria-live="polite">
+        <!-- Verdict Banner -->
+        <div class="verdict-banner" id="verdict-banner">
+          <div class="verdict-status-icon" id="verdict-icon">⚖️</div>
+          <div class="verdict-text-group">
+            <h2 class="verdict-title" id="verdict-title">Trade Evaluated</h2>
+            <p class="verdict-subtitle" id="verdict-subtitle">Economic difference measured against independent market benchmark.</p>
+          </div>
+        </div>
+
+        <!-- Big 3 Numbers Card -->
+        <div class="plain-money-card">
+          <div class="money-stat">
+            <span class="money-label">YOU ARE SPENDING</span>
+            <span class="money-value" id="res-spend-val">$500.00</span>
+            <span class="money-sub" id="res-spend-sub">500.00 USDC</span>
+          </div>
+
+          <div class="money-divider">➜</div>
+
+          <div class="money-stat">
+            <span class="money-label" id="res-exposure-label">EXPECTED APPLE EXPOSURE</span>
+            <span class="money-value" id="res-exposure-val">$498.23</span>
+            <span class="money-sub" id="res-exposure-sub">1.499484 AAPL @ $332.27</span>
+          </div>
+
+          <div class="money-divider">=</div>
+
+          <div class="money-stat highlight">
+            <span class="money-label">NET DIFFERENCE</span>
+            <span class="money-value" id="res-diff-val">-$1.77</span>
+            <span class="money-sub" id="res-diff-pct">-0.35% from benchmark</span>
+          </div>
+        </div>
+
+        <!-- Plain English Explanation -->
+        <div class="explanation-box">
+          <p class="explanation-text" id="res-explanation">
+            This route would spend $500.00 USDC to acquire approximately 1.499484 shares of Apple equity on Solana, delivering $498.23 of underlying exposure.
+          </p>
+        </div>
+
+        <!-- Exact Simulation Status (When Wallet Present) -->
+        <div class="simulation-banner hidden" id="simulation-banner">
+          <span class="sim-icon" id="sim-icon">⚡</span>
+          <div class="sim-content">
+            <strong id="sim-title">Exact Transaction Simulation: Passed</strong>
+            <span id="sim-desc">Simulated via Solana RPC with err: null (128,222 compute units). Zero funds moved.</span>
+          </div>
+        </div>
+
+        <!-- Safe Exit to Jupiter -->
+        <div class="jupiter-exit-card">
+          <a href="https://jup.ag" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" id="jupiter-exit-link">
+            <span>Open Pair in Jupiter</span>
+            <span class="external-icon">↗</span>
+          </a>
+          <span class="jupiter-disclaimer">Jupiter generates a fresh transaction upon opening. JustFair does not sign or approve new trades.</span>
+        </div>
+
+        <!-- Expandable Details Accordion -->
+        <details class="evidence-accordion" id="evidence-drawer">
+          <summary class="accordion-header">
+            <span>View Technical Proof &amp; Route Evidence</span>
+            <span class="accordion-arrow">▼</span>
+          </summary>
+          <div class="accordion-body">
+            <div class="evidence-grid">
+              <div class="evidence-item">
+                <span class="ev-label">Tokenized Stock Mint</span>
+                <span class="ev-val font-mono" id="ev-mint">XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp</span>
+              </div>
+              <div class="evidence-item">
+                <span class="ev-label">Token Program</span>
+                <span class="ev-val font-mono" id="ev-program">Token-2022 (Scaled UI Amount)</span>
+              </div>
+              <div class="evidence-item">
+                <span class="ev-label">Active Multiplier</span>
+                <span class="ev-val" id="ev-multiplier">1.003269 (1 token = 1.003269 shares)</span>
+              </div>
+              <div class="evidence-item">
+                <span class="ev-label">DEX Route Engine</span>
+                <span class="ev-val" id="ev-router">Jupiter Swap V2 (Router: metis, Mode: ultra)</span>
+              </div>
+              <div class="evidence-item">
+                <span class="ev-label">Routing Steps</span>
+                <span class="ev-val" id="ev-steps">Raydium CLMM ➜ Whirlpool</span>
+              </div>
+              <div class="evidence-item">
+                <span class="ev-label">Price Impact</span>
+                <span class="ev-val" id="ev-impact">-0.002%</span>
+              </div>
+              <div class="evidence-item">
+                <span class="ev-label">Benchmark Reference</span>
+                <span class="ev-val" id="ev-benchmark-source">Nasdaq Real-Time Stock Market Tape</span>
+              </div>
+              <div class="evidence-item">
+                <span class="ev-label">Market Session</span>
+                <span class="ev-val" id="ev-session">POST_MARKET (Current: CLOSED)</span>
+              </div>
+              <div class="evidence-item">
+                <span class="ev-label">Preflight Level</span>
+                <span class="ev-val" id="ev-preflight-level">QUOTE_CHECK</span>
+              </div>
+              <div class="evidence-item">
+                <span class="ev-label">RPC Simulation Result</span>
+                <span class="ev-val" id="ev-simulation">PASS (err: null)</span>
+              </div>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- Reusable API Section -->
+      <section class="api-showcase-section">
+        <div class="api-showcase-card">
+          <div class="api-header">
+            <span class="api-badge">Developer &amp; Wallet API</span>
+            <h3 class="api-title">Built for users. Embeddable by wallets.</h3>
+            <p class="api-desc">
+              Integrate the JustFair Equity Preflight Engine directly into wallets, frontends, or automated routing safety guards via our REST API.
+            </p>
+          </div>
+          <div class="api-example-box">
+            <div class="code-header">
+              <span class="code-method">POST</span>
+              <span class="code-path">/api/v1/preflight</span>
+            </div>
+            <pre class="code-block"><code>curl -X POST https://justfair.dev/api/v1/preflight \
+  -H "Content-Type: application/json" \
+  -d '{"inputAsset":"USDC","stock":"AAPLx","amount":500}'</code></pre>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <p class="footer-text">JustFair is an independent pre-trade safety inspection tool for tokenized equities on Solana. Non-custodial. Zero fund access.</p>
+        <p class="footer-meta">Stocklana Hackathon 2026. MIT Licensed.</p>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
+

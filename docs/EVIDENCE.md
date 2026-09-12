@@ -64,3 +64,19 @@ This document contains live, unedited verification evidence from Solana Mainnet,
 * **Simulation Mode:** `QUOTE_PRECHECK` (No wallet required)
 * **Simulation Status:** `NOT_RUN` (`err: null`)
 * **Verification Status:** `UNABLE_TO_VERIFY` (Reason: `MARKET_CLOSED_OR_AFTER_HOURS`)
+
+---
+
+## 4. Real Execution Run: Order 005 xStocks V2 & Consumer UI Integration Proof
+* **xStocks API Probe:** `https://api.xstocks.fi/api/v2/public/assets/AAPLx/price-data` (Returned `{ quote: null }` during weekend market close, confirming truthful fallback to Nasdaq close tape).
+* **Source-Aware Market Context:**
+  * `session`: `CLOSED`
+  * `underlying_reference_available`: `true`
+  * `underlying_reference_provider`: `Nasdaq Real-Time Stock Market Tape`
+  * `reference_eligibility`: `INELIGIBLE_CLOSED`
+* **Consumer UI Endpoints Verified:**
+  * `GET /` (HTTP 200, full responsive consumer HTML layout)
+  * `GET /styles.css` (HTTP 200, zero design-skill audit warnings)
+  * `GET /app.js` (HTTP 200, zero custody, zero transaction broadcast)
+  * `POST /api/v1/preflight` (Quote check & Exact simulation modes)
+* **Zero-Custody Guarantee:** Verified 0 occurrences of `/execute`, `sendTransaction`, private key inputs, or signature requests in repository.

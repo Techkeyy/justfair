@@ -1,7 +1,14 @@
-// JustFair Production REST API Server
+// JustFair Production REST API & Frontend Server
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { runPreflight } from "./preflight.js";
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, SERVER_CONFIG } from "./config.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PUBLIC_DIR = path.resolve(__dirname, "../public");
 
 // In-Memory IP Rate Limiter (window: 60s, limit: 60 req/min)
 const ipRequestMap = new Map();
@@ -167,6 +174,34 @@ export function createServer() {
         }
       });
       return;
+    }
+
+    // Static Asset Serving (Frontend Client)
+    if (req.method === "GET") {
+      let filePath = pathname === "/" ? "/index.html" : pathname;
+      const safePath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, "");
+      const fullPath = path.join(PUBLIC_DIR, safePath);
+
+      if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+        const ext = path.extname(fullPath).toLowerCase();
+        const contentTypes = {
+          ".html": "text/html; charset=utf-8",
+          ".css": "text/css; charset=utf-8",
+          ".js": "text/javascript; charset=utf-8",
+          ".json": "application/json; charset=utf-8",
+          ".svg": "image/svg+xml",
+          ".png": "image/png",
+          ".ico": "image/x-icon"
+        };
+        const contentType = contentTypes[ext] || "application/octet-stream";
+        const content = fs.readFileSync(fullPath);
+        res.writeHead(200, {
+          "Content-Type": contentType,
+          "Cache-Control": ext === ".html" ? "no-cache" : "public, max-age=3600"
+        });
+        res.end(content);
+        return;
+      }
     }
 
     // 404 Not Found
