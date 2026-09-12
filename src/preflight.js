@@ -55,14 +55,14 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
 
   // 3. Validate Amount
   const numAmount = parseFloat(amount);
-  if (isNaN(numAmount) || numAmount <= 0) {
+  if (isNaN(numAmount) || numAmount <= 0 || numAmount > 10000000) {
     return {
       request_status: "ERROR",
       verification_status: "UNABLE_TO_VERIFY",
       verdict: "UNABLE_TO_VERIFY",
       preflight_level: userPublicKey ? "EXACT_SIMULATION" : "QUOTE_CHECK",
       reason_codes: ["INVALID_AMOUNT"],
-      reason: `Invalid input amount: ${amount}`,
+      reason: isNaN(numAmount) || numAmount <= 0 ? `Invalid input amount: ${amount}` : `Amount exceeds maximum safety limit of 10,000,000`,
       execution_time_ms: Date.now() - startTime
     };
   }
@@ -100,9 +100,18 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
 
     const [onChainMultiplierData, stockBenchmark, inputBenchmark] = await Promise.all([
       fetchOnChainTokenMultiplier(stockAsset.mint),
-      fetchMarketReference(stockAsset.referenceSymbol, stockAsset.assetClass),
+      fetchMarketReference(stockAsset.symbol, stockAsset.assetClass),
       inputAsset.isStable
-        ? Promise.resolve({ price: 1.0, symbol: "USD", timestamp: new Date().toISOString(), age_ms: 0, reference_session: "24/7", current_market_session: "24/7", freshness_status: "FRESH" })
+        ? Promise.resolve({
+            price: 1.0,
+            symbol: "USD",
+            timestamp: new Date().toISOString(),
+            age_ms: 0,
+            reference_session: "24/7",
+            current_market_session: "24/7",
+            freshness_status: "FRESH",
+            is_eligible: true
+          })
         : fetchCryptoSpotPrice(inputAsset.cryptoPriceId)
     ]);
 
@@ -174,15 +183,20 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
       reasonCodes.push("CORPORATE_ACTION_WINDOW");
     }
 
-    if (stockBenchmark.freshness_status === "STALE") {
+    if (stockBenchmark.market_context?.reference_eligibility !== "ELIGIBLE") {
       verificationStatus = "UNABLE_TO_VERIFY";
-      reasonCodes.push("STALE_REFERENCE");
-    } else if (stockBenchmark.freshness_status === "AFTER_HOURS_CLOSE") {
+      if (stockBenchmark.freshness_status === "AFTER_HOURS_CLOSE") {
+        reasonCodes.push("MARKET_CLOSED_OR_AFTER_HOURS");
+      } else if (stockBenchmark.freshness_status === "STALE") {
+        reasonCodes.push("STALE_REFERENCE");
+      } else {
+        reasonCodes.push("REFERENCE_UNAVAILABLE");
+      }
+    }
+
+    if (!inputBenchmark.is_eligible || inputBenchmark.freshness_status !== "FRESH") {
       verificationStatus = "UNABLE_TO_VERIFY";
-      reasonCodes.push("MARKET_CLOSED_OR_AFTER_HOURS");
-    } else if (stockBenchmark.freshness_status === "UNKNOWN") {
-      verificationStatus = "UNABLE_TO_VERIFY";
-      reasonCodes.push("REFERENCE_UNAVAILABLE");
+      reasonCodes.push(inputBenchmark.freshness_status === "UNKNOWN" ? "UNKNOWN_INPUT_REFERENCE" : "STALE_INPUT_REFERENCE");
     }
 
     if (userPublicKey && !simulationPassed) {
@@ -226,7 +240,8 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
         reference_session: stockBenchmark.reference_session,
         current_market_session: stockBenchmark.current_market_session,
         freshness_status: stockBenchmark.freshness_status,
-        is_real_time: stockBenchmark.is_real_time
+        is_real_time: stockBenchmark.is_real_time,
+        market_context: stockBenchmark.market_context
       },
       economics: {
         raw_out_amount: orderData.outAmount,
@@ -263,12 +278,16 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
       execution_time_ms: Date.now() - startTime
     };
   } catch (err) {
+    const isTimeout = err.name === "TimeoutError" || err.message?.toLowerCase().includes("timeout") || err.name === "AbortError";
+    const isUpstreamUnavailable = err.message?.includes("failed") || err.message?.includes("fetch") || err.message?.includes("503") || err.message?.includes("502");
+    const reasonCode = isTimeout ? "UPSTREAM_TIMEOUT" : isUpstreamUnavailable ? "UPSTREAM_UNAVAILABLE" : "UPSTREAM_ERROR";
+
     return {
       request_status: "ERROR",
       verification_status: "UNABLE_TO_VERIFY",
       verdict: "UNABLE_TO_VERIFY",
       preflight_level: userPublicKey ? "EXACT_SIMULATION" : "QUOTE_CHECK",
-      reason_codes: ["UPSTREAM_ERROR"],
+      reason_codes: [reasonCode],
       reason: err.message,
       execution_time_ms: Date.now() - startTime
     };

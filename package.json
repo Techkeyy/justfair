@@ -22,6 +22,6 @@
   "author": "Techkeyy",
   "license": "MIT",
   "dependencies": {
-    "@solana/web3.js": "^1.98.0"
+    "@solana/kit": "^8.3.0"
   }
 }

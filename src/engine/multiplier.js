@@ -1,5 +1,5 @@
 // Token-2022 Dynamic Effective Multiplier Engine
-import { API_ENDPOINTS } from "../config.js";
+import { API_ENDPOINTS, TIMEOUTS } from "../config.js";
 
 /**
  * Calculate effective Token-2022 multiplier following Solana Scaled UI Amount semantics:
@@ -53,6 +53,7 @@ export async function fetchOnChainTokenMultiplier(mintAddress, currentUnixSec = 
   const res = await fetch(API_ENDPOINTS.SOLANA_RPC, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(TIMEOUTS.UPSTREAM_FETCH_MS),
     body: JSON.stringify({
       jsonrpc: "2.0",
       id: "multiplier-check",

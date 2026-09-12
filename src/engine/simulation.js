@@ -1,18 +1,13 @@
-// Solana RPC Simulation & Key Validation Engine
-import { PublicKey } from "@solana/web3.js";
-import { API_ENDPOINTS } from "../config.js";
+// Solana RPC Simulation & Key Validation Engine (Current @solana/kit)
+import { isAddress } from "@solana/kit";
+import { API_ENDPOINTS, TIMEOUTS } from "../config.js";
 
 /**
- * Validate a Solana public key using @solana/web3.js PublicKey parser
+ * Validate a Solana public key / address using current @solana/kit validator
  */
 export function isValidSolanaPublicKey(pubkey) {
   if (!pubkey || typeof pubkey !== "string") return false;
-  try {
-    const pk = new PublicKey(pubkey.trim());
-    return PublicKey.isOnCurve(pk.toBuffer());
-  } catch (e) {
-    return false;
-  }
+  return isAddress(pubkey.trim());
 }
 
 /**
@@ -22,6 +17,7 @@ export async function simulateSolanaTransaction(swapTransactionBase64) {
   const res = await fetch(API_ENDPOINTS.SOLANA_RPC, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(TIMEOUTS.SIMULATION_FETCH_MS),
     body: JSON.stringify({
       jsonrpc: "2.0",
       id: "justfair-sim-v2",

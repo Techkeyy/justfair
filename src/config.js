@@ -68,12 +68,24 @@ export const API_ENDPOINTS = {
   // Official Jupiter Swap V2 Order API
   JUPITER_ORDER_V2: "https://api.jup.ag/swap/v2/order",
   SOLANA_RPC: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+  // Official xStocks Asset & Price-Data Endpoint
+  XSTOCKS_PRICE_DATA_BASE: "https://api.xstocks.fi/api/v2/public/assets",
   // Official Stock Reference Sources
   NASDAQ_QUOTE_BASE: "https://api.nasdaq.com/api/quote",
   COINGECKO_SIMPLE_PRICE: "https://api.coingecko.com/api/v3/simple/price"
 };
 
+export const TIMEOUTS = {
+  UPSTREAM_FETCH_MS: 7000,
+  SIMULATION_FETCH_MS: 8000,
+  API_REQUEST_MS: 15000
+};
+
 export const SERVER_CONFIG = {
   PORT: process.env.PORT || 3001,
-  HOST: "0.0.0.0"
+  HOST: "0.0.0.0",
+  RATE_LIMIT_WINDOW_MS: 60000,
+  RATE_LIMIT_MAX_REQUESTS: 60,
+  MAX_PAYLOAD_BYTES: 1048576, // 1MB
+  MAX_TRADE_AMOUNT: 10000000 // 10 Million max sanity limit
 };

@@ -3,6 +3,38 @@ import http from "node:http";
 import { runPreflight } from "./preflight.js";
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, SERVER_CONFIG } from "./config.js";
 
+// In-Memory IP Rate Limiter (window: 60s, limit: 60 req/min)
+const ipRequestMap = new Map();
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const windowMs = SERVER_CONFIG.RATE_LIMIT_WINDOW_MS || 60000;
+  const maxReq = SERVER_CONFIG.RATE_LIMIT_MAX_REQUESTS || 60;
+
+  const record = ipRequestMap.get(ip);
+  if (!record || now - record.windowStart > windowMs) {
+    ipRequestMap.set(ip, { windowStart: now, count: 1 });
+    return true;
+  }
+
+  if (record.count >= maxReq) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
+
+// Periodic cleanup of stale rate limit entries
+setInterval(() => {
+  const now = Date.now();
+  const windowMs = SERVER_CONFIG.RATE_LIMIT_WINDOW_MS || 60000;
+  for (const [ip, record] of ipRequestMap.entries()) {
+    if (now - record.windowStart > windowMs) {
+      ipRequestMap.delete(ip);
+    }
+  }
+}, 120000).unref?.();
+
 function sendJson(res, statusCode, data) {
   const json = JSON.stringify(data);
   res.writeHead(statusCode, {
@@ -25,6 +57,19 @@ export function createServer() {
       });
       res.end();
       return;
+    }
+
+    const clientIp = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "127.0.0.1";
+
+    // Enforce rate limiting
+    if (!checkRateLimit(clientIp)) {
+      return sendJson(res, 429, {
+        request_status: "ERROR",
+        verification_status: "UNABLE_TO_VERIFY",
+        verdict: "UNABLE_TO_VERIFY",
+        reason_codes: ["RATE_LIMITED"],
+        reason: "Too many requests. Please slow down and try again shortly."
+      });
     }
 
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
@@ -64,14 +109,27 @@ export function createServer() {
     // 3. Primary Preflight Endpoint: POST /api/v1/preflight
     if (req.method === "POST" && pathname === "/api/v1/preflight") {
       let body = "";
+      let exceeded = false;
+      const maxBytes = SERVER_CONFIG.MAX_PAYLOAD_BYTES || 1048576;
+
       req.on("data", chunk => {
         body += chunk;
-        if (body.length > 1048576) { // 1MB payload limit
+        if (body.length > maxBytes) {
+          exceeded = true;
           req.destroy();
         }
       });
 
       req.on("end", async () => {
+        if (exceeded) {
+          return sendJson(res, 413, {
+            request_status: "ERROR",
+            verification_status: "UNABLE_TO_VERIFY",
+            reason_codes: ["PAYLOAD_TOO_LARGE"],
+            reason: "Request body exceeded 1MB limit"
+          });
+        }
+
         try {
           const payload = body ? JSON.parse(body) : {};
           const inputSymbol = payload.inputAsset || payload.inputSymbol || "USDC";
@@ -83,6 +141,7 @@ export function createServer() {
             return sendJson(res, 400, {
               request_status: "ERROR",
               verification_status: "UNABLE_TO_VERIFY",
+              verdict: "UNABLE_TO_VERIFY",
               reason_codes: ["MISSING_AMOUNT"],
               reason: "Amount parameter is required"
             });
@@ -101,6 +160,7 @@ export function createServer() {
           return sendJson(res, 400, {
             request_status: "ERROR",
             verification_status: "UNABLE_TO_VERIFY",
+            verdict: "UNABLE_TO_VERIFY",
             reason_codes: ["INVALID_JSON_BODY"],
             reason: `Malformed JSON request body: ${parseErr.message}`
           });
@@ -112,6 +172,7 @@ export function createServer() {
     // 404 Not Found
     return sendJson(res, 404, {
       request_status: "ERROR",
+      verification_status: "UNABLE_TO_VERIFY",
       reason_codes: ["NOT_FOUND"],
       reason: `Route not found: ${req.method} ${pathname}`
     });

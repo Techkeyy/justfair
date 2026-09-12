@@ -1,5 +1,5 @@
 // Jupiter Swap V2 Order & Routing Integration
-import { API_ENDPOINTS } from "../config.js";
+import { API_ENDPOINTS, TIMEOUTS } from "../config.js";
 
 /**
  * Resilient fetch with exponential backoff on HTTP 429 rate limits
@@ -37,7 +37,7 @@ export async function fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountH
   }
 
   const quoteStartTime = Date.now();
-  const res = await fetchWithRetry(url, { headers });
+  const res = await fetchWithRetry(url, { headers, signal: AbortSignal.timeout(TIMEOUTS.UPSTREAM_FETCH_MS) });
   const latencyMs = Date.now() - quoteStartTime;
 
   if (!res.ok) {

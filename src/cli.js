@@ -23,17 +23,18 @@ async function main() {
 
     console.log("\n2. Testing Live Preflight Engine (Jupiter Swap V2 Quote Precheck)...");
     const sample = await runPreflight({ inputSymbol: "USDC", stockSymbol: "AAPLx", amount: 100 });
-    console.log("  Result Status:", sample.status);
+    const isOk = sample.request_status === "SUCCESS" && mult.current_multiplier > 0;
+    console.log("  Result Status:", sample.request_status);
     console.log("  Verification Status:", sample.verification_status);
-    console.log("  Reason Code:", sample.reason_code);
+    console.log("  Reason Codes:", sample.reason_codes?.join(", "));
     console.log("  Router:", sample.dex_route?.router);
     console.log("  Reference Session:", sample.benchmark?.reference_session);
     console.log("  Current Market Session:", sample.benchmark?.current_market_session);
     console.log("  Benchmark Freshness:", sample.benchmark?.freshness_status);
     
-    const isOk = sample.status === "SUCCESS" && mult.current_multiplier > 0;
     console.log("\nOverall Doctor Result:", isOk ? "PASS ✅" : "FAIL ❌");
-    process.exit(isOk ? 0 : 1);
+    process.exitCode = isOk ? 0 : 1;
+    return;
   }
 
   // Parse check arguments
@@ -55,12 +56,12 @@ async function main() {
   console.log(JSON.stringify(result, null, 2));
   console.log("===========================================================\n");
   
-  if (result.status === "SUCCESS") {
-    console.log(`Verification Status: [ ${result.verification_status} ] (Reason: ${result.reason_code})`);
-    console.log(`Spend: $${result.input_usd_value} ${result.input_asset}`);
-    console.log(`Expected Exposure: $${result.expected_stock_exposure_usd} (${result.expected_stock_shares} ${result.stock} @ $${result.benchmark.price})`);
-    console.log(`Difference: ${result.difference_usd >= 0 ? "+" : ""}$${result.difference_usd} (${result.difference_pct >= 0 ? "+" : ""}${result.difference_pct}%)`);
-    console.log(`Multiplier: ${result.multiplier.current_multiplier} (${result.multiplier.current_multiplier_reason})`);
+  if (result.request_status === "SUCCESS") {
+    console.log(`Verification Status: [ ${result.verification_status} ] (Reasons: ${result.reason_codes?.join(", ")})`);
+    console.log(`Spend: $${result.trade.input_usd_value} ${result.trade.input_asset}`);
+    console.log(`Expected Exposure: $${result.economics.expected_stock_exposure_usd} (${result.economics.expected_stock_shares} ${result.trade.stock_symbol} @ $${result.benchmark.price})`);
+    console.log(`Difference: ${result.economics.difference_usd >= 0 ? "+" : ""}$${result.economics.difference_usd} (${result.economics.difference_pct >= 0 ? "+" : ""}${result.economics.difference_pct}%)`);
+    console.log(`Multiplier: ${result.economics.multiplier.current_multiplier} (${result.economics.multiplier.current_multiplier_reason})`);
     console.log(`Market Sessions: Ref=${result.benchmark.reference_session} | Current=${result.benchmark.current_market_session}`);
     console.log(`Simulation: Mode=${result.simulation.mode} -> Status=${result.simulation.status}`);
   } else {
