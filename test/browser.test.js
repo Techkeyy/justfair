@@ -424,6 +424,69 @@ async function runBrowserTests() {
       await mobileContext.close();
     });
 
+    // 12. Jupiter Deep-Link Handoff Regression Matrix (Order 009.4)
+    await test("12. Live Jupiter CTA deep-link href correctly maps buy/sell query parameters without state leakage", async () => {
+      await page.goto(`${BASE_URL}/#app`, { waitUntil: "networkidle" });
+      await page.waitForTimeout(400);
+
+      // 1. Check AAPLx with USDC
+      const aaplCard = await page.$("#stock-card-AAPLx");
+      
+      // Select USDC tab
+      await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+      await page.click("#stock-card-AAPLx .submit-trade-btn");
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 15000 });
+
+      let jupLink = await aaplCard.$eval(".jupiter-exit-link", a => a.href);
+      let linkText = await aaplCard.$eval(".jupiter-exit-link", a => a.textContent.trim());
+      let disclaimer = await aaplCard.$eval(".jupiter-disclaimer", s => s.textContent.trim());
+
+      if (!jupLink.includes("buy=XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp") || !jupLink.includes("sell=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")) {
+        throw new Error(`USDC -> AAPLx Jupiter link incorrect: ${jupLink}`);
+      }
+      if (!linkText.includes("GET A FRESH JUPITER QUOTE")) {
+        throw new Error(`Jupiter CTA text mismatch: ${linkText}`);
+      }
+      if (!disclaimer.includes("Jupiter will generate a fresh quote when opened")) {
+        throw new Error(`Jupiter disclaimer mismatch: ${disclaimer}`);
+      }
+
+      // 2. Switch to SOL on AAPLx
+      await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
+      await page.click("#stock-card-AAPLx .submit-trade-btn");
+      await page.waitForTimeout(2500);
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 15000 });
+
+      jupLink = await aaplCard.$eval(".jupiter-exit-link", a => a.href);
+      if (!jupLink.includes("buy=XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp") || !jupLink.includes("sell=So11111111111111111111111111111111111111112")) {
+        throw new Error(`SOL -> AAPLx Jupiter link incorrect: ${jupLink}`);
+      }
+
+      // 3. Switch to NVDAx with SOL
+      await page.click("#stock-card-NVDAx .stock-card-header");
+      await page.waitForTimeout(400);
+      const nvdaCard = await page.$("#stock-card-NVDAx");
+      await page.click("#stock-card-NVDAx .payment-tab[data-asset='SOL']");
+      await page.click("#stock-card-NVDAx .submit-trade-btn");
+      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 15000 });
+
+      jupLink = await nvdaCard.$eval(".jupiter-exit-link", a => a.href);
+      if (!jupLink.includes("buy=Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh") || !jupLink.includes("sell=So11111111111111111111111111111111111111112")) {
+        throw new Error(`SOL -> NVDAx Jupiter link incorrect: ${jupLink}`);
+      }
+
+      // 4. Switch to USDC on NVDAx
+      await page.click("#stock-card-NVDAx .payment-tab[data-asset='USDC']");
+      await page.click("#stock-card-NVDAx .submit-trade-btn");
+      await page.waitForTimeout(2500);
+      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 15000 });
+
+      jupLink = await nvdaCard.$eval(".jupiter-exit-link", a => a.href);
+      if (!jupLink.includes("buy=Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh") || !jupLink.includes("sell=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")) {
+        throw new Error(`USDC -> NVDAx Jupiter link incorrect: ${jupLink}`);
+      }
+    });
+
   } finally {
     try { await page.close(); } catch {}
     try { await context.close(); } catch {}

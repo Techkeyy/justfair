@@ -576,18 +576,24 @@ function renderCardBodyMarkup(symbol) {
           <div class="better-option-detail hidden">
             <div class="better-option-grid">
               <div class="route-box canonical-box">
-                <span class="route-box-title">CURRENT ROUTE</span>
+                <span class="route-box-title">CURRENT JUPITER ROUTE</span>
                 <span class="route-box-value canonical-exposure-val">$0.00</span>
+                <span class="route-box-diff canonical-diff-val">Reference difference: -$0.00</span>
                 <span class="route-box-sub canonical-route-venues">Jupiter DEX Route</span>
               </div>
               <div class="route-box-arrow">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
               </div>
               <div class="route-box alternative-box">
-                <span class="route-box-title">BETTER OPTION</span>
+                <span class="route-box-title">BETTER OBSERVED OPTION</span>
                 <span class="route-box-value alternative-exposure-val">$0.00</span>
+                <span class="route-box-diff alternative-diff-val">Reference difference: -$0.00</span>
                 <span class="route-box-sub alternative-route-venues">Alternative Route</span>
               </div>
+            </div>
+            <div class="better-option-improvement-badge">
+              <span class="improvement-label">IMPROVEMENT:</span>
+              <span class="improvement-value alternative-improvement-val">+$0.00 (+0.00%)</span>
             </div>
             <p class="better-option-note">JustFair provides non-custodial pre-trade intelligence. Choose direct routing or the specific venue in your wallet if desired.</p>
           </div>
@@ -607,11 +613,11 @@ function renderCardBodyMarkup(symbol) {
 
       <!-- Safe Exit to Jupiter -->
       <div class="jupiter-exit-card">
-        <a href="https://jup.ag" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm jupiter-exit-link">
-          <span>Open Pair in Jupiter</span>
+        <a href="https://jup.ag/swap?buy=${stock.mint}&sell=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm jupiter-exit-link">
+          <span>GET A FRESH JUPITER QUOTE</span>
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
         </a>
-        <span class="jupiter-disclaimer">Jupiter generates a fresh transaction upon opening. JustFair does not sign or approve trades.</span>
+        <span class="jupiter-disclaimer">Jupiter will generate a fresh quote when opened. It may differ from the route JustFair inspected.</span>
       </div>
 
       <!-- Technical Evidence Drawer -->
@@ -1131,20 +1137,43 @@ function renderCardResult(card, data, symbol) {
   const betterOptionSummaryText = resultContainer.querySelector(".better-option-summary-text");
   const betterOptionDetail = resultContainer.querySelector(".better-option-detail");
   const canonicalExposureVal = resultContainer.querySelector(".canonical-exposure-val");
+  const canonicalDiffVal = resultContainer.querySelector(".canonical-diff-val");
   const canonicalRouteVenues = resultContainer.querySelector(".canonical-route-venues");
   const alternativeExposureVal = resultContainer.querySelector(".alternative-exposure-val");
+  const alternativeDiffVal = resultContainer.querySelector(".alternative-diff-val");
   const alternativeRouteVenues = resultContainer.querySelector(".alternative-route-venues");
+  const alternativeImprovementVal = resultContainer.querySelector(".alternative-improvement-val");
   const altRoutes = data.alternative_routes;
 
   if (betterOptionCard) {
     if (altRoutes && altRoutes.status === "ALTERNATIVE_FOUND" && altRoutes.best_alternative) {
       betterOptionCard.className = "better-option-card is-alternative-found";
-      if (betterOptionBadgeText) betterOptionBadgeText.textContent = "BETTER ROUTE FOUND";
+      if (betterOptionBadgeText) betterOptionBadgeText.textContent = "BETTER OBSERVED OPTION";
       if (betterOptionSummaryText) betterOptionSummaryText.textContent = altRoutes.summary;
-      if (canonicalExposureVal) canonicalExposureVal.textContent = `$${altRoutes.canonical_route?.expected_stock_exposure_usd?.toFixed(2) || econ.expected_stock_exposure_usd.toFixed(2)}`;
-      if (canonicalRouteVenues) canonicalRouteVenues.textContent = altRoutes.canonical_route?.venues?.join(" + ") || "Current Jupiter Route";
-      if (alternativeExposureVal) alternativeExposureVal.textContent = `$${altRoutes.best_alternative.expected_stock_exposure_usd.toFixed(2)} (+${altRoutes.best_alternative.improvement_pct.toFixed(2)}%)`;
-      if (alternativeRouteVenues) alternativeRouteVenues.textContent = altRoutes.best_alternative.label;
+
+      const cExp = altRoutes.canonical_route?.expected_stock_exposure_usd ?? econ.expected_stock_exposure_usd;
+      const cDiff = altRoutes.canonical_route?.reference_difference_usd ?? econ.difference_usd;
+      const aExp = altRoutes.best_alternative.expected_stock_exposure_usd;
+      const aDiff = altRoutes.best_alternative.reference_difference_usd ?? (aExp - trade.input_usd_value);
+      const diffPrefixC = cDiff >= 0 ? "+" : "-";
+      const diffPrefixA = aDiff >= 0 ? "+" : "-";
+
+      if (canonicalExposureVal) canonicalExposureVal.textContent = `$${cExp.toFixed(2)} exposure`;
+      if (canonicalDiffVal) canonicalDiffVal.textContent = `Reference difference: ${diffPrefixC}$${Math.abs(cDiff).toFixed(2)}`;
+      if (canonicalRouteVenues) canonicalRouteVenues.textContent = `Jupiter DEX Route (${altRoutes.canonical_route?.venues?.join(" + ") || "Standard"})`;
+
+      if (alternativeExposureVal) alternativeExposureVal.textContent = `$${aExp.toFixed(2)} exposure`;
+      if (alternativeDiffVal) alternativeDiffVal.textContent = `Reference difference: ${diffPrefixA}$${Math.abs(aDiff).toFixed(2)}`;
+      if (alternativeRouteVenues) alternativeRouteVenues.textContent = `Via ${altRoutes.best_alternative.label}`;
+
+      if (alternativeImprovementVal) {
+        if (isClosed) {
+          alternativeImprovementVal.textContent = `+${altRoutes.best_alternative.improvement_pct.toFixed(2)}% token output`;
+        } else {
+          alternativeImprovementVal.textContent = `+$${altRoutes.best_alternative.improvement_usd.toFixed(2)} (+${altRoutes.best_alternative.improvement_pct.toFixed(2)}%)`;
+        }
+      }
+
       if (betterOptionDetail) betterOptionDetail.classList.remove("hidden");
     } else {
       betterOptionCard.className = "better-option-card is-optimal";
@@ -1178,8 +1207,11 @@ function renderCardResult(card, data, symbol) {
   // 8. Jupiter Exit Link
   const jupiterExitLink = resultContainer.querySelector(".jupiter-exit-link");
   if (jupiterExitLink) {
-    const inputMint = trade.input_asset === "SOL" ? "So11111111111111111111111111111111111111112" : "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-    jupiterExitLink.href = `https://jup.ag/swap/${inputMint}-${trade.token_mint}`;
+    const inputMint = trade.input_mint || (trade.input_asset === "SOL"
+      ? "So11111111111111111111111111111111111111112"
+      : "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+    const outputMint = trade.token_mint;
+    jupiterExitLink.href = `https://jup.ag/swap?buy=${encodeURIComponent(outputMint)}&sell=${encodeURIComponent(inputMint)}`;
   }
 
   // 9. Technical Evidence Accordion

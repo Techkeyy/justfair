@@ -12,7 +12,7 @@ import {
   THRESHOLD_CALIBRATION_STATUS
 } from "../src/preflight.js";
 import { parseXStocksPriceData, fetchCryptoSpotPrice } from "../src/engine/benchmark.js";
-import { SUPPORTED_STOCKS, API_ENDPOINTS } from "../src/config.js";
+import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, API_ENDPOINTS } from "../src/config.js";
 import { createServer } from "../src/server.js";
 
 async function runTests() {
@@ -614,6 +614,50 @@ async function runTests() {
       }
     } finally {
       await new Promise(resolve => server.close(resolve));
+    }
+  });
+
+  // --- 16. JUPITER URL HANDOFF REGRESSION MATRIX ---
+  await test("Jupiter deep-link builder generates valid buy/sell query parameters for all token pairs", async () => {
+    const buildJupiterUrl = (inputMint, stockMint) => {
+      return `https://jup.ag/swap?buy=${encodeURIComponent(stockMint)}&sell=${encodeURIComponent(inputMint)}`;
+    };
+
+    const parseJupiterUrl = (urlStr) => {
+      const parsed = new URL(urlStr);
+      return {
+        origin: parsed.origin,
+        pathname: parsed.pathname,
+        buy: parsed.searchParams.get("buy"),
+        sell: parsed.searchParams.get("sell")
+      };
+    };
+
+    const pairs = [
+      { input: "USDC", stock: "AAPLx", inMint: SUPPORTED_PAYMENTS.USDC.mint, outMint: SUPPORTED_STOCKS.AAPLx.mint },
+      { input: "SOL", stock: "AAPLx", inMint: SUPPORTED_PAYMENTS.SOL.mint, outMint: SUPPORTED_STOCKS.AAPLx.mint },
+      { input: "USDC", stock: "NVDAx", inMint: SUPPORTED_PAYMENTS.USDC.mint, outMint: SUPPORTED_STOCKS.NVDAx.mint },
+      { input: "SOL", stock: "NVDAx", inMint: SUPPORTED_PAYMENTS.SOL.mint, outMint: SUPPORTED_STOCKS.NVDAx.mint },
+      { input: "USDC", stock: "SPYx", inMint: SUPPORTED_PAYMENTS.USDC.mint, outMint: SUPPORTED_STOCKS.SPYx.mint },
+      { input: "SOL", stock: "SPYx", inMint: SUPPORTED_PAYMENTS.SOL.mint, outMint: SUPPORTED_STOCKS.SPYx.mint }
+    ];
+
+    for (const pair of pairs) {
+      const url = buildJupiterUrl(pair.inMint, pair.outMint);
+      const parsed = parseJupiterUrl(url);
+
+      if (parsed.pathname !== "/swap") {
+        throw new Error(`Invalid pathname for ${pair.input} -> ${pair.stock}: ${parsed.pathname}`);
+      }
+      if (parsed.sell !== pair.inMint) {
+        throw new Error(`Sell mint mismatch for ${pair.input} -> ${pair.stock}: expected ${pair.inMint}, got ${parsed.sell}`);
+      }
+      if (parsed.buy !== pair.outMint) {
+        throw new Error(`Buy mint mismatch for ${pair.input} -> ${pair.stock}: expected ${pair.outMint}, got ${parsed.buy}`);
+      }
+      if (url.includes(`/swap/${pair.inMint}-${pair.outMint}`)) {
+        throw new Error(`Found legacy path format in URL: ${url}`);
+      }
     }
   });
 

@@ -47,6 +47,7 @@ function evaluateAlternativeRoutes({
     raw_out_amount: canonicalOrderData?.outAmount || "0",
     expected_stock_shares: parseFloat(canonicalShares.toFixed(6)),
     expected_stock_exposure_usd: parseFloat(canonicalExposureUsd.toFixed(2)),
+    reference_difference_usd: parseFloat((canonicalExposureUsd - inputUsdValue).toFixed(2)),
     price_impact_pct: canonicalOrderData?.priceImpactPct || "0",
     steps: canonicalOrderData?.routePlan?.map(r => r.swapInfo?.label || "DEX") || []
   };
@@ -99,6 +100,7 @@ function evaluateAlternativeRoutes({
       raw_out_amount: cOrder.outAmount,
       expected_stock_shares: parseFloat(cShares.toFixed(6)),
       expected_stock_exposure_usd: parseFloat(cExposureUsd.toFixed(2)),
+      reference_difference_usd: parseFloat((cExposureUsd - inputUsdValue).toFixed(2)),
       improvement_usd: parseFloat(deltaExposureUsd.toFixed(2)),
       improvement_pct: parseFloat(deltaExposurePct.toFixed(2)),
       price_impact_pct: cOrder.priceImpactPct || "0",
@@ -365,6 +367,7 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
         input_asset: inputAsset.symbol,
         input_amount: numAmount,
         input_usd_value: parseFloat(inputUsdValue.toFixed(2)),
+        input_mint: inputAsset.mint,
         stock_symbol: stockAsset.symbol,
         canonical_stock: stockAsset.canonicalSymbol,
         token_mint: stockAsset.mint,
