@@ -2,7 +2,7 @@
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, API_ENDPOINTS } from "./config.js";
 import { fetchOnChainTokenMultiplier, calculateEffectiveMultiplier } from "./engine/multiplier.js";
 import { fetchMarketReference, fetchCryptoSpotPrice, calculateMarketSession } from "./engine/benchmark.js";
-import { fetchJupiterOrderV2 } from "./engine/jupiter.js";
+import { fetchJupiterOrderV2, fetchJupiterAlternativeCandidates, extractVenuesFromRoutePlan } from "./engine/jupiter.js";
 import { simulateSolanaTransaction, isValidSolanaPublicKey } from "./engine/simulation.js";
 import { determineVerdict, THRESHOLD_CALIBRATION_STATUS } from "./engine/verdict.js";
 
@@ -13,11 +13,135 @@ export {
   fetchCryptoSpotPrice,
   calculateMarketSession,
   fetchJupiterOrderV2,
+  fetchJupiterAlternativeCandidates,
+  extractVenuesFromRoutePlan,
+  evaluateAlternativeRoutes,
   simulateSolanaTransaction,
   isValidSolanaPublicKey,
   determineVerdict,
   THRESHOLD_CALIBRATION_STATUS
 };
+
+/**
+ * Compare canonical route against discovered alternative candidates
+ */
+function evaluateAlternativeRoutes({
+  canonicalOrderData,
+  alternativeCandidates,
+  inputUsdValue,
+  multiplierData,
+  stockBenchmark
+}) {
+  const canonicalVenues = extractVenuesFromRoutePlan(canonicalOrderData?.routePlan || []);
+  const canonicalRawOut = parseInt(canonicalOrderData?.outAmount || "0", 10);
+  const canonicalTokens = canonicalRawOut / Math.pow(10, multiplierData.decimals);
+  const canonicalShares = canonicalTokens * multiplierData.current_multiplier;
+  const canonicalExposureUsd = canonicalShares * stockBenchmark.price;
+
+  const canonicalRouteInfo = {
+    label: "Current Jupiter Route",
+    router: canonicalOrderData?.router || "jupiterz",
+    mode: canonicalOrderData?.mode || "ultra",
+    venues: canonicalVenues,
+    raw_out_amount: canonicalOrderData?.outAmount || "0",
+    expected_stock_shares: parseFloat(canonicalShares.toFixed(6)),
+    expected_stock_exposure_usd: parseFloat(canonicalExposureUsd.toFixed(2)),
+    price_impact_pct: canonicalOrderData?.priceImpactPct || "0",
+    steps: canonicalOrderData?.routePlan?.map(r => r.swapInfo?.label || "DEX") || []
+  };
+
+  const isClosed = stockBenchmark.market_context?.reference_eligibility !== "ELIGIBLE";
+
+  if (!alternativeCandidates || alternativeCandidates.length === 0) {
+    return {
+      status: "NO_BETTER_ALTERNATIVE_OBSERVED",
+      summary: "Jupiter's current route is already the strongest executable option JustFair observed across direct and multi-hop DEX pools.",
+      canonical_route: canonicalRouteInfo,
+      best_alternative: null,
+      improvement_usd: 0,
+      improvement_pct: 0,
+      candidates_evaluated_count: 0,
+      candidates: [],
+      market_session_note: isClosed ? "Traditional equity market is closed. Route comparison evaluates real token output against previous close reference." : null
+    };
+  }
+
+  let bestAlt = null;
+  let bestDeltaExposureUsd = 0;
+  let bestDeltaExposurePct = 0;
+  let bestDeltaTokens = 0;
+  let bestDeltaTokensPct = 0;
+
+  const evaluatedCandidates = [];
+
+  for (const cand of alternativeCandidates) {
+    const cOrder = cand.result?.orderData;
+    if (!cOrder || !cOrder.outAmount) continue;
+
+    const cVenues = extractVenuesFromRoutePlan(cOrder.routePlan || []);
+    const cRawOut = parseInt(cOrder.outAmount, 10);
+    const cTokens = cRawOut / Math.pow(10, multiplierData.decimals);
+    const cShares = cTokens * multiplierData.current_multiplier;
+    const cExposureUsd = cShares * stockBenchmark.price;
+
+    const deltaExposureUsd = cExposureUsd - canonicalExposureUsd;
+    const deltaExposurePct = inputUsdValue > 0 ? (deltaExposureUsd / inputUsdValue) * 100 : 0;
+    const deltaTokens = cShares - canonicalShares;
+    const deltaTokensPct = canonicalShares > 0 ? (deltaTokens / canonicalShares) * 100 : 0;
+
+    const candidateSummary = {
+      type: cand.candidate_type,
+      label: cand.candidate_label,
+      is_direct: cand.is_direct,
+      excluded_venues: cand.excluded_venues || [],
+      venues: cVenues,
+      raw_out_amount: cOrder.outAmount,
+      expected_stock_shares: parseFloat(cShares.toFixed(6)),
+      expected_stock_exposure_usd: parseFloat(cExposureUsd.toFixed(2)),
+      improvement_usd: parseFloat(deltaExposureUsd.toFixed(2)),
+      improvement_pct: parseFloat(deltaExposurePct.toFixed(2)),
+      price_impact_pct: cOrder.priceImpactPct || "0",
+      steps: cOrder.routePlan?.map(r => r.swapInfo?.label || "DEX") || []
+    };
+
+    evaluatedCandidates.push(candidateSummary);
+
+    // Check if this candidate is better than canonical by at least 0.05% or $0.05
+    if (deltaTokensPct > 0.05 && deltaExposureUsd > bestDeltaExposureUsd) {
+      bestAlt = candidateSummary;
+      bestDeltaExposureUsd = deltaExposureUsd;
+      bestDeltaExposurePct = deltaExposurePct;
+      bestDeltaTokens = deltaTokens;
+      bestDeltaTokensPct = deltaTokensPct;
+    }
+  }
+
+  if (bestAlt) {
+    return {
+      status: "ALTERNATIVE_FOUND",
+      summary: `Observed an alternative route delivering +$${bestAlt.improvement_usd.toFixed(2)} (+${bestAlt.improvement_pct.toFixed(2)}%) more value via ${bestAlt.label}.`,
+      canonical_route: canonicalRouteInfo,
+      best_alternative: bestAlt,
+      improvement_usd: parseFloat(bestDeltaExposureUsd.toFixed(2)),
+      improvement_pct: parseFloat(bestDeltaExposurePct.toFixed(2)),
+      candidates_evaluated_count: evaluatedCandidates.length,
+      candidates: evaluatedCandidates,
+      market_session_note: isClosed ? "Traditional equity market is closed. Route comparison evaluates real token output against previous close reference." : null
+    };
+  }
+
+  return {
+    status: "NO_BETTER_ALTERNATIVE_OBSERVED",
+    summary: "Jupiter's current route is already the strongest executable option JustFair observed across direct and multi-hop DEX pools.",
+    canonical_route: canonicalRouteInfo,
+    best_alternative: null,
+    improvement_usd: 0,
+    improvement_pct: 0,
+    candidates_evaluated_count: evaluatedCandidates.length,
+    candidates: evaluatedCandidates,
+    market_session_note: isClosed ? "Traditional equity market is closed. Route comparison evaluates real token output against previous close reference." : null
+  };
+}
 
 /**
  * Execute Unified Equity Preflight Analysis
@@ -129,7 +253,23 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
     const diffUsd = expectedStockExposureUsd - inputUsdValue;
     const diffPct = (diffUsd / inputUsdValue) * 100;
 
-    // 7. Handle Simulation
+    // 7. Alternative Routing & Better Option Discovery
+    let alternativeCandidates = [];
+    try {
+      alternativeCandidates = await fetchJupiterAlternativeCandidates(inputAsset, stockAsset, numAmount, null, v2Result);
+    } catch {
+      alternativeCandidates = [];
+    }
+
+    const alternativeRoutesResult = evaluateAlternativeRoutes({
+      canonicalOrderData: orderData,
+      alternativeCandidates,
+      inputUsdValue,
+      multiplierData: onChainMultiplierData,
+      stockBenchmark
+    });
+
+    // 8. Handle Simulation
     let simulationResult = {
       mode: userPublicKey ? "EXACT_SIMULATION" : "QUOTE_CHECK",
       status: "NOT_RUN",
@@ -174,7 +314,7 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
       }
     }
 
-    // 8. Strict Verification Prerequisites Evaluation
+    // 9. Strict Verification Prerequisites Evaluation
     const reasonCodes = [];
     let verificationStatus = "VERIFIED";
 
@@ -274,6 +414,7 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
         quote_fetch_latency_ms: v2Result.fetch_latency_ms,
         steps: orderData.routePlan?.map(r => r.swapInfo?.label || "DEX") || []
       },
+      alternative_routes: alternativeRoutesResult,
       simulation: simulationResult,
       execution_time_ms: Date.now() - startTime
     };

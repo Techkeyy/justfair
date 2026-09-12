@@ -187,15 +187,15 @@ export async function fetchMarketReference(symbol, assetClass = "stocks") {
   let provider = chosenQuote?.provider;
   if (!provider) {
     if (currentSession === "CLOSED" || referenceEligibility !== "ELIGIBLE") {
-      provider = "Last known Nasdaq reference — not eligible";
+      provider = "Last known Nasdaq reference, not eligible";
     } else if (currentSession === "REGULAR") {
-      provider = isRealTime ? "Nasdaq regular-session reference" : "Last known Nasdaq reference — not eligible";
+      provider = isRealTime ? "Nasdaq regular-session reference" : "Last known Nasdaq reference, not eligible";
     } else if (currentSession === "PRE_MARKET" || currentSession === "POST_MARKET") {
       provider = "Nasdaq extended-hours reference";
     } else if (currentSession === "OVERNIGHT") {
       provider = "Blue Ocean overnight reference";
     } else {
-      provider = "Last known Nasdaq reference — not eligible";
+      provider = "Last known Nasdaq reference, not eligible";
     }
   }
 

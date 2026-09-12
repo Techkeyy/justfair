@@ -5,6 +5,7 @@ import {
   fetchOnChainTokenMultiplier,
   calculateEffectiveMultiplier,
   calculateMarketSession,
+  evaluateAlternativeRoutes,
   isValidSolanaPublicKey,
   determineVerdict,
   THRESHOLD_CALIBRATION_STATUS
@@ -311,7 +312,102 @@ async function runTests() {
     }
   });
 
-  // --- 14. API RATE LIMIT PATH ---
+  // --- 14. ALTERNATIVE ROUTE COMPARISON & DISCOVERY ENGINE ---
+  await test("evaluateAlternativeRoutes identifies better route candidate when output exceeds canonical", async () => {
+    const mockCanonicalOrder = {
+      outAmount: "1000000",
+      priceImpactPct: "0.01",
+      router: "jupiterz",
+      mode: "ultra",
+      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }]
+    };
+
+    const mockCandidates = [
+      {
+        candidate_type: "DIRECT_ROUTE",
+        candidate_label: "Direct AMM Route",
+        is_direct: true,
+        excluded_venues: [],
+        result: {
+          orderData: {
+            outAmount: "1015000", // +1.5% higher
+            priceImpactPct: "0.005",
+            routePlan: [{ swapInfo: { label: "Whirlpool" } }]
+          }
+        }
+      }
+    ];
+
+    const evalResult = evaluateAlternativeRoutes({
+      canonicalOrderData: mockCanonicalOrder,
+      alternativeCandidates: mockCandidates,
+      inputUsdValue: 100,
+      multiplierData: { decimals: 6, current_multiplier: 1.0 },
+      stockBenchmark: { price: 100, market_context: { reference_eligibility: "ELIGIBLE" } }
+    });
+
+    if (evalResult.status !== "ALTERNATIVE_FOUND") {
+      throw new Error(`Expected ALTERNATIVE_FOUND, got ${evalResult.status}`);
+    }
+    if (!evalResult.best_alternative) {
+      throw new Error("Expected best_alternative object to be populated");
+    }
+    if (evalResult.best_alternative.type !== "DIRECT_ROUTE") {
+      throw new Error(`Expected DIRECT_ROUTE, got ${evalResult.best_alternative.type}`);
+    }
+    if (evalResult.improvement_usd !== 1.50) {
+      throw new Error(`Expected $1.50 improvement, got ${evalResult.improvement_usd}`);
+    }
+    if (evalResult.improvement_pct !== 1.50) {
+      throw new Error(`Expected 1.50% improvement, got ${evalResult.improvement_pct}`);
+    }
+  });
+
+  await test("evaluateAlternativeRoutes returns NO_BETTER_ALTERNATIVE_OBSERVED when canonical is strongest", async () => {
+    const mockCanonicalOrder = {
+      outAmount: "1000000",
+      priceImpactPct: "0.01",
+      router: "jupiterz",
+      mode: "ultra",
+      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }]
+    };
+
+    const mockCandidates = [
+      {
+        candidate_type: "DIRECT_ROUTE",
+        candidate_label: "Direct AMM Route",
+        is_direct: true,
+        excluded_venues: [],
+        result: {
+          orderData: {
+            outAmount: "995000", // lower than canonical
+            priceImpactPct: "0.02",
+            routePlan: [{ swapInfo: { label: "Whirlpool" } }]
+          }
+        }
+      }
+    ];
+
+    const evalResult = evaluateAlternativeRoutes({
+      canonicalOrderData: mockCanonicalOrder,
+      alternativeCandidates: mockCandidates,
+      inputUsdValue: 100,
+      multiplierData: { decimals: 6, current_multiplier: 1.0 },
+      stockBenchmark: { price: 100, market_context: { reference_eligibility: "ELIGIBLE" } }
+    });
+
+    if (evalResult.status !== "NO_BETTER_ALTERNATIVE_OBSERVED") {
+      throw new Error(`Expected NO_BETTER_ALTERNATIVE_OBSERVED, got ${evalResult.status}`);
+    }
+    if (evalResult.best_alternative !== null) {
+      throw new Error("Expected best_alternative to be null");
+    }
+    if (evalResult.improvement_usd !== 0) {
+      throw new Error("Expected improvement_usd 0");
+    }
+  });
+
+  // --- 15. API RATE LIMIT PATH ---
   await test("API rate limiter blocks excessive rapid requests with HTTP 429 RATE_LIMITED", async () => {
     const server = createServer();
     await new Promise(resolve => server.listen(3097, "127.0.0.1", resolve));

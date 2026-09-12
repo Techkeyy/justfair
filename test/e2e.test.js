@@ -99,6 +99,7 @@ async function runE2ETests() {
       if (data.trade.input_usd_value !== 500) throw new Error("Spend mismatch");
       if (data.economics.expected_stock_exposure_usd <= 0) throw new Error("Expected exposure missing");
       if (!data.benchmark.market_context) throw new Error("Market context missing");
+      if (!data.alternative_routes || !data.alternative_routes.status) throw new Error("Alternative routes missing");
     });
 
     // 5. Frontend Trade Flow 2: NVDAx with SOL

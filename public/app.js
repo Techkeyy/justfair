@@ -563,6 +563,37 @@ function renderCardBodyMarkup(symbol) {
         <p class="explanation-text res-explanation"></p>
       </div>
 
+      <!-- Better Option / Route Comparison Card -->
+      <div class="better-option-container">
+        <div class="better-option-card is-optimal">
+          <div class="better-option-header">
+            <div class="better-option-status-badge">
+              <svg class="better-option-badge-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span class="better-option-badge-text">OPTIMAL ROUTE CONFIRMED</span>
+            </div>
+            <span class="better-option-summary-text">Jupiter's current route is the strongest executable option observed.</span>
+          </div>
+          <div class="better-option-detail hidden">
+            <div class="better-option-grid">
+              <div class="route-box canonical-box">
+                <span class="route-box-title">CURRENT ROUTE</span>
+                <span class="route-box-value canonical-exposure-val">$0.00</span>
+                <span class="route-box-sub canonical-route-venues">Jupiter DEX Route</span>
+              </div>
+              <div class="route-box-arrow">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
+              </div>
+              <div class="route-box alternative-box">
+                <span class="route-box-title">BETTER OPTION</span>
+                <span class="route-box-value alternative-exposure-val">$0.00</span>
+                <span class="route-box-sub alternative-route-venues">Alternative Route</span>
+              </div>
+            </div>
+            <p class="better-option-note">JustFair provides non-custodial pre-trade intelligence. Choose direct routing or the specific venue in your wallet if desired.</p>
+          </div>
+        </div>
+      </div>
+
       <!-- Exact Simulation Banner -->
       <div class="simulation-banner hidden">
         <div class="sim-icon-box">
@@ -596,9 +627,11 @@ function renderCardBodyMarkup(symbol) {
             <div class="evidence-item"><span class="ev-label">Multiplier</span><span class="ev-val ev-multiplier">1.0</span></div>
             <div class="evidence-item"><span class="ev-label">DEX Router</span><span class="ev-val ev-router">Jupiter Swap V2</span></div>
             <div class="evidence-item"><span class="ev-label">Routing Steps</span><span class="ev-val ev-steps">DEX Pool</span></div>
-            <div class="evidence-item"><span class="ev-label">Price Impact</span><span class="ev-label">0.00%</span></div>
+            <div class="evidence-item"><span class="ev-label">Route Candidates Checked</span><span class="ev-val ev-alt-count">2 candidates</span></div>
+            <div class="evidence-item"><span class="ev-label">Price Impact</span><span class="ev-val ev-impact">0.00%</span></div>
             <div class="evidence-item"><span class="ev-label">Benchmark Provider</span><span class="ev-val ev-benchmark-source">Stock Market Tape</span></div>
-            <div class="evidence-item"><span class="ev-label">Market Session</span><span class="ev-val ev-session">POST_MARKET</span></div>
+            <div class="evidence-item"><span class="ev-label">Current Market Session</span><span class="ev-val ev-session">CLOSED</span></div>
+            <div class="evidence-item"><span class="ev-label">Reference Status</span><span class="ev-val ev-reference-status">Previous market reference</span></div>
             <div class="evidence-item"><span class="ev-label">Preflight Level</span><span class="ev-val ev-preflight-level">QUOTE_CHECK</span></div>
             <div class="evidence-item"><span class="ev-label">Simulation</span><span class="ev-val ev-simulation">NOT RUN</span></div>
           </div>
@@ -1022,6 +1055,8 @@ function renderCardResult(card, data, symbol) {
   const diffPct = econ.difference_pct;
   const stockMeta = STOCK_META[trade.stock_symbol] || { name: trade.canonical_stock, fullName: trade.canonical_stock };
 
+  const isClosed = mkt.session === "CLOSED" || bench.freshness_status === "AFTER_HOURS_CLOSE" || data.verification_status === "UNABLE_TO_VERIFY";
+
   // 1. Set Spending Value (Primary Metric #1)
   const spendVal = resultContainer.querySelector(".res-spend-val");
   const spendSub = resultContainer.querySelector(".res-spend-sub");
@@ -1032,21 +1067,32 @@ function renderCardResult(card, data, symbol) {
       : `${trade.input_amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${trade.input_asset}`;
   }
 
-  // 2. Set Exposure Value (Primary Metric #2)
+  // 2. Set Exposure / Reference Value (Primary Metric #2 - Truthful on Weekend)
   const assetNameUpper = stockMeta.name.toUpperCase();
   const exposureLabel = resultContainer.querySelector(".res-exposure-label");
   const exposureVal = resultContainer.querySelector(".res-exposure-val");
   const exposureSub = resultContainer.querySelector(".res-exposure-sub");
-  if (exposureLabel) exposureLabel.textContent = `EXPECTED ${assetNameUpper} EXPOSURE`;
+  if (exposureLabel) {
+    exposureLabel.textContent = isClosed ? "LAST KNOWN REFERENCE VALUE" : `EXPECTED ${assetNameUpper} EXPOSURE`;
+  }
   if (exposureVal) exposureVal.textContent = `$${econ.expected_stock_exposure_usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   if (exposureSub) exposureSub.textContent = `${econ.expected_stock_shares} ${trade.canonical_stock} @ $${Number(bench.price).toFixed(2)}`;
 
-  // 3. Set Net Difference (Primary Metric #3)
+  // 3. Set Net Difference / Reference Difference (Primary Metric #3 - Truthful on Weekend)
   const diffPrefix = econ.difference_usd >= 0 ? "+" : "-";
+  const diffCard = resultContainer.querySelector(".money-stat.highlight");
+  const diffLabel = diffCard?.querySelector(".money-label");
   const diffVal = resultContainer.querySelector(".res-diff-val");
   const diffPctEl = resultContainer.querySelector(".res-diff-pct");
+  if (diffLabel) {
+    diffLabel.textContent = isClosed ? "REFERENCE DIFFERENCE" : "DIFFERENCE";
+  }
   if (diffVal) diffVal.textContent = `${diffPrefix}$${Math.abs(econ.difference_usd).toFixed(2)}`;
-  if (diffPctEl) diffPctEl.textContent = `(${econ.difference_usd >= 0 ? "+" : ""}${diffPct.toFixed(2)}%)`;
+  if (diffPctEl) {
+    diffPctEl.textContent = isClosed
+      ? `(${diffPrefix}${Math.abs(diffPct).toFixed(2)}% vs Friday close)`
+      : `(${econ.difference_usd >= 0 ? "+" : ""}${diffPct.toFixed(2)}%)`;
+  }
 
   // 4. Verdict Banner
   const verdictBanner = resultContainer.querySelector(".verdict-banner");
@@ -1056,11 +1102,11 @@ function renderCardResult(card, data, symbol) {
 
   if (verdictBanner) {
     verdictBanner.className = "verdict-banner";
-    if (mkt.session === "CLOSED" || bench.freshness_status === "AFTER_HOURS_CLOSE") {
+    if (isClosed) {
       verdictBanner.classList.add("verdict-closed");
       if (verdictIcon) verdictIcon.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
       if (verdictTitle) verdictTitle.textContent = "CAN'T VERIFY RIGHT NOW";
-      if (verdictSubtitle) verdictSubtitle.textContent = `Traditional equity markets are closed. Live DEX routing delivered $${econ.expected_stock_exposure_usd.toFixed(2)} estimated exposure, but benchmark safety cannot be certified outside active trading hours.`;
+      if (verdictSubtitle) verdictSubtitle.textContent = `Traditional equity markets are closed. Live DEX routing delivered $${econ.expected_stock_exposure_usd.toFixed(2)} estimated exposure against last known reference price ($${bench.price}), but benchmark safety cannot be certified outside active trading hours.`;
     } else {
       verdictBanner.classList.add("verdict-measured");
       if (verdictIcon) verdictIcon.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"></path><path d="M4 7l8-4 8 4"></path><path d="M6 18l-3-6h6l-3 6z"></path><path d="M18 18l-3-6h6l-3 6z"></path></svg>`;
@@ -1072,14 +1118,45 @@ function renderCardResult(card, data, symbol) {
   // 5. Plain English Explanation
   const resExplanation = resultContainer.querySelector(".res-explanation");
   if (resExplanation) {
-    if (mkt.session === "CLOSED") {
-      resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. Note that traditional stock markets are closed right now, so the underlying reference price ($${bench.price}) is from the previous market close.`;
+    if (isClosed) {
+      resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. Note that traditional stock markets are closed right now, so the underlying reference price ($${bench.price}) is from the previous market close. Not a current fairness verdict.`;
     } else {
       resExplanation.textContent = `This trade route would spend $${trade.input_usd_value.toFixed(2)} to acquire approximately ${econ.expected_stock_shares} shares of ${stockMeta.name} on Solana, delivering $${econ.expected_stock_exposure_usd.toFixed(2)} of underlying exposure (difference: ${diffPrefix}$${econ.difference_usd.toFixed(2)} or ${diffPrefix}${diffPct.toFixed(2)}%).`;
     }
   }
 
-  // 6. Simulation Banner
+  // 6. Better Option / Route Comparison Card
+  const betterOptionCard = resultContainer.querySelector(".better-option-card");
+  const betterOptionBadgeText = resultContainer.querySelector(".better-option-badge-text");
+  const betterOptionSummaryText = resultContainer.querySelector(".better-option-summary-text");
+  const betterOptionDetail = resultContainer.querySelector(".better-option-detail");
+  const canonicalExposureVal = resultContainer.querySelector(".canonical-exposure-val");
+  const canonicalRouteVenues = resultContainer.querySelector(".canonical-route-venues");
+  const alternativeExposureVal = resultContainer.querySelector(".alternative-exposure-val");
+  const alternativeRouteVenues = resultContainer.querySelector(".alternative-route-venues");
+  const altRoutes = data.alternative_routes;
+
+  if (betterOptionCard) {
+    if (altRoutes && altRoutes.status === "ALTERNATIVE_FOUND" && altRoutes.best_alternative) {
+      betterOptionCard.className = "better-option-card is-alternative-found";
+      if (betterOptionBadgeText) betterOptionBadgeText.textContent = "BETTER ROUTE FOUND";
+      if (betterOptionSummaryText) betterOptionSummaryText.textContent = altRoutes.summary;
+      if (canonicalExposureVal) canonicalExposureVal.textContent = `$${altRoutes.canonical_route?.expected_stock_exposure_usd?.toFixed(2) || econ.expected_stock_exposure_usd.toFixed(2)}`;
+      if (canonicalRouteVenues) canonicalRouteVenues.textContent = altRoutes.canonical_route?.venues?.join(" + ") || "Current Jupiter Route";
+      if (alternativeExposureVal) alternativeExposureVal.textContent = `$${altRoutes.best_alternative.expected_stock_exposure_usd.toFixed(2)} (+${altRoutes.best_alternative.improvement_pct.toFixed(2)}%)`;
+      if (alternativeRouteVenues) alternativeRouteVenues.textContent = altRoutes.best_alternative.label;
+      if (betterOptionDetail) betterOptionDetail.classList.remove("hidden");
+    } else {
+      betterOptionCard.className = "better-option-card is-optimal";
+      if (betterOptionBadgeText) betterOptionBadgeText.textContent = "OPTIMAL ROUTE CONFIRMED";
+      if (betterOptionSummaryText) {
+        betterOptionSummaryText.textContent = altRoutes?.summary || "Jupiter's current route is already the strongest executable option JustFair observed across direct and multi-hop DEX pools.";
+      }
+      if (betterOptionDetail) betterOptionDetail.classList.add("hidden");
+    }
+  }
+
+  // 7. Simulation Banner
   const simBanner = resultContainer.querySelector(".simulation-banner");
   if (simBanner) {
     if (data.preflight_level === "EXACT_SIMULATION") {
@@ -1098,22 +1175,24 @@ function renderCardResult(card, data, symbol) {
     }
   }
 
-  // 7. Jupiter Exit Link
+  // 8. Jupiter Exit Link
   const jupiterExitLink = resultContainer.querySelector(".jupiter-exit-link");
   if (jupiterExitLink) {
     const inputMint = trade.input_asset === "SOL" ? "So11111111111111111111111111111111111111112" : "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
     jupiterExitLink.href = `https://jup.ag/swap/${inputMint}-${trade.token_mint}`;
   }
 
-  // 8. Technical Evidence Accordion
+  // 9. Technical Evidence Accordion
   const evMint = resultContainer.querySelector(".ev-mint");
   const evProgram = resultContainer.querySelector(".ev-program");
   const evMultiplier = resultContainer.querySelector(".ev-multiplier");
   const evRouter = resultContainer.querySelector(".ev-router");
   const evSteps = resultContainer.querySelector(".ev-steps");
+  const evAltCount = resultContainer.querySelector(".ev-alt-count");
   const evImpact = resultContainer.querySelector(".ev-impact");
   const evBenchmarkSource = resultContainer.querySelector(".ev-benchmark-source");
   const evSession = resultContainer.querySelector(".ev-session");
+  const evReferenceStatus = resultContainer.querySelector(".ev-reference-status");
   const evPreflightLevel = resultContainer.querySelector(".ev-preflight-level");
   const evSimulation = resultContainer.querySelector(".ev-simulation");
 
@@ -1122,9 +1201,11 @@ function renderCardResult(card, data, symbol) {
   if (evMultiplier) evMultiplier.textContent = `${econ.multiplier.current_multiplier} (1 token = ${econ.multiplier.current_multiplier} shares)`;
   if (evRouter) evRouter.textContent = `Jupiter Swap V2 (Router: ${data.dex_route.router}, Mode: ${data.dex_route.mode})`;
   if (evSteps) evSteps.textContent = data.dex_route.steps?.join(" to ") || "Direct DEX Pool";
+  if (evAltCount) evAltCount.textContent = `${data.alternative_routes?.candidates_evaluated_count || 0} routes inspected`;
   if (evImpact) evImpact.textContent = `${(parseFloat(data.dex_route.price_impact_pct || 0)).toFixed(4)}%`;
   if (evBenchmarkSource) evBenchmarkSource.textContent = `${bench.provider} (${bench.source})`;
-  if (evSession) evSession.textContent = `Reference: ${bench.reference_session} | Current: ${mkt.session || bench.current_market_session}`;
+  if (evSession) evSession.textContent = mkt.session || bench.current_market_session || (isClosed ? "CLOSED" : "REGULAR");
+  if (evReferenceStatus) evReferenceStatus.textContent = mkt.reference_eligibility === "ELIGIBLE" ? "Eligible Live Tape" : "Previous market reference, not eligible";
   if (evPreflightLevel) evPreflightLevel.textContent = data.preflight_level;
   if (evSimulation) evSimulation.textContent = sim.status === "PASS" ? `PASS (err: null, ${sim.units_consumed} CU)` : sim.status === "NOT_RUN" ? "NOT RUN (Quote Precheck Mode)" : `FAIL (${sim.err})`;
 

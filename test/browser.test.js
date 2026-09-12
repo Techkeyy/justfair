@@ -338,19 +338,25 @@ async function runBrowserTests() {
       if (!spendLabel.includes("YOU'RE SPENDING")) throw new Error(`Metric 1 label mismatch: ${spendLabel}`);
       if (!spendVal.includes("$500.00")) throw new Error(`Metric 1 spend value mismatch: ${spendVal}`);
 
-      // Metric #2: EXPECTED APPLE EXPOSURE
+      // Metric #2: EXPECTED APPLE EXPOSURE or LAST KNOWN REFERENCE VALUE (Weekend Truthfulness)
       const exposureLabel = await page.textContent("#stock-card-AAPLx .res-exposure-label");
       const exposureVal = await page.textContent("#stock-card-AAPLx .res-exposure-val");
-      if (!exposureLabel.includes("EXPECTED APPLE EXPOSURE")) throw new Error(`Metric 2 label mismatch: ${exposureLabel}`);
+      if (!exposureLabel.includes("EXPECTED APPLE EXPOSURE") && !exposureLabel.includes("LAST KNOWN REFERENCE VALUE")) {
+        throw new Error(`Metric 2 label mismatch: ${exposureLabel}`);
+      }
       if (!exposureVal.includes("$")) throw new Error(`Metric 2 exposure value missing: ${exposureVal}`);
 
-      // Metric #3: DIFFERENCE
+      // Metric #3: DIFFERENCE or REFERENCE DIFFERENCE
       const diffLabel = await page.textContent("#stock-card-AAPLx .money-stat.highlight .money-label");
       const diffVal = await page.textContent("#stock-card-AAPLx .res-diff-val");
       const diffPct = await page.textContent("#stock-card-AAPLx .res-diff-pct");
       if (!diffLabel.includes("DIFFERENCE")) throw new Error(`Metric 3 label mismatch: ${diffLabel}`);
       if (!diffVal.includes("$")) throw new Error(`Metric 3 difference value missing: ${diffVal}`);
       if (!diffPct.includes("%")) throw new Error(`Metric 3 difference percentage missing: ${diffPct}`);
+
+      // Better Option / Route Discovery Card Verified
+      const isBetterOptionVisible = await page.isVisible("#stock-card-AAPLx .better-option-card");
+      if (!isBetterOptionVisible) throw new Error("Better Option / Route discovery card is not visible in result container");
 
       // Capture Screenshot 8: 08_app_apple_real_result.png
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "08_app_apple_real_result.png") });
