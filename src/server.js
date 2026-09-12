@@ -277,6 +277,8 @@ export async function handleRequest(req, res) {
     const primaryUrl = `https://pyth.dourolabs.app/hermes/v2/updates/price/stream?${idList}&parsed=true`;
     const fallbackUrl = `https://hermes.pyth.network/v2/updates/price/stream?${idList}&parsed=true`;
 
+    (async () => {
+      try {
         const authHeader = {
           "Accept": "text/event-stream",
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) JustFair/1.0",
