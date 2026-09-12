@@ -86,34 +86,58 @@ export function extractVenuesFromRoutePlan(routePlan = []) {
 }
 
 /**
- * Compute deterministic route fingerprint to detect identical duplicate quotes
+ * Compute deterministic structural route fingerprint.
+ *
+ * Route identity is strictly structural execution data:
+ * - router
+ * - ordered routePlan hops
+ * - each hop's ammKey / program identity
+ * - label
+ * - inputMint & outputMint
+ *
+ * NOTE: Quote-specific economics (outAmount, price, timestamp, fee) and request modes
+ * do NOT change route identity. Same route with differing outAmount = DUPLICATE.
  */
-export function createRouteFingerprint(orderData, constraintStrategy = "canonical") {
+export function createRouteFingerprint(orderData) {
   if (!orderData) return "null";
-  const router = (orderData.router || "unknown").toLowerCase();
-  const mode = (orderData.mode || "ultra").toLowerCase();
-  const steps = Array.isArray(orderData.routePlan)
-    ? orderData.routePlan.map(step => step?.swapInfo?.label || "DEX").join(">")
-    : "none";
-  const outAmount = orderData.outAmount || "0";
-  return `${router}:${mode}:${steps}:${outAmount}`;
+  const router = (orderData.router || "unknown").toLowerCase().trim();
+
+  if (!Array.isArray(orderData.routePlan) || orderData.routePlan.length === 0) {
+    return `${router}|direct`;
+  }
+
+  const hops = orderData.routePlan.map(step => {
+    const s = step?.swapInfo || {};
+    const ammKey = (s.ammKey || "none").toLowerCase().trim();
+    const label = (s.label || "dex").trim();
+    const inMint = (s.inputMint || "").toLowerCase().trim();
+    const outMint = (s.outputMint || "").toLowerCase().trim();
+    const mintPair = inMint && outMint ? `:${inMint}>${outMint}` : "";
+    return `${ammKey}:${label}${mintPair}`;
+  }).join("|");
+
+  return `${router}|${hops}`;
 }
 
+const KNOWN_ROUTER_NAMES = new Set(["jupiterz", "metis", "dflow", "okx"]);
+
 /**
- * Query genuinely distinct alternative routing options using official excludeRouters & excludeDexes parameters.
- * Enforces Candidate Distinctness Gate: identical fingerprints to canonical are discarded as duplicates.
+ * Query genuinely distinct alternative routing options using official Jupiter Swap V2 controls.
+ * Enforces Candidate Distinctness Gate: identical structural fingerprints are discarded as duplicates.
  */
 export async function fetchJupiterAlternativeCandidates(inputAssetConfig, stockConfig, amountHuman, taker = null, canonicalResult = null) {
   const canonicalOrder = canonicalResult?.orderData;
-  const canonicalFp = createRouteFingerprint(canonicalOrder, "canonical");
+  const canonicalFp = createRouteFingerprint(canonicalOrder);
   const canonicalVenues = canonicalOrder?.routePlan
     ? extractVenuesFromRoutePlan(canonicalOrder.routePlan)
     : [];
-  const canonicalRouter = canonicalOrder?.router || "jupiterz";
+  const canonicalRouter = (canonicalOrder?.router || "jupiterz").toLowerCase().trim();
 
   const candidatePromises = [];
 
-  // Strategy A: Exclude Canonical Router (official excludeRouters)
+  // Strategy A: Exclude Canonical Router (official excludeRouters=<canonicalRouter>)
+  // - If canonical is JupiterZ, Jupiter will evaluate Metis.
+  // - If canonical is Metis, Jupiter will evaluate JupiterZ.
   candidatePromises.push(
     fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountHuman, taker, { excludeRouters: canonicalRouter })
       .then(res => ({
@@ -127,36 +151,44 @@ export async function fetchJupiterAlternativeCandidates(inputAssetConfig, stockC
       .catch(() => null)
   );
 
-  // Strategy B: Exclude Canonical Primary DEX Venue (official excludeDexes)
-  if (canonicalVenues.length > 0) {
-    const primaryVenue = canonicalVenues[0];
-    candidatePromises.push(
-      fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountHuman, taker, { excludeDexes: primaryVenue })
-        .then(res => ({
-          candidate_type: "DEX_EXCLUSION",
-          candidate_strategy: `DEX Exclusion (excludeDexes=${primaryVenue})`,
-          candidate_label: `Alternative Venue (Excl. ${primaryVenue})`,
-          excluded_routers: [],
-          excluded_venues: [primaryVenue],
-          result: res
-        }))
-        .catch(() => null)
-    );
+  // Strategy B: Metis DEX Exclusion (official excludeDexes=<venue>)
+  // NOTE: Official Jupiter documentation explicitly states excludeDexes affects ONLY Metis routing.
+  // It MUST NOT be used with router names (e.g. excludeDexes=JupiterZ is invalid).
+  // Only probe when canonical is Metis, using actual AMM venues present in the route.
+  if (canonicalRouter === "metis") {
+    const validDexVenues = canonicalVenues.filter(v => !KNOWN_ROUTER_NAMES.has(v.toLowerCase()));
+    if (validDexVenues.length > 0) {
+      const primaryVenue = validDexVenues[0];
+      candidatePromises.push(
+        fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountHuman, taker, { excludeDexes: primaryVenue })
+          .then(res => ({
+            candidate_type: "DEX_EXCLUSION",
+            candidate_strategy: `Metis DEX Exclusion (excludeDexes=${primaryVenue})`,
+            candidate_label: `Metis Alternative AMM (Excl. ${primaryVenue})`,
+            excluded_routers: [],
+            excluded_venues: [primaryVenue],
+            result: res
+          }))
+          .catch(() => null)
+      );
+    }
   }
 
   const resolved = await Promise.all(candidatePromises);
   const distinctCandidates = [];
+  const seenFingerprints = new Set([canonicalFp]);
 
   for (const c of resolved) {
     if (!c || !c.result?.orderData?.outAmount) continue;
 
-    const candFp = createRouteFingerprint(c.result.orderData, c.candidate_strategy);
-    const isDistinct = candFp !== canonicalFp;
+    const candFp = createRouteFingerprint(c.result.orderData);
+    const isDistinct = !seenFingerprints.has(candFp);
 
     // CANDIDATE DISTINCTNESS GATE:
-    // If the candidate returned the exact same router, mode, routePlan steps, and outAmount,
-    // discard as duplicate.
+    // If the candidate returned the exact same structural route identity as canonical
+    // or a prior candidate, discard as duplicate.
     if (isDistinct) {
+      seenFingerprints.add(candFp);
       c.fingerprint = candFp;
       c.is_distinct_from_canonical = true;
       distinctCandidates.push(c);

@@ -314,48 +314,96 @@ async function runTests() {
   });
 
   // --- 14. ALTERNATIVE ROUTE COMPARISON & DISCOVERY ENGINE ---
-  await test("createRouteFingerprint generates deterministic route fingerprints", async () => {
-    const order1 = {
+  await test("createRouteFingerprint generates deterministic structural route fingerprints", async () => {
+    const orderBase = {
       router: "jupiterz",
       mode: "ultra",
-      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }, { swapInfo: { label: "Orca" } }],
+      routePlan: [
+        { swapInfo: { ammKey: "amm111", label: "Raydium CLMM", inputMint: "usdc", outputMint: "sol" } },
+        { swapInfo: { ammKey: "amm222", label: "Orca", inputMint: "sol", outputMint: "aaplx" } }
+      ],
       outAmount: "1000000"
     };
-    const order2 = {
-      router: "jupiterz",
-      mode: "ultra",
-      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }, { swapInfo: { label: "Orca" } }],
-      outAmount: "1000000"
-    };
-    const orderDiffRouter = {
-      router: "metis",
-      mode: "ultra",
-      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }, { swapInfo: { label: "Orca" } }],
-      outAmount: "1000000"
-    };
+
+    // 1. Same route + different outAmount => DUPLICATE (identical fingerprint)
     const orderDiffAmount = {
       router: "jupiterz",
       mode: "ultra",
-      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }, { swapInfo: { label: "Orca" } }],
+      routePlan: [
+        { swapInfo: { ammKey: "amm111", label: "Raydium CLMM", inputMint: "usdc", outputMint: "sol" } },
+        { swapInfo: { ammKey: "amm222", label: "Orca", inputMint: "sol", outputMint: "aaplx" } }
+      ],
       outAmount: "999990"
     };
 
-    const fp1 = createRouteFingerprint(order1);
-    const fp2 = createRouteFingerprint(order2);
-    const fpDiffRouter = createRouteFingerprint(orderDiffRouter);
-    const fpDiffAmount = createRouteFingerprint(orderDiffAmount);
+    // 2. Same route + different mode => DUPLICATE (identical fingerprint)
+    const orderDiffMode = {
+      router: "jupiterz",
+      mode: "manual",
+      routePlan: [
+        { swapInfo: { ammKey: "amm111", label: "Raydium CLMM", inputMint: "usdc", outputMint: "sol" } },
+        { swapInfo: { ammKey: "amm222", label: "Orca", inputMint: "sol", outputMint: "aaplx" } }
+      ],
+      outAmount: "1000000"
+    };
 
-    if (fp1 !== "jupiterz:ultra:Raydium CLMM>Orca:1000000") {
-      throw new Error(`Unexpected fingerprint format: ${fp1}`);
+    // 3. Different router => DISTINCT
+    const orderDiffRouter = {
+      router: "metis",
+      mode: "ultra",
+      routePlan: [
+        { swapInfo: { ammKey: "amm111", label: "Raydium CLMM", inputMint: "usdc", outputMint: "sol" } },
+        { swapInfo: { ammKey: "amm222", label: "Orca", inputMint: "sol", outputMint: "aaplx" } }
+      ],
+      outAmount: "1000000"
+    };
+
+    // 4. Different AMM key => DISTINCT
+    const orderDiffAmmKey = {
+      router: "jupiterz",
+      mode: "ultra",
+      routePlan: [
+        { swapInfo: { ammKey: "amm333", label: "Raydium CLMM", inputMint: "usdc", outputMint: "sol" } },
+        { swapInfo: { ammKey: "amm222", label: "Orca", inputMint: "sol", outputMint: "aaplx" } }
+      ],
+      outAmount: "1000000"
+    };
+
+    // 5. Different hop sequence => DISTINCT
+    const orderDiffHops = {
+      router: "jupiterz",
+      mode: "ultra",
+      routePlan: [
+        { swapInfo: { ammKey: "amm222", label: "Orca", inputMint: "sol", outputMint: "aaplx" } },
+        { swapInfo: { ammKey: "amm111", label: "Raydium CLMM", inputMint: "usdc", outputMint: "sol" } }
+      ],
+      outAmount: "1000000"
+    };
+
+    const fpBase = createRouteFingerprint(orderBase);
+    const fpDiffAmount = createRouteFingerprint(orderDiffAmount);
+    const fpDiffMode = createRouteFingerprint(orderDiffMode);
+    const fpDiffRouter = createRouteFingerprint(orderDiffRouter);
+    const fpDiffAmmKey = createRouteFingerprint(orderDiffAmmKey);
+    const fpDiffHops = createRouteFingerprint(orderDiffHops);
+
+    if (fpBase !== "jupiterz|amm111:Raydium CLMM:usdc>sol|amm222:Orca:sol>aaplx") {
+      throw new Error(`Unexpected structural fingerprint format: ${fpBase}`);
     }
-    if (fp1 !== fp2) {
-      throw new Error("Identical orders must produce identical fingerprints");
+    if (fpBase !== fpDiffAmount) {
+      throw new Error("Identical structural routes with different outAmounts must produce identical fingerprints (DUPLICATE)");
     }
-    if (fp1 === fpDiffRouter) {
-      throw new Error("Different router must produce different fingerprint");
+    if (fpBase !== fpDiffMode) {
+      throw new Error("Identical structural routes with different modes must produce identical fingerprints (DUPLICATE)");
     }
-    if (fp1 === fpDiffAmount) {
-      throw new Error("Different outAmount must produce different fingerprint");
+    if (fpBase === fpDiffRouter) {
+      throw new Error("Different router must produce DISTINCT fingerprint");
+    }
+    if (fpBase === fpDiffAmmKey) {
+      throw new Error("Different AMM key must produce DISTINCT fingerprint");
+    }
+    if (fpBase === fpDiffHops) {
+      throw new Error("Different hop sequence must produce DISTINCT fingerprint");
     }
   });
 
@@ -365,7 +413,7 @@ async function runTests() {
       priceImpactPct: "0.01",
       router: "jupiterz",
       mode: "ultra",
-      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }]
+      routePlan: [{ swapInfo: { ammKey: "amm1", label: "Raydium CLMM" } }]
     };
 
     const mockCandidates = [
@@ -381,7 +429,7 @@ async function runTests() {
             mode: "ultra",
             outAmount: "1015000", // +1.5% higher
             priceImpactPct: "0.005",
-            routePlan: [{ swapInfo: { label: "Whirlpool" } }]
+            routePlan: [{ swapInfo: { ammKey: "amm2", label: "Whirlpool" } }]
           }
         }
       }
@@ -418,14 +466,14 @@ async function runTests() {
       priceImpactPct: "0.01",
       router: "jupiterz",
       mode: "ultra",
-      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }]
+      routePlan: [{ swapInfo: { ammKey: "amm1", label: "Raydium CLMM" } }]
     };
 
     const mockCandidates = [
       {
         candidate_type: "DEX_EXCLUSION",
-        candidate_strategy: "DEX Exclusion (excludeDexes=Raydium CLMM)",
-        candidate_label: "Alternative Venue (Excl. Raydium CLMM)",
+        candidate_strategy: "Metis DEX Exclusion (excludeDexes=Raydium CLMM)",
+        candidate_label: "Metis Alternative AMM (Excl. Raydium CLMM)",
         excluded_routers: [],
         excluded_venues: ["Raydium CLMM"],
         result: {
@@ -434,7 +482,7 @@ async function runTests() {
             mode: "ultra",
             outAmount: "995000", // lower than canonical
             priceImpactPct: "0.02",
-            routePlan: [{ swapInfo: { label: "Whirlpool" } }]
+            routePlan: [{ swapInfo: { ammKey: "amm2", label: "Whirlpool" } }]
           }
         }
       }
@@ -459,12 +507,12 @@ async function runTests() {
     }
   });
 
-  await test("Candidate Distinctness Gate filters out candidate quotes matching canonical fingerprint", async () => {
+  await test("Candidate Distinctness Gate filters out candidate quotes with identical structural fingerprint", async () => {
     const canonicalResult = {
       orderData: {
         router: "jupiterz",
         mode: "ultra",
-        routePlan: [{ swapInfo: { label: "Raydium CLMM" } }],
+        routePlan: [{ swapInfo: { ammKey: "k1", label: "Raydium CLMM" } }],
         outAmount: "1000000"
       },
       obtained_at: new Date().toISOString()
@@ -476,21 +524,21 @@ async function runTests() {
       result: {
         orderData: {
           router: "jupiterz",
-          mode: "ultra",
-          routePlan: [{ swapInfo: { label: "Raydium CLMM" } }],
-          outAmount: "1000000"
+          mode: "manual",
+          routePlan: [{ swapInfo: { ammKey: "k1", label: "Raydium CLMM" } }],
+          outAmount: "1000005" // slightly different amount, same structural route
         }
       }
     };
 
     const distinctCandidate = {
       candidate_type: "DEX_EXCLUSION",
-      candidate_strategy: "DEX Exclusion (excludeDexes=Raydium CLMM)",
+      candidate_strategy: "Metis DEX Exclusion (excludeDexes=Raydium CLMM)",
       result: {
         orderData: {
           router: "metis",
           mode: "ultra",
-          routePlan: [{ swapInfo: { label: "Whirlpool" } }],
+          routePlan: [{ swapInfo: { ammKey: "k2", label: "Whirlpool" } }],
           outAmount: "998000"
         }
       }
@@ -501,7 +549,7 @@ async function runTests() {
     const distinctFp = createRouteFingerprint(distinctCandidate.result.orderData);
 
     if (dupFp !== canonicalFp) {
-      throw new Error("Duplicate candidate should match canonical fingerprint");
+      throw new Error(`Duplicate candidate structural fingerprint mismatch: ${dupFp} vs ${canonicalFp}`);
     }
     if (distinctFp === canonicalFp) {
       throw new Error("Distinct candidate should NOT match canonical fingerprint");
