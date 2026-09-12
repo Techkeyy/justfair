@@ -2292,3 +2292,221 @@ body {
   }
 }
 
+/* ==========================================
+   Continuous Market Streaming & Live Preview (Order 009.6)
+   ========================================== */
+.live-preview-box {
+  margin: 16px 0;
+  padding: 14px 18px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.live-preview-box.is-live {
+  border-color: rgba(124, 58, 237, 0.35);
+  box-shadow: 0 4px 14px -2px rgba(124, 58, 237, 0.08);
+}
+
+.live-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.live-preview-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--accent-primary);
+  display: inline-block;
+  animation: livePulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.live-pulse-dot.closed {
+  background-color: #94A3B8;
+  animation: none;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+}
+
+.live-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-live {
+  background: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid rgba(79, 70, 229, 0.2);
+}
+
+.badge-closed {
+  background: #F1F5F9;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+}
+
+.badge-reconnecting {
+  background: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FCD34D;
+}
+
+.live-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid #F1F5F9;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.live-preview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.live-preview-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.live-preview-value {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
+}
+
+.live-preview-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+/* Post-Check Live Movement Notice */
+.live-movement-banner {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: #FAF5FF;
+  border: 1px solid #E9D5FF;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  animation: stockFormSlideIn 0.24s ease both;
+}
+
+.live-movement-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #6B21A8;
+}
+
+.btn-refresh-check {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #FFFFFF;
+  background: var(--accent-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+
+.btn-refresh-check:hover {
+  opacity: 0.9;
+}
+
+/* Snapshot Freeze Header */
+.snapshot-freeze-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border-light);
+}
+
+.snapshot-freeze-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.snapshot-freeze-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  background: #F3F4F6;
+  color: #374151;
+  border-radius: var(--radius-full);
+}
+
+/* Subtle Numeric Flash */
+.price-flash-up {
+  color: #10B981 !important;
+  animation: flashGreen 0.6s ease;
+}
+
+.price-flash-down {
+  color: #EF4444 !important;
+  animation: flashRed 0.6s ease;
+}
+
+@keyframes flashGreen {
+  0% { background-color: rgba(16, 185, 129, 0.15); border-radius: 4px; }
+  100% { background-color: transparent; }
+}
+
+@keyframes flashRed {
+  0% { background-color: rgba(239, 68, 68, 0.15); border-radius: 4px; }
+  100% { background-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-pulse-dot {
+    animation: none !important;
+  }
+  .price-flash-up, .price-flash-down {
+    animation: none !important;
+  }
+  .live-movement-banner {
+    animation: none !important;
+  }
+}
+
+

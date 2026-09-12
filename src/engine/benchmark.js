@@ -357,3 +357,126 @@ export async function fetchCryptoSpotPrice(cryptoPriceId = "solana", forceFresh 
     throw err;
   }
 }
+
+export const PYTH_FEEDS_REGISTRY = {
+  "SOL/USD": {
+    symbol: "SOL/USD",
+    pythSymbol: "Crypto.SOL/USD",
+    id: "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+    assetClass: "crypto",
+    description: "SOLANA / US DOLLAR",
+    schedule: "America/New_York;O,O,O,O,O,O,O;"
+  },
+  "AAPLx": {
+    symbol: "AAPLx",
+    canonicalSymbol: "AAPL",
+    pythSymbol: "Equity.US.AAPL/USD",
+    id: "49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688",
+    assetClass: "stocks",
+    description: "APPLE INC / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "NVDAx": {
+    symbol: "NVDAx",
+    canonicalSymbol: "NVDA",
+    pythSymbol: "Equity.US.NVDA/USD",
+    id: "b1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593",
+    assetClass: "stocks",
+    description: "NVIDIA CORP / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "SPYx": {
+    symbol: "SPYx",
+    canonicalSymbol: "SPY",
+    pythSymbol: "Equity.US.SPY/USD",
+    id: "19e09bb805456ada3979a7d1cbb4b6d63babc3a0f8e8a9509f68afa5c4c11cd5",
+    assetClass: "etf",
+    description: "SPY / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "TSLAx": {
+    symbol: "TSLAx",
+    canonicalSymbol: "TSLA",
+    pythSymbol: "Equity.US.TSLA/USD",
+    id: "16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1",
+    assetClass: "stocks",
+    description: "TESLA INC / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "MSFTx": {
+    symbol: "MSFTx",
+    canonicalSymbol: "MSFT",
+    pythSymbol: "Equity.US.MSFT/USD",
+    id: "d0ca23c1cc005e004ccf1db5bf76aeb6a49218f43dac3d4b275e92de12ded4d1",
+    assetClass: "stocks",
+    description: "MICROSOFT CORP / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "AMZNx": {
+    symbol: "AMZNx",
+    canonicalSymbol: "AMZN",
+    pythSymbol: "Equity.US.AMZN/USD",
+    id: "b5d0e0fa58a1f8b81498ae670ce93c872d14434b72c364885d4fa1b257cbb07a",
+    assetClass: "stocks",
+    description: "AMAZON.COM, INC. / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "GOOGLx": {
+    symbol: "GOOGLx",
+    canonicalSymbol: "GOOGL",
+    pythSymbol: "Equity.US.GOOGL/USD",
+    id: "5a48c03e9b9cb337801073ed9d166817473697efff0d138874e0f6a33d6d5aa6",
+    assetClass: "stocks",
+    description: "ALPHABET INC CLASS A / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "METAx": {
+    symbol: "METAx",
+    canonicalSymbol: "META",
+    pythSymbol: "Equity.US.META/USD",
+    id: "78a3e3b8e676a8f73c439f5d749737034b139bbbe899ba5775216fba596607fe",
+    assetClass: "stocks",
+    description: "META PLATFORMS INC / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "COINx": {
+    symbol: "COINx",
+    canonicalSymbol: "COIN",
+    pythSymbol: "Equity.US.COIN/USD",
+    id: "fee33f2a978bf32dd6b662b65ba8083c6773b494f8401194ec1870c640860245",
+    assetClass: "stocks",
+    description: "COINBASE GLOBAL INC / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "AMDx": {
+    symbol: "AMDx",
+    canonicalSymbol: "AMD",
+    pythSymbol: "Equity.US.AMD/USD",
+    id: "3622e381dbca2efd1859253763b1adc63f7f9abb8e76da1aa8e638a57ccde93e",
+    assetClass: "stocks",
+    description: "ADVANCED MICRO DEVICES INC / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "MSTRx": {
+    symbol: "MSTRx",
+    canonicalSymbol: "MSTR",
+    pythSymbol: "Equity.US.MSTR/USD",
+    id: "e1e80251e5f5184f2195008382538e847fafc36f751896889dd3d1b1f6111f09",
+    assetClass: "stocks",
+    description: "MICROSTRATEGY INC. - CLASS A / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  },
+  "QQQx": {
+    symbol: "QQQx",
+    canonicalSymbol: "QQQ",
+    pythSymbol: "Equity.US.QQQ/USD",
+    id: "9695e2b96ea7b3859da9ed25b7a46a920a776e2fdae19a7bcfdf2b219230452d",
+    assetClass: "etf",
+    description: "INVESCO QQQ TRUST SERIES 1 / US DOLLAR",
+    schedule: "America/New_York;0930-1600,0930-1600,0930-1600,0930-1600,0930-1600,C,C"
+  }
+};
+
+export function isPythAuthAvailable() {
+  return !!(process.env.PYTH_API_KEY && process.env.PYTH_API_KEY.trim().length > 0);
+}

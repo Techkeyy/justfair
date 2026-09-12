@@ -1,18 +1,22 @@
 // JustFair Shared Equity Preflight Engine
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, API_ENDPOINTS } from "./config.js";
+import { calculateTradeEconomics } from "./engine/economics.js";
 import { fetchOnChainTokenMultiplier, calculateEffectiveMultiplier } from "./engine/multiplier.js";
-import { fetchMarketReference, fetchCryptoSpotPrice, clearCryptoPriceCache, calculateMarketSession } from "./engine/benchmark.js";
+import { fetchMarketReference, fetchCryptoSpotPrice, clearCryptoPriceCache, calculateMarketSession, PYTH_FEEDS_REGISTRY, isPythAuthAvailable } from "./engine/benchmark.js";
 import { fetchJupiterOrderV2, fetchJupiterAlternativeCandidates, extractVenuesFromRoutePlan, createRouteFingerprint } from "./engine/jupiter.js";
 import { simulateSolanaTransaction, isValidSolanaPublicKey } from "./engine/simulation.js";
 import { determineVerdict, THRESHOLD_CALIBRATION_STATUS } from "./engine/verdict.js";
 
 export {
+  calculateTradeEconomics,
   fetchOnChainTokenMultiplier,
   calculateEffectiveMultiplier,
   fetchMarketReference,
   fetchCryptoSpotPrice,
   clearCryptoPriceCache,
   calculateMarketSession,
+  PYTH_FEEDS_REGISTRY,
+  isPythAuthAvailable,
   fetchJupiterOrderV2,
   fetchJupiterAlternativeCandidates,
   extractVenuesFromRoutePlan,

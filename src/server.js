@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runPreflight, fetchCryptoSpotPrice } from "./preflight.js";
+import { PYTH_FEEDS_REGISTRY, isPythAuthAvailable } from "./engine/benchmark.js";
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, SERVER_CONFIG } from "./config.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -227,7 +228,57 @@ export async function handleRequest(req, res) {
     }
   }
 
-  // 4. Primary Preflight Endpoint: POST /api/v1/preflight
+  // 4. Streaming Infrastructure Status: GET /api/v1/stream/status
+  if (req.method === "GET" && (pathname === "/api/v1/stream/status" || pathname.endsWith("/stream/status"))) {
+    return sendJson(res, 200, {
+      status: "SUCCESS",
+      streaming_infrastructure: {
+        pyth_auth_present: isPythAuthAvailable(),
+        pyth_endpoint: "https://hermes.pyth.network/v2/updates/price/stream",
+        supported_feeds_count: Object.keys(PYTH_FEEDS_REGISTRY).length,
+        supported_feeds: Object.keys(PYTH_FEEDS_REGISTRY),
+        auth_mode: isPythAuthAvailable() ? "SERVER_AUTHENTICATED_BEARER" : "BLOCKED_PYTH_API_KEY_REQUIRED",
+        status: isPythAuthAvailable() ? "OPERATIONAL" : "BLOCKED: PYTH_API_KEY_REQUIRED"
+      }
+    });
+  }
+
+  // 5. Server-Sent Events (SSE) Stream Endpoint: GET /api/v1/stream
+  if (req.method === "GET" && (pathname === "/api/v1/stream" || pathname.endsWith("/stream"))) {
+    // If Pyth authentication is not configured, truthfully return 503 BLOCKED: PYTH_API_KEY_REQUIRED
+    if (!isPythAuthAvailable()) {
+      return sendJson(res, 503, {
+        request_status: "ERROR",
+        error: "BLOCKED: PYTH_API_KEY_REQUIRED",
+        reason_codes: ["PYTH_API_KEY_REQUIRED"],
+        message: "Server-side PYTH_API_KEY environment variable is required for live Pyth Hermes streaming."
+      });
+    }
+
+    // Set SSE headers
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "X-Accel-Buffering": "no"
+    });
+
+    res.write(`event: connected\ndata: ${JSON.stringify({ status: "CONNECTED", timestamp: new Date().toISOString() })}\n\n`);
+
+    // Heartbeat every 15s
+    const heartbeatTimer = setInterval(() => {
+      res.write(`:keep-alive ${Date.now()}\n\n`);
+    }, 15000);
+
+    req.on("close", () => {
+      clearInterval(heartbeatTimer);
+    });
+
+    return;
+  }
+
+  // 6. Primary Preflight Endpoint: POST /api/v1/preflight
   if (req.method === "POST" && (pathname === "/api/v1/preflight" || pathname.endsWith("/preflight"))) {
     try {
       const payload = await getRequestBody(req, SERVER_CONFIG.MAX_PAYLOAD_BYTES || 1048576);

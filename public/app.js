@@ -132,6 +132,271 @@ let activeWalletAddress = null;
 let currentSearchQuery = "";
 let currentCategoryFilter = "all";
 
+// ==========================================
+// Market Streaming & Route Scheduler (Order 009.6)
+// ==========================================
+
+export class MarketStreamManager {
+  constructor() {
+    this.status = "UNINITIALIZED";
+    this.eventSource = null;
+    this.reconnectAttempts = 0;
+    this.reconnectTimer = null;
+  }
+
+  async init() {
+    try {
+      const res = await fetch("/api/v1/stream/status");
+      const data = await res.json();
+      if (!data.streaming_infrastructure?.pyth_auth_present) {
+        this.status = "BLOCKED: PYTH_API_KEY_REQUIRED";
+        return;
+      }
+      this.connect();
+    } catch (e) {
+      this.status = "OFFLINE";
+    }
+  }
+
+  connect() {
+    if (this.eventSource) {
+      try { this.eventSource.close(); } catch {}
+    }
+    this.eventSource = new EventSource("/api/v1/stream");
+
+    this.eventSource.onopen = () => {
+      this.status = "LIVE";
+      this.reconnectAttempts = 0;
+    };
+
+    this.eventSource.onmessage = (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        if (payload.type === "PRICE_UPDATE" && payload.symbol === "SOL") {
+          currentSolPrice = payload.price;
+          solPriceTimestamp = payload.timestamp;
+          solPriceStatus = "FRESH";
+          updateAllSolPriceDisplays();
+        }
+      } catch {}
+    };
+
+    this.eventSource.onerror = () => {
+      this.status = "RECONNECTING";
+      try { this.eventSource.close(); } catch {}
+      this.eventSource = null;
+      const backoff = Math.min(16000, 1000 * Math.pow(2, this.reconnectAttempts)) * (0.8 + Math.random() * 0.4);
+      this.reconnectAttempts++;
+      this.reconnectTimer = setTimeout(() => this.connect(), backoff);
+    };
+  }
+}
+
+export class ActiveTradeRouteScheduler {
+  constructor() {
+    this.activeSymbol = null;
+    this.activeCard = null;
+    this.timer = null;
+    this.abortController = null;
+    this.generationToken = 0;
+    this.isPolling = false;
+    this.lastQuoteData = null;
+    this.lastCheckedData = null;
+    this.isTabHidden = false;
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        this.isTabHidden = document.visibilityState === "hidden";
+        if (this.isTabHidden) {
+          this.stopTimer();
+        } else if (this.activeSymbol && this.activeCard) {
+          this.fetchActiveRoute();
+          this.startTimer();
+        }
+      });
+    }
+  }
+
+  start(symbol, card) {
+    this.stop();
+    this.activeSymbol = symbol;
+    this.activeCard = card;
+    this.generationToken++;
+    this.lastCheckedData = null;
+    
+    this.fetchActiveRoute();
+    this.startTimer();
+  }
+
+  stop() {
+    this.stopTimer();
+    if (this.abortController) {
+      try { this.abortController.abort(); } catch {}
+      this.abortController = null;
+    }
+    this.activeSymbol = null;
+    this.activeCard = null;
+    this.lastQuoteData = null;
+  }
+
+  stopTimer() {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+  }
+
+  startTimer(ms = 3500) {
+    this.stopTimer();
+    if (this.isTabHidden) return;
+    this.timer = setTimeout(() => {
+      if (this.activeSymbol && this.activeCard) {
+        this.fetchActiveRoute().then(() => {
+          if (this.activeSymbol && !this.isTabHidden) {
+            this.startTimer(3500);
+          }
+        });
+      }
+    }, ms);
+  }
+
+  notifyFormChanged() {
+    if (!this.activeSymbol || !this.activeCard) return;
+    this.stopTimer();
+    this.fetchActiveRoute();
+    this.startTimer(3500);
+  }
+
+  setLastCheckedSnapshot(data) {
+    this.lastCheckedData = data;
+    if (this.activeCard) {
+      const banner = this.activeCard.querySelector(".live-movement-banner");
+      if (banner) banner.classList.add("hidden");
+    }
+  }
+
+  async fetchActiveRoute() {
+    if (!this.activeSymbol || !this.activeCard || this.isPolling) return;
+    const currentToken = ++this.generationToken;
+    const card = this.activeCard;
+    const symbol = this.activeSymbol;
+
+    const form = card.querySelector(".stock-trade-form");
+    if (!form) return;
+
+    const inputAsset = form.querySelector("input[name='inputAsset']")?.value || "USDC";
+    const amountVal = parseFloat(form.querySelector(".amount-input")?.value || "0");
+    if (isNaN(amountVal) || amountVal <= 0) return;
+
+    if (this.abortController) {
+      try { this.abortController.abort(); } catch {}
+    }
+    this.abortController = new AbortController();
+    this.isPolling = true;
+
+    try {
+      const res = await fetch("/api/v1/preflight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inputAsset,
+          stock: symbol,
+          amount: amountVal,
+          wallet: null
+        }),
+        signal: this.abortController.signal
+      });
+
+      if (currentToken !== this.generationToken) return;
+
+      if (res.status === 429) {
+        this.updateLivePreviewStatus(card, "RATE LIMITED", "badge-reconnecting");
+        this.stopTimer();
+        this.startTimer(10000);
+        return;
+      }
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (currentToken !== this.generationToken) return;
+
+      if (data.request_status === "SUCCESS") {
+        this.lastQuoteData = data;
+        this.updateLivePreview(card, data);
+
+        // Check if live route moved compared to checked snapshot
+        if (this.lastCheckedData && this.lastCheckedData.trade?.stock_symbol === symbol) {
+          const checkedOut = BigInt(this.lastCheckedData.economics?.raw_out_amount || "0");
+          const liveOut = BigInt(data.economics?.raw_out_amount || "0");
+          if (checkedOut > 0n && liveOut > 0n) {
+            const diffOut = Number(liveOut - checkedOut) / Number(checkedOut);
+            const banner = card.querySelector(".live-movement-banner");
+            if (banner) {
+              if (Math.abs(diffOut) > 0.0005) { // 0.05% move
+                const pctStr = (diffOut * 100).toFixed(2);
+                const prefix = diffOut >= 0 ? "+" : "";
+                const textEl = banner.querySelector(".live-movement-text");
+                if (textEl) textEl.textContent = `⚡ Live route output moved (${prefix}${pctStr}%) since check`;
+                banner.classList.remove("hidden");
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (e.name !== "AbortError") {
+        this.updateLivePreviewStatus(card, "RECONNECTING", "badge-reconnecting");
+      }
+    } finally {
+      this.isPolling = false;
+    }
+  }
+
+  updateLivePreview(card, data) {
+    const trade = data.trade;
+    const econ = data.economics;
+    const bench = data.benchmark;
+    const route = data.dex_route;
+
+    const spendVal = card.querySelector(".live-spend-val");
+    const sharesVal = card.querySelector(".live-shares-val");
+    const freshnessVal = card.querySelector(".live-freshness-val");
+    const statusBadge = card.querySelector(".live-route-status");
+
+    if (spendVal) {
+      spendVal.textContent = `$${trade.input_usd_value.toFixed(2)} USD`;
+    }
+    if (sharesVal) {
+      sharesVal.textContent = `~${econ.expected_stock_shares} ${trade.canonical_stock}`;
+    }
+    if (freshnessVal) {
+      freshnessVal.textContent = `Updated <1s ago (${route?.steps?.join(" → ") || "Jupiter"})`;
+    }
+    if (statusBadge) {
+      const isClosed = bench?.market_context?.reference_eligibility !== "ELIGIBLE";
+      if (isClosed) {
+        statusBadge.className = "live-status-badge badge-closed live-route-status";
+        statusBadge.textContent = "Market Closed";
+      } else {
+        statusBadge.className = "live-status-badge badge-live live-route-status";
+        statusBadge.textContent = "● Live Route Active";
+      }
+    }
+  }
+
+  updateLivePreviewStatus(card, text, badgeClass) {
+    const statusBadge = card.querySelector(".live-route-status");
+    if (statusBadge) {
+      statusBadge.className = `live-status-badge ${badgeClass} live-route-status`;
+      statusBadge.textContent = text;
+    }
+  }
+}
+
+export const activeRouteScheduler = new ActiveTradeRouteScheduler();
+export const marketStreamManager = new MarketStreamManager();
+
 export async function fetchAuthoritativeSolPrice() {
   try {
     const res = await fetch("/api/v1/prices/sol");
@@ -349,6 +614,7 @@ window.addEventListener("DOMContentLoaded", () => {
   initScrollReveal();
   handleRoute();
   fetchAuthoritativeSolPrice();
+  marketStreamManager.init();
   setInterval(fetchAuthoritativeSolPrice, 60000);
 });
 
@@ -547,6 +813,34 @@ function renderCardBodyMarkup(symbol) {
       </div>
     </form>
 
+    <!-- Live Indicative Route Preview (Director Order 009.6) -->
+    <div class="live-preview-box">
+      <div class="live-preview-header">
+        <span class="live-preview-title">
+          <span class="live-pulse-dot"></span>
+          Live Route Preview
+        </span>
+        <span class="live-status-badge badge-live live-route-status">
+          ● Live Route Active
+        </span>
+      </div>
+      <div class="live-preview-grid">
+        <div class="live-preview-item">
+          <span class="live-preview-label">Live Spend</span>
+          <span class="live-preview-value live-spend-val">$500.00 USD</span>
+        </div>
+        <div class="live-preview-item">
+          <span class="live-preview-label">Indicative Shares</span>
+          <span class="live-preview-value live-shares-val">Fetching live route...</span>
+        </div>
+        <div class="live-preview-item">
+          <span class="live-preview-label">Route Freshness</span>
+          <span class="live-preview-value live-freshness-val">Initializing...</span>
+        </div>
+      </div>
+      <p class="live-preview-hint">Live indicative DEX preview. Click <strong>CHECK TRADE</strong> above to freeze an immutable preflight snapshot.</p>
+    </div>
+
     <!-- Inline Loading -->
     <div class="inline-loading-state hidden">
       <div class="loading-spinner"></div>
@@ -566,6 +860,18 @@ function renderCardBodyMarkup(symbol) {
 
     <!-- Inline Result Container -->
     <div class="inline-result-container hidden">
+      <!-- Frozen Snapshot Header (Order 009.6) -->
+      <div class="snapshot-freeze-header">
+        <span class="snapshot-freeze-title">CHECKED PREFLIGHT SNAPSHOT</span>
+        <span class="snapshot-freeze-badge res-freeze-timestamp">CHECKED AT --:--:-- UTC</span>
+      </div>
+
+      <!-- Post-Check Live Movement Notice -->
+      <div class="live-movement-banner hidden">
+        <span class="live-movement-text">⚡ Live DEX route output moved since this check</span>
+        <button type="button" class="btn-refresh-check">REFRESH CHECK</button>
+      </div>
+
       <!-- Verdict Banner -->
       <div class="verdict-banner">
         <div class="verdict-icon-box">
@@ -832,6 +1138,9 @@ function expandCard(card, symbol) {
     if (icon) icon.innerHTML = '<polyline points="18 15 12 9 6 15"></polyline>';
   }
 
+  // Start active trade route scheduler for this expanded card
+  activeRouteScheduler.start(symbol, card);
+
   // Smooth alignment into view if not visible
   card.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -841,6 +1150,9 @@ function collapseCard(card, symbol) {
   const body = card.querySelector(".stock-card-body");
   const header = card.querySelector(".stock-card-header");
   const toggleBtn = card.querySelector(".stock-toggle-btn");
+
+  // Stop active route scheduler when card collapses
+  activeRouteScheduler.stop();
 
   card.classList.remove("is-expanded");
   if (body) body.classList.add("hidden");
@@ -873,6 +1185,16 @@ function setupCardInteractivity(card, symbol) {
   const walletInput = form.querySelector(".wallet-input");
   const errorState = card.querySelector(".inline-error-state");
   const errorRetryBtn = errorState?.querySelector(".error-retry-btn");
+  const refreshCheckBtn = card.querySelector(".btn-refresh-check");
+
+  let amountDebounceTimer = null;
+
+  // Refresh check button handler
+  if (refreshCheckBtn) {
+    refreshCheckBtn.addEventListener("click", () => {
+      form.requestSubmit?.() || form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    });
+  }
 
   // Payment Selection
   paymentTabs.forEach(tab => {
@@ -899,14 +1221,19 @@ function setupCardInteractivity(card, symbol) {
         if (parseFloat(amountInput.value) <= 10) amountInput.value = "500";
       }
       updateUsdEquiv(amountInput, amountUsdEquiv, inputAssetHidden.value);
+      activeRouteScheduler.notifyFormChanged();
     });
   });
 
-  // Amount input listener
+  // Amount input listener with 400ms debounce
   if (amountInput) {
     amountInput.addEventListener("input", () => {
       card.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
       updateUsdEquiv(amountInput, amountUsdEquiv, inputAssetHidden?.value || "USDC");
+      clearTimeout(amountDebounceTimer);
+      amountDebounceTimer = setTimeout(() => {
+        activeRouteScheduler.notifyFormChanged();
+      }, 400);
     });
   }
 
@@ -990,6 +1317,7 @@ function setupCardInteractivity(card, symbol) {
       }
 
       renderCardResult(card, data, symbol);
+      activeRouteScheduler.setLastCheckedSnapshot(data);
     } catch (err) {
       showCardError(card, "Connection Error", "Unable to connect to the JustFair Preflight service. Please check your network.");
     }
@@ -1128,6 +1456,13 @@ function renderCardResult(card, data, symbol) {
     if (amountUsdEquiv) {
       amountUsdEquiv.textContent = `≈ $${(trade.input_amount * currentSolPrice).toFixed(2)} USD`;
     }
+  }
+
+  // Stamp frozen preflight snapshot timestamp (Order 009.6)
+  const freezeBadge = resultContainer.querySelector(".res-freeze-timestamp");
+  if (freezeBadge) {
+    const timeStr = new Date().toISOString().replace("T", " ").slice(11, 19);
+    freezeBadge.textContent = `CHECKED AT ${timeStr} UTC`;
   }
 
   // 1. Set Spending Value (Primary Metric #1)

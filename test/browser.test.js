@@ -491,7 +491,7 @@ async function runBrowserTests() {
     // 13. SOL Input Valuation Consistency & Form-Result Synchronization (Director Order 009.5)
     await test("13. SOL Input Valuation Consistency & Form-Result Synchronization", async () => {
       // 1. Ensure AAPLx card is expanded
-      const isExpanded = await page.$eval("#stock-card-AAPLx", el => el.classList.contains("expanded"));
+      const isExpanded = await page.$eval("#stock-card-AAPLx", el => el.classList.contains("is-expanded"));
       if (!isExpanded) {
         await page.click("#stock-card-AAPLx .stock-card-header");
         await page.waitForTimeout(300);
@@ -544,6 +544,34 @@ async function runBrowserTests() {
       const proofInputVal = await page.textContent("#stock-card-AAPLx .ev-input-val");
       if (!proofInputPrice.includes("$") || !proofInputVal.includes("4 SOL")) {
         throw new Error(`Evidence drawer payment asset valuation incomplete: price=${proofInputPrice}, val=${proofInputVal}`);
+      }
+    });
+
+    // 14. Live Route Preview & Immutable Snapshot Freeze Separation (Order 009.6)
+    await test("14. Live Route Preview & Immutable Snapshot Freeze Separation", async () => {
+      // 1. Ensure AAPLx card is expanded
+      const isExpanded = await page.$eval("#stock-card-AAPLx", el => el.classList.contains("is-expanded"));
+      if (!isExpanded) {
+        await page.click("#stock-card-AAPLx .stock-card-header");
+        await page.waitForTimeout(300);
+      }
+
+      // 2. Verify Live Route Preview is present
+      const previewTitle = await page.textContent("#stock-card-AAPLx .live-preview-title");
+      if (!previewTitle.includes("Live Route Preview")) {
+        throw new Error(`Expected Live Route Preview title, got: ${previewTitle}`);
+      }
+
+      // 3. Verify Snapshot Freeze Timestamp
+      const freezeTimestamp = await page.textContent("#stock-card-AAPLx .res-freeze-timestamp");
+      if (!freezeTimestamp.includes("CHECKED AT")) {
+        throw new Error(`Expected frozen snapshot timestamp, got: ${freezeTimestamp}`);
+      }
+
+      // 4. Verify post-check live movement banner element
+      const banner = await page.$("#stock-card-AAPLx .live-movement-banner");
+      if (!banner) {
+        throw new Error("Expected live-movement-banner element inside stock card");
       }
     });
 
