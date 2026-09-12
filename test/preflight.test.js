@@ -5,6 +5,7 @@ import {
   fetchOnChainTokenMultiplier,
   calculateEffectiveMultiplier,
   calculateMarketSession,
+  createRouteFingerprint,
   evaluateAlternativeRoutes,
   isValidSolanaPublicKey,
   determineVerdict,
@@ -313,6 +314,51 @@ async function runTests() {
   });
 
   // --- 14. ALTERNATIVE ROUTE COMPARISON & DISCOVERY ENGINE ---
+  await test("createRouteFingerprint generates deterministic route fingerprints", async () => {
+    const order1 = {
+      router: "jupiterz",
+      mode: "ultra",
+      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }, { swapInfo: { label: "Orca" } }],
+      outAmount: "1000000"
+    };
+    const order2 = {
+      router: "jupiterz",
+      mode: "ultra",
+      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }, { swapInfo: { label: "Orca" } }],
+      outAmount: "1000000"
+    };
+    const orderDiffRouter = {
+      router: "metis",
+      mode: "ultra",
+      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }, { swapInfo: { label: "Orca" } }],
+      outAmount: "1000000"
+    };
+    const orderDiffAmount = {
+      router: "jupiterz",
+      mode: "ultra",
+      routePlan: [{ swapInfo: { label: "Raydium CLMM" } }, { swapInfo: { label: "Orca" } }],
+      outAmount: "999990"
+    };
+
+    const fp1 = createRouteFingerprint(order1);
+    const fp2 = createRouteFingerprint(order2);
+    const fpDiffRouter = createRouteFingerprint(orderDiffRouter);
+    const fpDiffAmount = createRouteFingerprint(orderDiffAmount);
+
+    if (fp1 !== "jupiterz:ultra:Raydium CLMM>Orca:1000000") {
+      throw new Error(`Unexpected fingerprint format: ${fp1}`);
+    }
+    if (fp1 !== fp2) {
+      throw new Error("Identical orders must produce identical fingerprints");
+    }
+    if (fp1 === fpDiffRouter) {
+      throw new Error("Different router must produce different fingerprint");
+    }
+    if (fp1 === fpDiffAmount) {
+      throw new Error("Different outAmount must produce different fingerprint");
+    }
+  });
+
   await test("evaluateAlternativeRoutes identifies better route candidate when output exceeds canonical", async () => {
     const mockCanonicalOrder = {
       outAmount: "1000000",
@@ -324,12 +370,15 @@ async function runTests() {
 
     const mockCandidates = [
       {
-        candidate_type: "DIRECT_ROUTE",
-        candidate_label: "Direct AMM Route",
-        is_direct: true,
+        candidate_type: "ROUTER_EXCLUSION",
+        candidate_strategy: "Router Exclusion (excludeRouters=jupiterz)",
+        candidate_label: "Competing Router (Excl. jupiterz)",
+        excluded_routers: ["jupiterz"],
         excluded_venues: [],
         result: {
           orderData: {
+            router: "metis",
+            mode: "ultra",
             outAmount: "1015000", // +1.5% higher
             priceImpactPct: "0.005",
             routePlan: [{ swapInfo: { label: "Whirlpool" } }]
@@ -352,8 +401,8 @@ async function runTests() {
     if (!evalResult.best_alternative) {
       throw new Error("Expected best_alternative object to be populated");
     }
-    if (evalResult.best_alternative.type !== "DIRECT_ROUTE") {
-      throw new Error(`Expected DIRECT_ROUTE, got ${evalResult.best_alternative.type}`);
+    if (evalResult.best_alternative.type !== "ROUTER_EXCLUSION") {
+      throw new Error(`Expected ROUTER_EXCLUSION, got ${evalResult.best_alternative.type}`);
     }
     if (evalResult.improvement_usd !== 1.50) {
       throw new Error(`Expected $1.50 improvement, got ${evalResult.improvement_usd}`);
@@ -374,12 +423,15 @@ async function runTests() {
 
     const mockCandidates = [
       {
-        candidate_type: "DIRECT_ROUTE",
-        candidate_label: "Direct AMM Route",
-        is_direct: true,
-        excluded_venues: [],
+        candidate_type: "DEX_EXCLUSION",
+        candidate_strategy: "DEX Exclusion (excludeDexes=Raydium CLMM)",
+        candidate_label: "Alternative Venue (Excl. Raydium CLMM)",
+        excluded_routers: [],
+        excluded_venues: ["Raydium CLMM"],
         result: {
           orderData: {
+            router: "metis",
+            mode: "ultra",
             outAmount: "995000", // lower than canonical
             priceImpactPct: "0.02",
             routePlan: [{ swapInfo: { label: "Whirlpool" } }]
@@ -404,6 +456,64 @@ async function runTests() {
     }
     if (evalResult.improvement_usd !== 0) {
       throw new Error("Expected improvement_usd 0");
+    }
+  });
+
+  await test("Candidate Distinctness Gate filters out candidate quotes matching canonical fingerprint", async () => {
+    const canonicalResult = {
+      orderData: {
+        router: "jupiterz",
+        mode: "ultra",
+        routePlan: [{ swapInfo: { label: "Raydium CLMM" } }],
+        outAmount: "1000000"
+      },
+      obtained_at: new Date().toISOString()
+    };
+
+    const duplicateCandidate = {
+      candidate_type: "ROUTER_EXCLUSION",
+      candidate_strategy: "Router Exclusion (excludeRouters=jupiterz)",
+      result: {
+        orderData: {
+          router: "jupiterz",
+          mode: "ultra",
+          routePlan: [{ swapInfo: { label: "Raydium CLMM" } }],
+          outAmount: "1000000"
+        }
+      }
+    };
+
+    const distinctCandidate = {
+      candidate_type: "DEX_EXCLUSION",
+      candidate_strategy: "DEX Exclusion (excludeDexes=Raydium CLMM)",
+      result: {
+        orderData: {
+          router: "metis",
+          mode: "ultra",
+          routePlan: [{ swapInfo: { label: "Whirlpool" } }],
+          outAmount: "998000"
+        }
+      }
+    };
+
+    const canonicalFp = createRouteFingerprint(canonicalResult.orderData);
+    const dupFp = createRouteFingerprint(duplicateCandidate.result.orderData);
+    const distinctFp = createRouteFingerprint(distinctCandidate.result.orderData);
+
+    if (dupFp !== canonicalFp) {
+      throw new Error("Duplicate candidate should match canonical fingerprint");
+    }
+    if (distinctFp === canonicalFp) {
+      throw new Error("Distinct candidate should NOT match canonical fingerprint");
+    }
+
+    const filteredCandidates = [duplicateCandidate, distinctCandidate].filter(c => {
+      const fp = createRouteFingerprint(c.result.orderData);
+      return fp !== canonicalFp;
+    });
+
+    if (filteredCandidates.length !== 1 || filteredCandidates[0] !== distinctCandidate) {
+      throw new Error("Candidate distinctness gate failed to filter duplicate candidate");
     }
   });
 

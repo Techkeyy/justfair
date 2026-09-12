@@ -2,7 +2,7 @@
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, API_ENDPOINTS } from "./config.js";
 import { fetchOnChainTokenMultiplier, calculateEffectiveMultiplier } from "./engine/multiplier.js";
 import { fetchMarketReference, fetchCryptoSpotPrice, calculateMarketSession } from "./engine/benchmark.js";
-import { fetchJupiterOrderV2, fetchJupiterAlternativeCandidates, extractVenuesFromRoutePlan } from "./engine/jupiter.js";
+import { fetchJupiterOrderV2, fetchJupiterAlternativeCandidates, extractVenuesFromRoutePlan, createRouteFingerprint } from "./engine/jupiter.js";
 import { simulateSolanaTransaction, isValidSolanaPublicKey } from "./engine/simulation.js";
 import { determineVerdict, THRESHOLD_CALIBRATION_STATUS } from "./engine/verdict.js";
 
@@ -15,6 +15,7 @@ export {
   fetchJupiterOrderV2,
   fetchJupiterAlternativeCandidates,
   extractVenuesFromRoutePlan,
+  createRouteFingerprint,
   evaluateAlternativeRoutes,
   simulateSolanaTransaction,
   isValidSolanaPublicKey,

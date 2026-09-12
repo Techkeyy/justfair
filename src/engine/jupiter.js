@@ -19,6 +19,7 @@ async function fetchWithRetry(url, options = {}, retries = 3, delayMs = 800) {
 /**
  * Fetch real route from official Jupiter Swap V2 API (/swap/v2/order)
  * NOTE: Does NOT send manual slippageBps by default; allows Jupiter default ultra/automatic mode.
+ * Officially supported route-control parameters on /order: excludeRouters, excludeDexes
  */
 export async function fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountHuman, taker = null, options = {}) {
   const rawAmount = Math.floor(amountHuman * Math.pow(10, inputAssetConfig.decimals));
@@ -30,19 +31,16 @@ export async function fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountH
   if (taker) {
     url += `&taker=${encodeURIComponent(taker)}`;
   }
-  if (options.directRoutesOnly) {
-    url += `&directRoutesOnly=true`;
+  if (options.excludeRouters) {
+    const excluded = Array.isArray(options.excludeRouters) ? options.excludeRouters.join(",") : options.excludeRouters;
+    if (excluded) {
+      url += `&excludeRouters=${encodeURIComponent(excluded)}`;
+    }
   }
   if (options.excludeDexes) {
     const excluded = Array.isArray(options.excludeDexes) ? options.excludeDexes.join(",") : options.excludeDexes;
     if (excluded) {
       url += `&excludeDexes=${encodeURIComponent(excluded)}`;
-    }
-  }
-  if (options.dexes) {
-    const included = Array.isArray(options.dexes) ? options.dexes.join(",") : options.dexes;
-    if (included) {
-      url += `&dexes=${encodeURIComponent(included)}`;
     }
   }
 
@@ -88,38 +86,57 @@ export function extractVenuesFromRoutePlan(routePlan = []) {
 }
 
 /**
- * Query alternative routing options (direct routes, alternate DEX venues) concurrently
+ * Compute deterministic route fingerprint to detect identical duplicate quotes
+ */
+export function createRouteFingerprint(orderData, constraintStrategy = "canonical") {
+  if (!orderData) return "null";
+  const router = (orderData.router || "unknown").toLowerCase();
+  const mode = (orderData.mode || "ultra").toLowerCase();
+  const steps = Array.isArray(orderData.routePlan)
+    ? orderData.routePlan.map(step => step?.swapInfo?.label || "DEX").join(">")
+    : "none";
+  const outAmount = orderData.outAmount || "0";
+  return `${router}:${mode}:${steps}:${outAmount}`;
+}
+
+/**
+ * Query genuinely distinct alternative routing options using official excludeRouters & excludeDexes parameters.
+ * Enforces Candidate Distinctness Gate: identical fingerprints to canonical are discarded as duplicates.
  */
 export async function fetchJupiterAlternativeCandidates(inputAssetConfig, stockConfig, amountHuman, taker = null, canonicalResult = null) {
-  const candidates = [];
-  const canonicalVenues = canonicalResult?.orderData?.routePlan
-    ? extractVenuesFromRoutePlan(canonicalResult.orderData.routePlan)
+  const canonicalOrder = canonicalResult?.orderData;
+  const canonicalFp = createRouteFingerprint(canonicalOrder, "canonical");
+  const canonicalVenues = canonicalOrder?.routePlan
+    ? extractVenuesFromRoutePlan(canonicalOrder.routePlan)
     : [];
+  const canonicalRouter = canonicalOrder?.router || "jupiterz";
 
   const candidatePromises = [];
 
-  // Candidate 1: Direct Route Only
+  // Strategy A: Exclude Canonical Router (official excludeRouters)
   candidatePromises.push(
-    fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountHuman, taker, { directRoutesOnly: true })
+    fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountHuman, taker, { excludeRouters: canonicalRouter })
       .then(res => ({
-        candidate_type: "DIRECT_ROUTE",
-        candidate_label: "Direct AMM Route",
-        is_direct: true,
+        candidate_type: "ROUTER_EXCLUSION",
+        candidate_strategy: `Router Exclusion (excludeRouters=${canonicalRouter})`,
+        candidate_label: `Competing Router (Excl. ${canonicalRouter})`,
+        excluded_routers: [canonicalRouter],
         excluded_venues: [],
         result: res
       }))
       .catch(() => null)
   );
 
-  // Candidate 2: Alternative DEX Venue (if canonical has a recognizable primary venue)
+  // Strategy B: Exclude Canonical Primary DEX Venue (official excludeDexes)
   if (canonicalVenues.length > 0) {
     const primaryVenue = canonicalVenues[0];
     candidatePromises.push(
       fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountHuman, taker, { excludeDexes: primaryVenue })
         .then(res => ({
-          candidate_type: "EXCLUDED_PRIMARY_VENUE",
-          candidate_label: `Alternative Route (Excl. ${primaryVenue})`,
-          is_direct: false,
+          candidate_type: "DEX_EXCLUSION",
+          candidate_strategy: `DEX Exclusion (excludeDexes=${primaryVenue})`,
+          candidate_label: `Alternative Venue (Excl. ${primaryVenue})`,
+          excluded_routers: [],
           excluded_venues: [primaryVenue],
           result: res
         }))
@@ -128,11 +145,23 @@ export async function fetchJupiterAlternativeCandidates(inputAssetConfig, stockC
   }
 
   const resolved = await Promise.all(candidatePromises);
+  const distinctCandidates = [];
+
   for (const c of resolved) {
-    if (c && c.result?.orderData?.outAmount) {
-      candidates.push(c);
+    if (!c || !c.result?.orderData?.outAmount) continue;
+
+    const candFp = createRouteFingerprint(c.result.orderData, c.candidate_strategy);
+    const isDistinct = candFp !== canonicalFp;
+
+    // CANDIDATE DISTINCTNESS GATE:
+    // If the candidate returned the exact same router, mode, routePlan steps, and outAmount,
+    // discard as duplicate.
+    if (isDistinct) {
+      c.fingerprint = candFp;
+      c.is_distinct_from_canonical = true;
+      distinctCandidates.push(c);
     }
   }
 
-  return candidates;
+  return distinctCandidates;
 }
