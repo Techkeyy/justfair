@@ -24,6 +24,7 @@ async function smokeTest() {
   console.log('POST /api/v1/preflight status:', pRes.status);
   const pData = await pRes.json();
   console.log('Preflight status:', pData.request_status, '| Spend: $' + pData.trade?.input_usd_value, '| Exposure: $' + pData.economics?.expected_stock_exposure_usd, '| Verdict:', pData.verdict);
+  console.log('Alternative Routes status:', pData.alternative_routes?.status, '| Evaluated count:', pData.alternative_routes?.candidates_evaluated_count);
 
   // 4. HTML & Client Bundle
   const htmlRes = await fetch(base + '/');
@@ -38,6 +39,8 @@ async function smokeTest() {
   const js = await jsRes.text();
   console.log("Contains locked hierarchy in app.js (YOU'RE SPENDING):", js.includes("YOU'RE SPENDING"));
   console.log("Contains 12 stocks in app.js:", js.includes("MSFTx") && js.includes("QQQx") && js.includes("MSTRx"));
+  console.log("Contains truthful routing state (NO BETTER ROUTE OBSERVED):", js.includes("better-option-card") && js.includes("NO BETTER ROUTE OBSERVED"));
+  console.log("Contains no overclaims (OPTIMAL ROUTE CONFIRMED):", !js.includes("OPTIMAL ROUTE CONFIRMED"));
 }
 
 smokeTest().catch(err => {

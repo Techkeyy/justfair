@@ -569,9 +569,9 @@ function renderCardBodyMarkup(symbol) {
           <div class="better-option-header">
             <div class="better-option-status-badge">
               <svg class="better-option-badge-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              <span class="better-option-badge-text">OPTIMAL ROUTE CONFIRMED</span>
+              <span class="better-option-badge-text">NO BETTER ROUTE OBSERVED</span>
             </div>
-            <span class="better-option-summary-text">Jupiter's current route is the strongest executable option observed.</span>
+            <span class="better-option-summary-text">JustFair checked distinct executable route candidates and did not find one that improved on Jupiter's current route.</span>
           </div>
           <div class="better-option-detail hidden">
             <div class="better-option-grid">
@@ -627,7 +627,7 @@ function renderCardBodyMarkup(symbol) {
             <div class="evidence-item"><span class="ev-label">Multiplier</span><span class="ev-val ev-multiplier">1.0</span></div>
             <div class="evidence-item"><span class="ev-label">DEX Router</span><span class="ev-val ev-router">Jupiter Swap V2</span></div>
             <div class="evidence-item"><span class="ev-label">Routing Steps</span><span class="ev-val ev-steps">DEX Pool</span></div>
-            <div class="evidence-item"><span class="ev-label">Route Candidates Checked</span><span class="ev-val ev-alt-count">2 candidates</span></div>
+            <div class="evidence-item"><span class="ev-label">Route Alternatives Checked</span><span class="ev-val ev-alt-count">1 distinct alternative inspected</span></div>
             <div class="evidence-item"><span class="ev-label">Price Impact</span><span class="ev-val ev-impact">0.00%</span></div>
             <div class="evidence-item"><span class="ev-label">Benchmark Provider</span><span class="ev-val ev-benchmark-source">Stock Market Tape</span></div>
             <div class="evidence-item"><span class="ev-label">Current Market Session</span><span class="ev-val ev-session">CLOSED</span></div>
@@ -1148,9 +1148,9 @@ function renderCardResult(card, data, symbol) {
       if (betterOptionDetail) betterOptionDetail.classList.remove("hidden");
     } else {
       betterOptionCard.className = "better-option-card is-optimal";
-      if (betterOptionBadgeText) betterOptionBadgeText.textContent = "OPTIMAL ROUTE CONFIRMED";
+      if (betterOptionBadgeText) betterOptionBadgeText.textContent = "NO BETTER ROUTE OBSERVED";
       if (betterOptionSummaryText) {
-        betterOptionSummaryText.textContent = altRoutes?.summary || "Jupiter's current route is already the strongest executable option JustFair observed across direct and multi-hop DEX pools.";
+        betterOptionSummaryText.textContent = altRoutes?.summary || "JustFair checked distinct executable route candidates and did not find one that improved on Jupiter's current route.";
       }
       if (betterOptionDetail) betterOptionDetail.classList.add("hidden");
     }
@@ -1201,7 +1201,11 @@ function renderCardResult(card, data, symbol) {
   if (evMultiplier) evMultiplier.textContent = `${econ.multiplier.current_multiplier} (1 token = ${econ.multiplier.current_multiplier} shares)`;
   if (evRouter) evRouter.textContent = `Jupiter Swap V2 (Router: ${data.dex_route.router}, Mode: ${data.dex_route.mode})`;
   if (evSteps) evSteps.textContent = data.dex_route.steps?.join(" to ") || "Direct DEX Pool";
-  if (evAltCount) evAltCount.textContent = `${data.alternative_routes?.candidates_evaluated_count || 0} routes inspected`;
+  if (evAltCount) {
+    const count = data.alternative_routes?.candidates_evaluated_count || 0;
+    const unit = count === 1 ? "distinct alternative" : "distinct alternatives";
+    evAltCount.textContent = `${count} ${unit} inspected`;
+  }
   if (evImpact) evImpact.textContent = `${(parseFloat(data.dex_route.price_impact_pct || 0)).toFixed(4)}%`;
   if (evBenchmarkSource) evBenchmarkSource.textContent = `${bench.provider} (${bench.source})`;
   if (evSession) evSession.textContent = mkt.session || bench.current_market_session || (isClosed ? "CLOSED" : "REGULAR");

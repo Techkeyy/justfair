@@ -505,6 +505,31 @@ async function runTests() {
     if (evalResult.improvement_usd !== 0) {
       throw new Error("Expected improvement_usd 0");
     }
+    // Truthfulness Copy Assertions: Reject overclaims
+    const summary = evalResult.summary;
+    if (/optimal|globally optimal|best possible|confirmed optimal|across all pools/i.test(summary)) {
+      throw new Error(`Summary contains prohibited overclaim: ${summary}`);
+    }
+    if (!summary.includes("JustFair checked distinct executable route candidates and did not find one that improved on Jupiter's current route.")) {
+      throw new Error(`Summary does not match truthful specification: ${summary}`);
+    }
+  });
+
+  await test("Routing intelligence grammar helper handles singular and plural counts accurately", async () => {
+    const formatCount = (count) => {
+      const unit = count === 1 ? "distinct alternative" : "distinct alternatives";
+      return `${count} ${unit} inspected`;
+    };
+
+    if (formatCount(1) !== "1 distinct alternative inspected") {
+      throw new Error(`Singular format mismatch: ${formatCount(1)}`);
+    }
+    if (formatCount(2) !== "2 distinct alternatives inspected") {
+      throw new Error(`Plural format mismatch: ${formatCount(2)}`);
+    }
+    if (formatCount(0) !== "0 distinct alternatives inspected") {
+      throw new Error(`Zero count format mismatch: ${formatCount(0)}`);
+    }
   });
 
   await test("Candidate Distinctness Gate filters out candidate quotes with identical structural fingerprint", async () => {

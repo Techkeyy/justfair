@@ -56,7 +56,7 @@ function evaluateAlternativeRoutes({
   if (!alternativeCandidates || alternativeCandidates.length === 0) {
     return {
       status: "NO_BETTER_ALTERNATIVE_OBSERVED",
-      summary: "Jupiter's current route is already the strongest executable option JustFair observed across direct and multi-hop DEX pools.",
+      summary: "JustFair checked distinct executable route candidates and did not find one that improved on Jupiter's current route.",
       canonical_route: canonicalRouteInfo,
       best_alternative: null,
       improvement_usd: 0,
@@ -133,7 +133,7 @@ function evaluateAlternativeRoutes({
 
   return {
     status: "NO_BETTER_ALTERNATIVE_OBSERVED",
-    summary: "Jupiter's current route is already the strongest executable option JustFair observed across direct and multi-hop DEX pools.",
+    summary: "JustFair checked distinct executable route candidates and did not find one that improved on Jupiter's current route.",
     canonical_route: canonicalRouteInfo,
     best_alternative: null,
     improvement_usd: 0,
