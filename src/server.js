@@ -273,17 +273,25 @@ export async function handleRequest(req, res) {
 
     // Upstream Pyth Hermes SSE connection
     const upstreamAbort = new AbortController();
-    const idList = Object.values(PYTH_FEEDS_REGISTRY).map(f => `ids[]=${f.id}`).join("&");
-    const upstreamUrl = `https://pyth.dourolabs.app/hermes/v2/updates/price/stream?${idList}&parsed=true`;
+    const idList = Object.values(PYTH_FEEDS_REGISTRY).map(f => `ids[]=0x${f.id.replace(/^0x/, "")}`).join("&");
+    const primaryUrl = `https://pyth.dourolabs.app/hermes/v2/updates/price/stream?${idList}&parsed=true`;
+    const fallbackUrl = `https://hermes.pyth.network/v2/updates/price/stream?${idList}&parsed=true`;
 
     (async () => {
       try {
-        const upstreamRes = await fetch(upstreamUrl, {
-          headers: {
-            "Authorization": `Bearer ${process.env.PYTH_API_KEY.trim()}`
-          },
+        const authHeader = process.env.PYTH_API_KEY ? { "Authorization": `Bearer ${process.env.PYTH_API_KEY.trim()}` } : {};
+        let upstreamRes = await fetch(primaryUrl, {
+          headers: authHeader,
           signal: upstreamAbort.signal
         });
+
+        if (!upstreamRes.ok) {
+          // Fallback to public Hermes endpoint if primary endpoint returns non-200
+          upstreamRes = await fetch(fallbackUrl, {
+            headers: authHeader,
+            signal: upstreamAbort.signal
+          });
+        }
 
         if (!upstreamRes.ok) {
           res.write(`event: upstream_error\ndata: ${JSON.stringify({ status: upstreamRes.status, message: "Upstream streaming provider returned non-200 status" })}\n\n`);
