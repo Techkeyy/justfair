@@ -46,8 +46,8 @@ async function runE2ETests() {
       if (!html.includes("USDC") || !html.includes("SOL")) {
         throw new Error("Missing payment asset options");
       }
-      if (!html.includes("Zero-Risk Preflight")) {
-        throw new Error("Missing non-custodial safety guarantee banner");
+      if (!html.includes("PREVIEW ONLY · NO FUNDS MOVED")) {
+        throw new Error("Missing non-custodial safety banner");
       }
       if (!html.includes("Built for users. Embeddable by wallets.")) {
         throw new Error("Missing secondary API showcase section");

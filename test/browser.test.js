@@ -42,7 +42,7 @@ async function runBrowserTests() {
 
   try {
     // 1. Initial Page Load & Render
-    await test("1. Initial page load renders hero, controls, and zero jargon headline", async () => {
+    await test("1. Initial page load renders hero, controls, safety banner with no Zero-Risk claim", async () => {
       await page.goto(BASE_URL, { waitUntil: "networkidle" });
       const heroText = await page.textContent(".hero-headline");
       if (!heroText.includes("Before you buy the stock, check the fill.")) {
@@ -54,11 +54,20 @@ async function runBrowserTests() {
         throw new Error(`Primary CTA mismatch: ${ctaText}`);
       }
 
+      // Check safety notice: MUST contain "NO FUNDS MOVED", MUST NOT contain "Zero-Risk" or "zero risk"
+      const pageContent = await page.content();
+      if (/zero-risk|zero\s+risk|risk-free/i.test(pageContent)) {
+        throw new Error("Page contains prohibited 'zero risk' or 'risk-free' claim");
+      }
+      if (!pageContent.includes("NO FUNDS MOVED")) {
+        throw new Error("Page does not contain expected 'NO FUNDS MOVED' safety copy");
+      }
+
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "01_initial_page.png"), fullPage: true });
     });
 
     // 2. Form Interaction & Real API Trade Check (AAPLx + USDC $500)
-    await test("2. Real AAPLx + USDC trade check renders Big 3 plain-money values", async () => {
+    await test("2. Real AAPLx + USDC trade check renders locked 3 primary metrics and secondary shares", async () => {
       // Ensure AAPLx and USDC are active
       await page.click(".stock-chip[data-symbol='AAPLx']");
       await page.click(".payment-tab[data-asset='USDC']");
@@ -70,15 +79,35 @@ async function runBrowserTests() {
       // Wait for result container to appear
       await page.waitForSelector("#result-state:not(.hidden)", { timeout: 15000 });
 
+      // Metric #1: YOU'RE SPENDING
+      const spendLabel = await page.textContent(".money-stat:nth-child(1) .money-label");
       const spendVal = await page.textContent("#res-spend-val");
-      const exposureVal = await page.textContent("#res-exposure-val");
-      const diffVal = await page.textContent("#res-diff-val");
-      const explanation = await page.textContent("#res-explanation");
+      const spendSub = await page.textContent("#res-spend-sub");
+      if (!spendLabel.includes("YOU'RE SPENDING")) throw new Error(`Metric 1 label mismatch: ${spendLabel}`);
+      if (!spendVal.includes("$500.00")) throw new Error(`Metric 1 spend value mismatch: ${spendVal}`);
+      if (!spendSub.includes("USDC")) throw new Error(`Metric 1 subtext mismatch: ${spendSub}`);
 
-      if (!spendVal.includes("$500.00")) throw new Error(`Spend value mismatch: ${spendVal}`);
-      if (!exposureVal.includes("$")) throw new Error(`Exposure value missing: ${exposureVal}`);
-      if (!diffVal.includes("$")) throw new Error(`Difference value missing: ${diffVal}`);
-      if (!explanation || explanation.length < 20) throw new Error("Explanation text missing");
+      // Metric #2: EXPECTED APPLE EXPOSURE
+      const exposureLabel = await page.textContent("#res-exposure-label");
+      const exposureVal = await page.textContent("#res-exposure-val");
+      const exposureSub = await page.textContent("#res-exposure-sub");
+      if (!exposureLabel.includes("EXPECTED APPLE EXPOSURE")) throw new Error(`Metric 2 label mismatch: ${exposureLabel}`);
+      if (!exposureVal.includes("$")) throw new Error(`Metric 2 exposure value missing: ${exposureVal}`);
+      if (!exposureSub.includes("AAPL @ $")) throw new Error(`Metric 2 secondary shares mismatch: ${exposureSub}`);
+
+      // Metric #3: DIFFERENCE
+      const diffLabel = await page.textContent(".money-stat.highlight .money-label");
+      const diffVal = await page.textContent("#res-diff-val");
+      const diffPct = await page.textContent("#res-diff-pct");
+      if (!diffLabel.includes("DIFFERENCE")) throw new Error(`Metric 3 label mismatch: ${diffLabel}`);
+      if (!diffVal.includes("$")) throw new Error(`Metric 3 difference value missing: ${diffVal}`);
+      if (!diffPct.includes("%")) throw new Error(`Metric 3 difference percentage missing: ${diffPct}`);
+
+      // Verdict State: truthful CAN'T VERIFY RIGHT NOW or MEASURED
+      const verdictTitle = await page.textContent("#verdict-title");
+      if (!verdictTitle.includes("CAN'T VERIFY RIGHT NOW") && !verdictTitle.includes("MEASURED")) {
+        throw new Error(`Unexpected production verdict title: ${verdictTitle}`);
+      }
 
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "02_aaplx_usdc_result.png"), fullPage: true });
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "03_market_closed_measured_result.png"), fullPage: true });
@@ -189,3 +218,4 @@ runBrowserTests().catch(err => {
   console.error("Playwright Test Runner Crashed:", err);
   process.exitCode = 1;
 });
+

@@ -302,37 +302,42 @@ function renderResult(data) {
   const diffPct = econ.difference_pct;
   const stockMeta = STOCK_META[trade.stock_symbol] || { name: trade.canonical_stock };
 
-  // Set Spending Value
+  // Set Spending Value (Primary Metric #1)
   resSpendVal.textContent = `$${trade.input_usd_value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  resSpendSub.textContent = `${trade.input_amount} ${trade.input_asset}`;
+  if (trade.input_asset === "SOL") {
+    resSpendSub.textContent = `${trade.input_amount} SOL`;
+  } else {
+    resSpendSub.textContent = `${trade.input_amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${trade.input_asset}`;
+  }
 
-  // Set Exposure Value
-  resExposureLabel.textContent = `EXPECTED ${stockMeta.name.toUpperCase()} EXPOSURE`;
+  // Set Exposure Value (Primary Metric #2)
+  const assetShortName = (stockMeta.name || trade.canonical_stock).replace(/\s+(Inc\.?|Corp\.?|ETF)$/i, "").toUpperCase();
+  resExposureLabel.textContent = `EXPECTED ${assetShortName} EXPOSURE`;
   resExposureVal.textContent = `$${econ.expected_stock_exposure_usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  resExposureSub.textContent = `${econ.expected_stock_shares} ${trade.canonical_stock} @ $${bench.price}`;
+  resExposureSub.textContent = `${econ.expected_stock_shares} ${trade.canonical_stock} @ $${Number(bench.price).toFixed(2)}`;
 
-  // Set Net Difference
-  const diffPrefix = econ.difference_usd >= 0 ? "+" : "";
-  resDiffVal.textContent = `${diffPrefix}$${econ.difference_usd.toFixed(2)}`;
-  resDiffPct.textContent = `${diffPrefix}${diffPct.toFixed(2)}% vs independent benchmark`;
+  // Set Net Difference (Primary Metric #3)
+  const diffPrefix = econ.difference_usd >= 0 ? "+" : "-";
+  resDiffVal.textContent = `${diffPrefix}$${Math.abs(econ.difference_usd).toFixed(2)}`;
+  resDiffPct.textContent = `(${econ.difference_usd >= 0 ? "+" : ""}${diffPct.toFixed(2)}%)`;
 
   // Verdict Banner State
   verdictBanner.className = "verdict-banner";
   if (mkt.session === "CLOSED" || bench.freshness_status === "AFTER_HOURS_CLOSE") {
     verdictBanner.classList.add("verdict-closed");
     verdictIcon.textContent = "🌙";
-    verdictTitle.textContent = "Market Closed: Route Found, Benchmark Inactive";
-    verdictSubtitle.textContent = `The US equity market is currently closed. Live DEX routing delivered $${econ.expected_stock_exposure_usd} estimated exposure, but benchmark safety cannot be certified outside active trading sessions.`;
-  } else if (data.verdict === "MEASURED" || data.verification_status === "VERIFIED") {
+    verdictTitle.textContent = "CAN'T VERIFY RIGHT NOW";
+    verdictSubtitle.textContent = `Traditional equity markets are closed. Live DEX routing delivered $${econ.expected_stock_exposure_usd.toFixed(2)} estimated exposure, but benchmark safety cannot be certified outside active trading hours.`;
+  } else if (data.verdict === "MEASURED" || data.verification_status === "UNABLE_TO_VERIFY") {
     verdictBanner.classList.add("verdict-measured");
     verdictIcon.textContent = "⚖️";
-    verdictTitle.textContent = "Trade Route Evaluated";
-    verdictSubtitle.textContent = `Economic difference measured at ${diffPrefix}${diffPct.toFixed(2)}%. Threshold safety calibration is currently pending live tape verification.`;
+    verdictTitle.textContent = "MEASURED";
+    verdictSubtitle.textContent = `Economic difference measured at ${diffPrefix}${diffPct.toFixed(2)}%. Threshold safety calibration is pending live market tape verification.`;
   } else {
     verdictBanner.classList.add("verdict-measured");
-    verdictIcon.textContent = "ℹ️";
-    verdictTitle.textContent = "Preflight Inspection Completed";
-    verdictSubtitle.textContent = `Reason: ${data.reason_codes?.join(", ")}`;
+    verdictIcon.textContent = "⚖️";
+    verdictTitle.textContent = "MEASURED";
+    verdictSubtitle.textContent = `Preflight inspection completed. Reason: ${data.reason_codes?.join(", ")}`;
   }
 
   // Plain English Explanation
