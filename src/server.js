@@ -277,16 +277,22 @@ export async function handleRequest(req, res) {
     const primaryUrl = `https://pyth.dourolabs.app/hermes/v2/updates/price/stream?${idList}&parsed=true`;
     const fallbackUrl = `https://hermes.pyth.network/v2/updates/price/stream?${idList}&parsed=true`;
 
-    (async () => {
-      try {
-        const authHeader = process.env.PYTH_API_KEY ? { "Authorization": `Bearer ${process.env.PYTH_API_KEY.trim()}` } : {};
+        const authHeader = {
+          "Accept": "text/event-stream",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) JustFair/1.0",
+          ...(process.env.PYTH_API_KEY ? {
+            "Authorization": `Bearer ${process.env.PYTH_API_KEY.trim()}`,
+            "x-api-key": process.env.PYTH_API_KEY.trim()
+          } : {})
+        };
+
         let upstreamRes = await fetch(primaryUrl, {
           headers: authHeader,
           signal: upstreamAbort.signal
         });
 
         if (!upstreamRes.ok) {
-          // Fallback to public Hermes endpoint if primary endpoint returns non-200
+          // Fallback to Hermes public domain if primary endpoint returns non-200
           upstreamRes = await fetch(fallbackUrl, {
             headers: authHeader,
             signal: upstreamAbort.signal
@@ -294,7 +300,12 @@ export async function handleRequest(req, res) {
         }
 
         if (!upstreamRes.ok) {
-          res.write(`event: upstream_error\ndata: ${JSON.stringify({ status: upstreamRes.status, message: "Upstream streaming provider returned non-200 status" })}\n\n`);
+          let errDetail = "";
+          try {
+            const errBody = await upstreamRes.text();
+            errDetail = errBody.slice(0, 150);
+          } catch {}
+          res.write(`event: upstream_error\ndata: ${JSON.stringify({ status: upstreamRes.status, message: "Upstream streaming provider returned non-200 status", detail: errDetail })}\n\n`);
           return;
         }
 
