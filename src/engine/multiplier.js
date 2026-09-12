@@ -46,42 +46,89 @@ export function calculateEffectiveMultiplier(storedMultiplier, newMultiplier, ne
   };
 }
 
+let cachedMultipliers = {};
+
+export function clearMultiplierCache() {
+  cachedMultipliers = {};
+}
+
 /**
  * Fetch on-chain Token-2022 extension metadata and evaluate effective multiplier
  */
-export async function fetchOnChainTokenMultiplier(mintAddress, currentUnixSec = Math.floor(Date.now() / 1000)) {
-  const res = await fetch(API_ENDPOINTS.SOLANA_RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(TIMEOUTS.UPSTREAM_FETCH_MS),
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "multiplier-check",
-      method: "getAccountInfo",
-      params: [mintAddress, { encoding: "jsonParsed" }]
-    })
-  });
-
-  if (!res.ok) {
-    throw new Error(`Solana RPC account info failed for mint ${mintAddress}: HTTP ${res.status}`);
+export async function fetchOnChainTokenMultiplier(mintAddress, currentUnixSec = Math.floor(Date.now() / 1000), forceFresh = false) {
+  const now = Date.now();
+  const cached = cachedMultipliers[mintAddress];
+  if (!forceFresh && cached && (now - cached.cachedAt < 60000)) {
+    const evaluated = calculateEffectiveMultiplier(cached.stored, cached.next, cached.effectiveTs, currentUnixSec);
+    return {
+      ...evaluated,
+      decimals: cached.decimals,
+      source: "Solana Token-2022 scaledUiAmountConfig on-chain state"
+    };
   }
 
-  const data = await res.json();
-  const parsed = data.result?.value?.data?.parsed?.info;
-  if (!parsed) {
-    throw new Error(`Unable to parse on-chain account for mint ${mintAddress}`);
+  const rpcEndpoints = [
+    process.env.SOLANA_RPC_URL,
+    "https://solana-rpc.publicnode.com",
+    API_ENDPOINTS.SOLANA_RPC,
+    "https://api.mainnet-beta.solana.com"
+  ].filter(Boolean);
+
+  let lastError = null;
+
+  for (const endpoint of rpcEndpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(TIMEOUTS.UPSTREAM_FETCH_MS),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "multiplier-check",
+          method: "getAccountInfo",
+          params: [mintAddress, { encoding: "jsonParsed" }]
+        })
+      });
+
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const parsed = data.result?.value?.data?.parsed?.info;
+      if (!parsed) continue;
+
+      const scaledExt = parsed.extensions?.find(e => e.extension === "scaledUiAmountConfig");
+      const storedMultiplier = scaledExt?.state?.multiplier || "1.0";
+      const newMultiplier = scaledExt?.state?.newMultiplier || null;
+      const effectiveTs = scaledExt?.state?.newMultiplierEffectiveTimestamp || 0;
+
+      const evaluated = calculateEffectiveMultiplier(storedMultiplier, newMultiplier, effectiveTs, currentUnixSec);
+
+      cachedMultipliers[mintAddress] = {
+        stored: storedMultiplier,
+        next: newMultiplier,
+        effectiveTs,
+        decimals: parsed.decimals ?? 8,
+        cachedAt: now
+      };
+
+      return {
+        ...evaluated,
+        decimals: parsed.decimals ?? 8,
+        source: "Solana Token-2022 scaledUiAmountConfig on-chain state"
+      };
+    } catch (e) {
+      lastError = e;
+    }
   }
 
-  const scaledExt = parsed.extensions?.find(e => e.extension === "scaledUiAmountConfig");
-  const storedMultiplier = scaledExt?.state?.multiplier || "1.0";
-  const newMultiplier = scaledExt?.state?.newMultiplier || null;
-  const effectiveTs = scaledExt?.state?.newMultiplierEffectiveTimestamp || 0;
+  if (cached) {
+    const evaluated = calculateEffectiveMultiplier(cached.stored, cached.next, cached.effectiveTs, currentUnixSec);
+    return {
+      ...evaluated,
+      decimals: cached.decimals,
+      source: "Solana Token-2022 scaledUiAmountConfig on-chain state (cached)"
+    };
+  }
 
-  const evaluated = calculateEffectiveMultiplier(storedMultiplier, newMultiplier, effectiveTs, currentUnixSec);
-
-  return {
-    ...evaluated,
-    decimals: parsed.decimals ?? 8,
-    source: "Solana Token-2022 scaledUiAmountConfig on-chain state"
-  };
+  throw lastError || new Error(`Unable to fetch on-chain multiplier for mint ${mintAddress}`);
 }

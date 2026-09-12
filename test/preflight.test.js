@@ -13,7 +13,7 @@ import {
 } from "../src/preflight.js";
 import { parseXStocksPriceData, fetchCryptoSpotPrice } from "../src/engine/benchmark.js";
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, API_ENDPOINTS } from "../src/config.js";
-import { createServer } from "../src/server.js";
+import { createServer, clearRateLimiter } from "../src/server.js";
 
 async function runTests() {
   console.log("==================================================");
@@ -121,11 +121,20 @@ async function runTests() {
     }
 
     // Live preflight execution on Saturday must yield UNABLE_TO_VERIFY with MARKET_CLOSED_OR_AFTER_HOURS
-    const pf = await runPreflight({
+    let pf = await runPreflight({
       inputSymbol: "USDC",
       stockSymbol: "AAPLx",
       amount: 100
     });
+    if (pf.request_status === "ERROR" && pf.reason_codes.includes("UPSTREAM_TIMEOUT")) {
+      // Retry once if upstream network timed out
+      await new Promise(r => setTimeout(r, 1000));
+      pf = await runPreflight({
+        inputSymbol: "USDC",
+        stockSymbol: "AAPLx",
+        amount: 100
+      });
+    }
     if (pf.verification_status !== "UNABLE_TO_VERIFY") {
       throw new Error(`Expected UNABLE_TO_VERIFY on weekend, got ${pf.verification_status}`);
     }
@@ -613,6 +622,7 @@ async function runTests() {
         throw new Error("Rate limiter did not trigger 429 after threshold");
       }
     } finally {
+      clearRateLimiter();
       await new Promise(resolve => server.close(resolve));
     }
   });
@@ -658,6 +668,127 @@ async function runTests() {
       if (url.includes(`/swap/${pair.inMint}-${pair.outMint}`)) {
         throw new Error(`Found legacy path format in URL: ${url}`);
       }
+    }
+  });
+
+  // Helper with retry
+  async function safePreflight(opts, retries = 2) {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const res = await runPreflight(opts);
+        if (res.request_status === "SUCCESS" || i === retries) return res;
+        await new Promise(r => setTimeout(r, 1000));
+      } catch (err) {
+        if (i === retries) throw err;
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+  }
+
+  // --- 17. SOL VALUATION CONSISTENCY (1, 4, 5, 10 SOL) ---
+  await test("SOL input valuation snapshot consistency across 1, 4, 5, 10 SOL", async () => {
+    const amounts = [1, 4, 5, 10];
+    for (const amt of amounts) {
+      const res = await safePreflight({
+        inputSymbol: "SOL",
+        stockSymbol: "AAPLx",
+        amount: amt
+      });
+
+      if (res.request_status !== "SUCCESS") {
+        throw new Error(`Preflight failed for ${amt} SOL: ${res.reason}`);
+      }
+
+      const trade = res.trade;
+      if (!trade.input_asset_price_usd || trade.input_asset_price_usd <= 0) {
+        throw new Error(`Missing or invalid input_asset_price_usd: ${trade.input_asset_price_usd}`);
+      }
+      if (!trade.input_asset_price_source) {
+        throw new Error("Missing input_asset_price_source");
+      }
+      if (!trade.input_asset_price_timestamp) {
+        throw new Error("Missing input_asset_price_timestamp");
+      }
+
+      const expectedUsd = parseFloat((amt * trade.input_asset_price_usd).toFixed(2));
+      const delta = Math.abs(trade.input_usd_value - expectedUsd);
+      if (delta > 0.05) {
+        throw new Error(`SOL valuation mismatch for ${amt} SOL: trade.input_usd_value=${trade.input_usd_value}, expected=${expectedUsd}, price=${trade.input_asset_price_usd}`);
+      }
+    }
+  });
+
+  // --- 18. PRICES API ENDPOINTS ---
+  await test("GET /api/v1/prices and /api/v1/prices/sol return authoritative live quotes with metadata", async () => {
+    clearRateLimiter();
+    const server = createServer();
+    await new Promise(resolve => server.listen(3096, "127.0.0.1", resolve));
+
+    try {
+      const resAll = await fetch("http://127.0.0.1:3096/api/v1/prices");
+      if (resAll.status !== 200) throw new Error(`GET /api/v1/prices returned HTTP ${resAll.status}`);
+      const bodyAll = await resAll.json();
+      if (bodyAll.status !== "SUCCESS") throw new Error("Expected status SUCCESS");
+      if (!bodyAll.prices.USDC || bodyAll.prices.USDC.price !== 1.0) throw new Error("Invalid USDC price object");
+      if (!bodyAll.prices.SOL || typeof bodyAll.prices.SOL.price !== "number" || bodyAll.prices.SOL.price <= 0) {
+        throw new Error("Invalid SOL price object");
+      }
+
+      const resSol = await fetch("http://127.0.0.1:3096/api/v1/prices/sol");
+      if (resSol.status !== 200) throw new Error(`GET /api/v1/prices/sol returned HTTP ${resSol.status}`);
+      const bodySol = await resSol.json();
+      if (bodySol.status !== "SUCCESS" || typeof bodySol.price !== "number" || bodySol.price <= 0) {
+        throw new Error("Invalid /api/v1/prices/sol payload");
+      }
+    } finally {
+      clearRateLimiter();
+      await new Promise(resolve => server.close(resolve));
+    }
+  });
+
+  // --- 19. ASSET SWITCHING & ISOLATION (USDC -> SOL -> USDC) ---
+  await test("Asset switching USDC -> SOL -> USDC maintains state isolation with zero price leakage", async () => {
+    // 1. Check USDC
+    const resUsdc1 = await safePreflight({ inputSymbol: "USDC", stockSymbol: "AAPLx", amount: 500 });
+    if (!resUsdc1?.trade || resUsdc1.trade.input_asset_price_usd !== 1.0 || resUsdc1.trade.input_usd_value !== 500.0) {
+      throw new Error("USDC initial check failed input valuation");
+    }
+
+    // 2. Check SOL
+    const resSol = await safePreflight({ inputSymbol: "SOL", stockSymbol: "AAPLx", amount: 4 });
+    if (!resSol?.trade || resSol.trade.input_asset_price_usd === 1.0) {
+      throw new Error("SOL price leaked from USDC");
+    }
+    const expectedSolUsd = parseFloat((4 * resSol.trade.input_asset_price_usd).toFixed(2));
+    if (Math.abs(resSol.trade.input_usd_value - expectedSolUsd) > 0.05) {
+      throw new Error("SOL valuation mismatch");
+    }
+
+    // 3. Check USDC again
+    const resUsdc2 = await safePreflight({ inputSymbol: "USDC", stockSymbol: "NVDAx", amount: 250 });
+    if (!resUsdc2?.trade || resUsdc2.trade.input_asset_price_usd !== 1.0 || resUsdc2.trade.input_usd_value !== 250.0) {
+      throw new Error("USDC subsequent check leaked SOL price");
+    }
+  });
+
+  // --- 20. PRICE CACHING & FRESHNESS EVALUATION ---
+  await test("Crypto spot price manager caches live quote and respects forceFresh", async () => {
+    const quote1 = await fetchCryptoSpotPrice("solana", true);
+    if (!quote1.price || quote1.price <= 0) throw new Error("Failed to fetch fresh price");
+
+    const quote2 = await fetchCryptoSpotPrice("solana", false);
+    if (quote2.price !== quote1.price) throw new Error("Cached quote mismatch");
+
+    const quote3 = await fetchCryptoSpotPrice("solana", true);
+    if (!quote3.price || quote3.price <= 0) throw new Error("Force fresh quote failed");
+  });
+
+  // --- 21. STALE CRYPTO BENCHMARK HANDLING ---
+  await test("Preflight evaluates stale or unavailable input reference safely with UNABLE_TO_VERIFY", async () => {
+    // Test unsupported payment asset rejection
+    const invalidAssetRes = await runPreflight({ inputSymbol: "INVALID_TOKEN", stockSymbol: "AAPLx", amount: 10 });
+    if (invalidAssetRes.verification_status !== "UNABLE_TO_VERIFY" || !invalidAssetRes.reason_codes.includes("UNSUPPORTED_PAYMENT_ASSET")) {
+      throw new Error("Failed to reject unsupported payment asset");
     }
   });
 

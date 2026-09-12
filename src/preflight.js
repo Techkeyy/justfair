@@ -1,7 +1,7 @@
 // JustFair Shared Equity Preflight Engine
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, API_ENDPOINTS } from "./config.js";
 import { fetchOnChainTokenMultiplier, calculateEffectiveMultiplier } from "./engine/multiplier.js";
-import { fetchMarketReference, fetchCryptoSpotPrice, calculateMarketSession } from "./engine/benchmark.js";
+import { fetchMarketReference, fetchCryptoSpotPrice, clearCryptoPriceCache, calculateMarketSession } from "./engine/benchmark.js";
 import { fetchJupiterOrderV2, fetchJupiterAlternativeCandidates, extractVenuesFromRoutePlan, createRouteFingerprint } from "./engine/jupiter.js";
 import { simulateSolanaTransaction, isValidSolanaPublicKey } from "./engine/simulation.js";
 import { determineVerdict, THRESHOLD_CALIBRATION_STATUS } from "./engine/verdict.js";
@@ -11,6 +11,7 @@ export {
   calculateEffectiveMultiplier,
   fetchMarketReference,
   fetchCryptoSpotPrice,
+  clearCryptoPriceCache,
   calculateMarketSession,
   fetchJupiterOrderV2,
   fetchJupiterAlternativeCandidates,
@@ -232,6 +233,9 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
         ? Promise.resolve({
             price: 1.0,
             symbol: "USD",
+            source: "1:1 Fixed USD Peg",
+            source_type: "STABLECOIN_PEG",
+            provider: "Fixed 1:1 USD Peg",
             timestamp: new Date().toISOString(),
             age_ms: 0,
             reference_session: "24/7",
@@ -368,6 +372,11 @@ export async function runPreflight({ inputSymbol, stockSymbol, amount, userPubli
         input_amount: numAmount,
         input_usd_value: parseFloat(inputUsdValue.toFixed(2)),
         input_mint: inputAsset.mint,
+        input_asset_price_usd: parseFloat(inputBenchmark.price.toFixed(4)),
+        input_asset_price_timestamp: inputBenchmark.timestamp,
+        input_asset_price_source: inputBenchmark.source,
+        input_asset_price_provider: inputBenchmark.provider || inputBenchmark.source,
+        input_asset_price_freshness: inputBenchmark.freshness_status,
         stock_symbol: stockAsset.symbol,
         canonical_stock: stockAsset.canonicalSymbol,
         token_mint: stockAsset.mint,

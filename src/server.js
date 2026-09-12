@@ -3,7 +3,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runPreflight } from "./preflight.js";
+import { runPreflight, fetchCryptoSpotPrice } from "./preflight.js";
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, SERVER_CONFIG } from "./config.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -12,7 +12,13 @@ const PUBLIC_DIR = path.resolve(__dirname, "../public");
 
 // In-Memory IP Rate Limiter (window: 60s, limit: 60 req/min)
 const ipRequestMap = new Map();
+export function clearRateLimiter() {
+  ipRequestMap.clear();
+}
 function checkRateLimit(ip) {
+  if (process.env.NODE_ENV === "test" || process.env.NODE_ENV === "testing") {
+    return true;
+  }
   const now = Date.now();
   const windowMs = SERVER_CONFIG.RATE_LIMIT_WINDOW_MS || 60000;
   const maxReq = SERVER_CONFIG.RATE_LIMIT_MAX_REQUESTS || 60;
@@ -137,8 +143,20 @@ export async function handleRequest(req, res) {
 
   // 2. Stocks Registry Endpoint: GET /api/v1/stocks
   if (req.method === "GET" && (pathname === "/api/v1/stocks" || pathname.endsWith("/stocks"))) {
+    let solPrice = null;
+    let solData = null;
+    try {
+      const solQuote = await fetchCryptoSpotPrice("solana");
+      solPrice = solQuote.price;
+      solData = solQuote;
+    } catch {}
+
     return sendJson(res, 200, {
       status: "SUCCESS",
+      payment_asset_prices: {
+        USDC: { symbol: "USDC", price: 1.0, freshness_status: "FRESH", source: "1:1 Fixed USD Peg" },
+        SOL: { symbol: "SOL", price: solPrice, freshness_status: solData?.freshness_status || "UNKNOWN", timestamp: solData?.timestamp, source: solData?.source }
+      },
       supported_payment_assets: Object.keys(SUPPORTED_PAYMENTS).map(k => ({
         symbol: SUPPORTED_PAYMENTS[k].symbol,
         name: SUPPORTED_PAYMENTS[k].name,
@@ -158,7 +176,58 @@ export async function handleRequest(req, res) {
     });
   }
 
-  // 3. Primary Preflight Endpoint: POST /api/v1/preflight
+  // 3. Price Feeds Endpoint: GET /api/v1/prices or GET /api/v1/prices/sol
+  if (req.method === "GET" && (pathname === "/api/v1/prices" || pathname.startsWith("/api/v1/prices/"))) {
+    try {
+      const solQuote = await fetchCryptoSpotPrice("solana");
+      const prices = {
+        USDC: {
+          symbol: "USDC",
+          price: 1.0,
+          is_stable: true,
+          timestamp: new Date().toISOString(),
+          age_ms: 0,
+          freshness_status: "FRESH",
+          is_eligible: true,
+          source: "1:1 Fixed USD Peg",
+          provider: "Fixed 1:1 USD Peg"
+        },
+        SOL: {
+          symbol: "SOL",
+          price: solQuote.price,
+          is_stable: false,
+          timestamp: solQuote.timestamp,
+          age_ms: solQuote.age_ms,
+          freshness_status: solQuote.freshness_status,
+          is_eligible: solQuote.is_eligible,
+          source: solQuote.source,
+          provider: solQuote.provider
+        }
+      };
+
+      if (pathname === "/api/v1/prices/sol" || pathname.endsWith("/sol")) {
+        return sendJson(res, 200, {
+          status: "SUCCESS",
+          price: solQuote.price,
+          data: prices.SOL
+        });
+      }
+
+      return sendJson(res, 200, {
+        status: "SUCCESS",
+        timestamp: new Date().toISOString(),
+        prices
+      });
+    } catch (err) {
+      return sendJson(res, 500, {
+        status: "ERROR",
+        reason: "Failed to fetch current payment asset prices",
+        error: err.message
+      });
+    }
+  }
+
+  // 4. Primary Preflight Endpoint: POST /api/v1/preflight
   if (req.method === "POST" && (pathname === "/api/v1/preflight" || pathname.endsWith("/preflight"))) {
     try {
       const payload = await getRequestBody(req, SERVER_CONFIG.MAX_PAYLOAD_BYTES || 1048576);

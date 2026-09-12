@@ -125,10 +125,52 @@ export const STOCK_META = {
   }
 };
 
-let currentSolPrice = 135.0; // Dynamic estimate
+let currentSolPrice = null; // Authoritative live price from /api/v1/prices
+let solPriceTimestamp = null;
+let solPriceStatus = "LOADING";
 let activeWalletAddress = null;
 let currentSearchQuery = "";
 let currentCategoryFilter = "all";
+
+export async function fetchAuthoritativeSolPrice() {
+  try {
+    const res = await fetch("/api/v1/prices/sol");
+    if (!res.ok) throw new Error("Price fetch failed");
+    const data = await res.json();
+    if (data.status === "SUCCESS" && typeof data.price === "number") {
+      currentSolPrice = data.price;
+      solPriceTimestamp = data.data?.timestamp || new Date().toISOString();
+      solPriceStatus = data.data?.freshness_status || "FRESH";
+      updateAllSolPriceDisplays();
+    }
+  } catch (err) {
+    solPriceStatus = "UNAVAILABLE";
+    updateAllSolPriceDisplays();
+  }
+}
+
+export function updateAllSolPriceDisplays() {
+  const spotSubList = document.querySelectorAll(".sol-spot-sub");
+  spotSubList.forEach(el => {
+    if (currentSolPrice && solPriceStatus === "FRESH") {
+      el.textContent = `$${currentSolPrice.toFixed(2)}`;
+    } else if (currentSolPrice) {
+      el.textContent = `$${currentSolPrice.toFixed(2)} (stale)`;
+    } else {
+      el.textContent = "Live Price";
+    }
+  });
+
+  // Update form estimates for any active SOL forms
+  document.querySelectorAll(".stock-trade-form").forEach(form => {
+    const asset = form.querySelector("input[name='inputAsset']")?.value;
+    if (asset === "SOL") {
+      const amountInput = form.querySelector(".amount-input");
+      const amountUsdEquiv = form.querySelector(".amount-usd-equivalent");
+      updateUsdEquiv(amountInput, amountUsdEquiv, "SOL");
+    }
+  });
+}
 
 // Navigation Elements
 const dashboardView = document.getElementById("dashboard-view");
@@ -306,6 +348,8 @@ window.addEventListener("DOMContentLoaded", () => {
   initApiDrawer();
   initScrollReveal();
   handleRoute();
+  fetchAuthoritativeSolPrice();
+  setInterval(fetchAuthoritativeSolPrice, 60000);
 });
 
 window.addEventListener("hashchange", () => {
@@ -628,6 +672,8 @@ function renderCardBodyMarkup(symbol) {
         </summary>
         <div class="accordion-body">
           <div class="evidence-grid">
+            <div class="evidence-item"><span class="ev-label">Payment Asset Price</span><span class="ev-val ev-input-price">1.00 USD (Fixed 1:1 Peg)</span></div>
+            <div class="evidence-item"><span class="ev-label">Input Valuation</span><span class="ev-val ev-input-val">500.00 USDC = $500.00 USD</span></div>
             <div class="evidence-item"><span class="ev-label">Token Mint</span><span class="ev-val font-mono ev-mint">${stock.mint}</span></div>
             <div class="evidence-item"><span class="ev-label">Token Program</span><span class="ev-val font-mono ev-program">Token-2022 (Scaled UI Amount)</span></div>
             <div class="evidence-item"><span class="ev-label">Multiplier</span><span class="ev-val ev-multiplier">1.0</span></div>
@@ -844,6 +890,9 @@ function setupCardInteractivity(card, symbol) {
         if (amountPrefix) amountPrefix.textContent = "◎";
         renderPresets(presetsContainer, [1, 2, 5, 10], "SOL", amountInput, amountUsdEquiv, asset);
         if (parseFloat(amountInput.value) > 50) amountInput.value = "2";
+        if (!currentSolPrice || solPriceStatus !== "FRESH") {
+          fetchAuthoritativeSolPrice();
+        }
       } else {
         if (amountPrefix) amountPrefix.textContent = "$";
         renderPresets(presetsContainer, [100, 500, 1000, 2500], "$", amountInput, amountUsdEquiv, asset);
@@ -990,8 +1039,12 @@ function updateUsdEquiv(amountInput, amountUsdEquiv, asset) {
   if (asset === "USDC") {
     amountUsdEquiv.textContent = `$${val.toFixed(2)} USD`;
   } else {
-    const approx = val * currentSolPrice;
-    amountUsdEquiv.textContent = `≈ $${approx.toFixed(2)} USD`;
+    if (currentSolPrice) {
+      const approx = val * currentSolPrice;
+      amountUsdEquiv.textContent = `≈ $${approx.toFixed(2)} USD`;
+    } else {
+      amountUsdEquiv.textContent = "≈ -- USD";
+    }
   }
 }
 
@@ -1062,6 +1115,20 @@ function renderCardResult(card, data, symbol) {
   const stockMeta = STOCK_META[trade.stock_symbol] || { name: trade.canonical_stock, fullName: trade.canonical_stock };
 
   const isClosed = mkt.session === "CLOSED" || bench.freshness_status === "AFTER_HOURS_CLOSE" || data.verification_status === "UNABLE_TO_VERIFY";
+
+  // Synchronize authoritative SOL price snapshot to form if SOL trade
+  if (trade.input_asset === "SOL" && trade.input_asset_price_usd) {
+    currentSolPrice = trade.input_asset_price_usd;
+    solPriceTimestamp = trade.input_asset_price_timestamp;
+    solPriceStatus = trade.input_asset_price_freshness || "FRESH";
+
+    const solSub = card.querySelector(".sol-spot-sub");
+    if (solSub) solSub.textContent = `$${currentSolPrice.toFixed(2)}`;
+    const amountUsdEquiv = card.querySelector(".amount-usd-equivalent");
+    if (amountUsdEquiv) {
+      amountUsdEquiv.textContent = `≈ $${(trade.input_amount * currentSolPrice).toFixed(2)} USD`;
+    }
+  }
 
   // 1. Set Spending Value (Primary Metric #1)
   const spendVal = resultContainer.querySelector(".res-spend-val");
@@ -1215,6 +1282,8 @@ function renderCardResult(card, data, symbol) {
   }
 
   // 9. Technical Evidence Accordion
+  const evInputPrice = resultContainer.querySelector(".ev-input-price");
+  const evInputVal = resultContainer.querySelector(".ev-input-val");
   const evMint = resultContainer.querySelector(".ev-mint");
   const evProgram = resultContainer.querySelector(".ev-program");
   const evMultiplier = resultContainer.querySelector(".ev-multiplier");
@@ -1228,6 +1297,16 @@ function renderCardResult(card, data, symbol) {
   const evPreflightLevel = resultContainer.querySelector(".ev-preflight-level");
   const evSimulation = resultContainer.querySelector(".ev-simulation");
 
+  if (evInputPrice) {
+    evInputPrice.textContent = trade.input_asset === "SOL"
+      ? `$${trade.input_asset_price_usd?.toFixed(2)} (${trade.input_asset_price_source || "Real-Time Spot"})`
+      : "1.00 USD (Fixed 1:1 Peg)";
+  }
+  if (evInputVal) {
+    evInputVal.textContent = trade.input_asset === "SOL"
+      ? `${trade.input_amount} SOL × $${trade.input_asset_price_usd?.toFixed(2)} = $${trade.input_usd_value.toFixed(2)} USD`
+      : `${trade.input_amount.toFixed(2)} USDC = $${trade.input_usd_value.toFixed(2)} USD`;
+  }
   if (evMint) evMint.textContent = trade.token_mint;
   if (evProgram) evProgram.textContent = "Token-2022 (Scaled UI Amount Extension)";
   if (evMultiplier) evMultiplier.textContent = `${econ.multiplier.current_multiplier} (1 token = ${econ.multiplier.current_multiplier} shares)`;

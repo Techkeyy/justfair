@@ -75,10 +75,22 @@ export function parseXStocksPriceData(data, symbol) {
   };
 }
 
+let cachedMarketReferences = {};
+
+export function clearMarketReferenceCache() {
+  cachedMarketReferences = {};
+}
+
 /**
  * Fetch independent market reference benchmark price from official sources (xStocks V2 + Nasdaq fallback)
  */
-export async function fetchMarketReference(symbol, assetClass = "stocks") {
+export async function fetchMarketReference(symbol, assetClass = "stocks", forceFresh = false) {
+  const now = Date.now();
+  const cached = cachedMarketReferences[symbol];
+  if (!forceFresh && cached && (now - cached.cachedAt < 60000)) {
+    return cached.result;
+  }
+
   const currentSession = calculateMarketSession(new Date());
   let xStocksQuote = null;
   let nasdaqQuote = null;
@@ -141,6 +153,9 @@ export async function fetchMarketReference(symbol, assetClass = "stocks") {
   }
 
   if (!price || isNaN(price)) {
+    if (cached) {
+      return cached.result;
+    }
     throw new Error(`Underlying equity price unavailable for ${symbol}`);
   }
 
@@ -208,7 +223,7 @@ export async function fetchMarketReference(symbol, assetClass = "stocks") {
     reference_eligibility: referenceEligibility
   };
 
-  return {
+  const result = {
     symbol,
     price,
     source,
@@ -222,61 +237,123 @@ export async function fetchMarketReference(symbol, assetClass = "stocks") {
     is_real_time: isRealTime && referenceEligibility === "ELIGIBLE",
     market_context: marketContext
   };
+
+  cachedMarketReferences[symbol] = {
+    result,
+    cachedAt: now
+  };
+
+  return result;
+}
+
+let cachedCryptoPrices = {};
+
+export function clearCryptoPriceCache() {
+  cachedCryptoPrices = {};
 }
 
 /**
  * Fetch independent spot price for payment assets (e.g. SOL) with strict truthful timestamp handling
  * NOTE: Never manufactures or falls back to Date.now() when upstream last_updated_at is absent.
  */
-export async function fetchCryptoSpotPrice(cryptoPriceId = "solana") {
-  const url = `${API_ENDPOINTS.COINGECKO_SIMPLE_PRICE}?ids=${cryptoPriceId}&vs_currencies=usd&include_last_updated_at=true`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "JustFair/1.0" },
-    signal: AbortSignal.timeout(TIMEOUTS.UPSTREAM_FETCH_MS)
-  });
+export async function fetchCryptoSpotPrice(cryptoPriceId = "solana", forceFresh = false) {
+  const now = Date.now();
+  const cached = cachedCryptoPrices[cryptoPriceId];
 
-  if (!res.ok) {
-    throw new Error(`Failed to fetch crypto spot price for ${cryptoPriceId}: HTTP ${res.status}`);
-  }
-
-  const data = await res.json();
-  const entry = data[cryptoPriceId];
-  const price = entry?.usd;
-  if (!price || typeof price !== "number") {
-    throw new Error(`Crypto price unavailable for ${cryptoPriceId}`);
-  }
-
-  const upstreamSec = entry.last_updated_at;
-  if (!upstreamSec || typeof upstreamSec !== "number") {
+  // Return cached quote if it's less than 60s old and forceFresh is false
+  if (!forceFresh && cached && (now - cached.cachedAt < 60000)) {
+    const ageMs = cached.entry.timestamp ? Math.max(0, now - Date.parse(cached.entry.timestamp)) : null;
+    const isFresh = ageMs !== null && ageMs <= 900000;
     return {
-      price,
-      symbol: "SOL",
-      source: "CoinGecko Simple Price Feed",
-      source_type: "CRYPTO_SPOT_ORACLE",
-      timestamp: null,
-      age_ms: null,
-      reference_session: "24/7",
-      current_market_session: "24/7",
-      freshness_status: "UNKNOWN",
-      is_eligible: false
+      ...cached.entry,
+      age_ms: ageMs,
+      freshness_status: isFresh ? "FRESH" : "STALE",
+      is_eligible: isFresh
     };
   }
 
-  const upstreamMs = upstreamSec * 1000;
-  const upstreamIso = new Date(upstreamMs).toISOString();
-  const ageMs = Math.max(0, Date.now() - upstreamMs);
-  const isFresh = ageMs <= 900000; // 15 mins
+  const url = `${API_ENDPOINTS.COINGECKO_SIMPLE_PRICE}?ids=${cryptoPriceId}&vs_currencies=usd&include_last_updated_at=true`;
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "JustFair/1.0" },
+      signal: AbortSignal.timeout(TIMEOUTS.UPSTREAM_FETCH_MS)
+    });
 
-  return {
-    price,
-    symbol: "SOL",
-    source: "CoinGecko Real-Time Spot Feed",
-    source_type: "CRYPTO_SPOT_ORACLE",
-    timestamp: upstreamIso,
-    age_ms: ageMs,
-    reference_session: "24/7",
-    current_market_session: "24/7",
-    freshness_status: isFresh ? "FRESH" : "STALE",
-    is_eligible: isFresh
-  };
+    if (!res.ok) {
+      if (cached && (now - Date.parse(cached.entry.timestamp || 0) <= 900000)) {
+        return {
+          ...cached.entry,
+          age_ms: Math.max(0, now - Date.parse(cached.entry.timestamp)),
+          is_cached_fallback: true
+        };
+      }
+      throw new Error(`Failed to fetch crypto spot price for ${cryptoPriceId}: HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const entry = data[cryptoPriceId];
+    const price = entry?.usd;
+    if (!price || typeof price !== "number") {
+      if (cached && (now - Date.parse(cached.entry.timestamp || 0) <= 900000)) {
+        return {
+          ...cached.entry,
+          age_ms: Math.max(0, now - Date.parse(cached.entry.timestamp)),
+          is_cached_fallback: true
+        };
+      }
+      throw new Error(`Crypto price unavailable for ${cryptoPriceId}`);
+    }
+
+    const upstreamSec = entry.last_updated_at;
+    if (!upstreamSec || typeof upstreamSec !== "number") {
+      return {
+        price,
+        symbol: cryptoPriceId === "solana" ? "SOL" : cryptoPriceId.toUpperCase(),
+        source: "CoinGecko Simple Price Feed",
+        source_type: "CRYPTO_SPOT_ORACLE",
+        provider: "CoinGecko Simple Price Feed",
+        timestamp: null,
+        age_ms: null,
+        reference_session: "24/7",
+        current_market_session: "24/7",
+        freshness_status: "UNKNOWN",
+        is_eligible: false
+      };
+    }
+
+    const upstreamMs = upstreamSec * 1000;
+    const upstreamIso = new Date(upstreamMs).toISOString();
+    const ageMs = Math.max(0, now - upstreamMs);
+    const isFresh = ageMs <= 900000; // 15 mins
+
+    const result = {
+      price,
+      symbol: cryptoPriceId === "solana" ? "SOL" : cryptoPriceId.toUpperCase(),
+      source: "CoinGecko Real-Time Spot Feed",
+      source_type: "CRYPTO_SPOT_ORACLE",
+      provider: "CoinGecko Real-Time Spot Feed",
+      timestamp: upstreamIso,
+      age_ms: ageMs,
+      reference_session: "24/7",
+      current_market_session: "24/7",
+      freshness_status: isFresh ? "FRESH" : "STALE",
+      is_eligible: isFresh
+    };
+
+    cachedCryptoPrices[cryptoPriceId] = {
+      entry: result,
+      cachedAt: now
+    };
+
+    return result;
+  } catch (err) {
+    if (cached && (now - Date.parse(cached.entry.timestamp || 0) <= 900000)) {
+      return {
+        ...cached.entry,
+        age_ms: Math.max(0, now - Date.parse(cached.entry.timestamp)),
+        is_cached_fallback: true
+      };
+    }
+    throw err;
+  }
 }

@@ -1,4 +1,5 @@
 // JustFair Playwright Real Browser Test Suite & Visual Evidence Capture (Director Order 007.4)
+process.env.NODE_ENV = "test";
 import { chromium } from "playwright";
 import { createServer } from "../src/server.js";
 import path from "node:path";
@@ -484,6 +485,65 @@ async function runBrowserTests() {
       jupLink = await nvdaCard.$eval(".jupiter-exit-link", a => a.href);
       if (!jupLink.includes("buy=Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh") || !jupLink.includes("sell=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")) {
         throw new Error(`USDC -> NVDAx Jupiter link incorrect: ${jupLink}`);
+      }
+    });
+
+    // 13. SOL Input Valuation Consistency & Form-Result Synchronization (Director Order 009.5)
+    await test("13. SOL Input Valuation Consistency & Form-Result Synchronization", async () => {
+      // 1. Ensure AAPLx card is expanded
+      const isExpanded = await page.$eval("#stock-card-AAPLx", el => el.classList.contains("expanded"));
+      if (!isExpanded) {
+        await page.click("#stock-card-AAPLx .stock-card-header");
+        await page.waitForTimeout(300);
+      }
+
+      // 2. Select SOL payment tab
+      await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
+      await page.waitForTimeout(500);
+
+      // 3. Select 4 SOL preset or enter 4
+      await page.fill("#stock-card-AAPLx .amount-input", "4");
+      await page.dispatchEvent("#stock-card-AAPLx .amount-input", "input");
+
+      // 4. Read displayed SOL price
+      const displayedSolPriceText = await page.textContent("#stock-card-AAPLx .sol-spot-sub");
+      const cleanSolPrice = parseFloat(displayedSolPriceText.replace(/[^0-9.]/g, ""));
+      if (isNaN(cleanSolPrice) || cleanSolPrice <= 0) {
+        throw new Error(`Invalid displayed SOL price: ${displayedSolPriceText}`);
+      }
+
+      // 5. Read form estimate
+      const formEstimateText = await page.textContent("#stock-card-AAPLx .amount-usd-equivalent");
+      const cleanFormEstimate = parseFloat(formEstimateText.replace(/[^0-9.]/g, ""));
+      const expectedFormEstimate = parseFloat((4 * cleanSolPrice).toFixed(2));
+      if (Math.abs(cleanFormEstimate - expectedFormEstimate) > 0.05) {
+        throw new Error(`Form estimate mismatch: displayed ${cleanFormEstimate}, expected ${expectedFormEstimate} (from $${cleanSolPrice}/SOL)`);
+      }
+
+      // 6. Submit trade check
+      await page.click("#stock-card-AAPLx .submit-trade-btn");
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 15000 });
+
+      // 7. Read YOU'RE SPENDING in result
+      const spendValText = await page.textContent("#stock-card-AAPLx .res-spend-val");
+      const spendSubText = await page.textContent("#stock-card-AAPLx .res-spend-sub");
+      const cleanSpendVal = parseFloat(spendValText.replace(/[^0-9.]/g, ""));
+
+      if (!spendSubText.includes("4 SOL")) {
+        throw new Error(`Expected '4 SOL' in spend subtext, got: ${spendSubText}`);
+      }
+
+      // 8. Assert mathematical consistency between form estimate and preflight result
+      const delta = Math.abs(cleanSpendVal - cleanFormEstimate);
+      if (delta > 1.0) { // small price movement tolerance allowed between form fetch and preflight snapshot
+        throw new Error(`Financial inconsistency between form estimate ($${cleanFormEstimate}) and preflight spend ($${cleanSpendVal})`);
+      }
+
+      // 9. Verify technical proof drawer contains payment asset pricing
+      const proofInputPrice = await page.textContent("#stock-card-AAPLx .ev-input-price");
+      const proofInputVal = await page.textContent("#stock-card-AAPLx .ev-input-val");
+      if (!proofInputPrice.includes("$") || !proofInputVal.includes("4 SOL")) {
+        throw new Error(`Evidence drawer payment asset valuation incomplete: price=${proofInputPrice}, val=${proofInputVal}`);
       }
     });
 
