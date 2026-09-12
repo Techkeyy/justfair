@@ -271,11 +271,49 @@ export async function handleRequest(req, res) {
       res.write(`:keep-alive ${Date.now()}\n\n`);
     }, 15000);
 
-    // Upstream Pyth Hermes SSE connection
+    // Upstream Pyth Hermes SSE connection (entitled equity feeds)
     const upstreamAbort = new AbortController();
-    const idList = Object.values(PYTH_FEEDS_REGISTRY).map(f => `ids[]=0x${f.id.replace(/^0x/, "")}`).join("&");
+    const equityFeeds = Object.values(PYTH_FEEDS_REGISTRY).filter(f => f.assetClass !== "crypto");
+    const idList = equityFeeds.map(f => `ids[]=0x${f.id.replace(/^0x/, "")}`).join("&");
     const primaryUrl = `https://pyth.dourolabs.app/hermes/v2/updates/price/stream?${idList}&parsed=true`;
     const fallbackUrl = `https://hermes.pyth.network/v2/updates/price/stream?${idList}&parsed=true`;
+
+    // Also push fresh SOL price updates periodically to the stream
+    const solPushTimer = setInterval(async () => {
+      try {
+        const solQuote = await fetchCryptoSpotPrice("solana");
+        if (solQuote?.price) {
+          const solPayload = {
+            type: "PRICE_UPDATE",
+            symbol: "SOL",
+            feed_id: "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+            price: solQuote.price,
+            publish_time: solQuote.timestamp,
+            age_ms: solQuote.age_ms || 0,
+            source: solQuote.source || "Spot Crypto Index",
+            timestamp: new Date().toISOString()
+          };
+          res.write(`data: ${JSON.stringify(solPayload)}\n\n`);
+        }
+      } catch {}
+    }, 5000);
+
+    // Initial SOL push immediately
+    fetchCryptoSpotPrice("solana").then(solQuote => {
+      if (solQuote?.price) {
+        const solPayload = {
+          type: "PRICE_UPDATE",
+          symbol: "SOL",
+          feed_id: "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+          price: solQuote.price,
+          publish_time: solQuote.timestamp,
+          age_ms: solQuote.age_ms || 0,
+          source: solQuote.source || "Spot Crypto Index",
+          timestamp: new Date().toISOString()
+        };
+        res.write(`data: ${JSON.stringify(solPayload)}\n\n`);
+      }
+    }).catch(() => {});
 
     (async () => {
       try {
@@ -367,6 +405,7 @@ export async function handleRequest(req, res) {
 
     req.on("close", () => {
       clearInterval(heartbeatTimer);
+      clearInterval(solPushTimer);
       try { upstreamAbort.abort(); } catch {}
     });
 
