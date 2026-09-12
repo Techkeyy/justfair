@@ -33,11 +33,15 @@
   * Migrate address validation to `@solana/kit` (`isAddress`) and remove legacy `@solana/web3.js`.
   * Add in-memory rate limiting (60 req/min), body limits (1MB), and fetch abort timeouts (7s) for public service resilience.
 
-## Decision 006: Playwright Automated Visual Testing & Vercel Edge Serverless Deployment
-* **Context:** A static configuration file (`vercel.json`) is insufficient proof of a live product. Comprehensive verification requires real browser rendering tests, automated visual screenshot capture, and public HTTPS edge serverless execution.
+## Decision 007: White + Purple UI Restructure (Dashboard + App Experience)
+* **Context:** Director Order 007 required evolving JustFair's visual language from the dark theme into a clean, minimalist white canvas with purple primary accents, split into a high-impact Dashboard/Landing surface and an Application Workspace surface, with semantic inline SVGs replacing all raw emojis.
 * **Decision:**
-  * Implement headless Chromium browser testing via Playwright (`test/browser.test.js`), capturing full visual evidence for desktop and mobile viewports with zero horizontal overflow.
-  * Implement unified HTTP handler in `src/server.js` and `api/index.js` supporting both streaming and pre-parsed bodies across local Node server and Vercel serverless functions.
-  * Deploy unified production application to Vercel global edge network (`https://justfair-theta.vercel.app`).
-  * Verify live production API endpoints (`/`, `/api/v1/health`, `/api/v1/stocks`, `/api/v1/preflight`) under both Quote Check and Exact Simulation modes.
+  * Restructure visual identity around modern fintech minimalism: `#FFFFFF` / `#F8FAFC` base, `#4F46E5` / `#6366F1` purple primary accent, high-contrast `#0F172A` typography.
+  * Structure experience into dual-surface architecture:
+    * `#dashboard-view`: Hero headline with value proposition, "Why JustFair" 3 core value cards, "How It Works" 4-step sequence, and Developer REST API showcase.
+    * `#app-view`: Pre-Trade Safety Inspector workspace with tokenized stock selector chips, payment tabs, non-custodial safety banner (`PREVIEW ONLY · NO FUNDS MOVED`), wallet/simulation drawer, locked 3-metric result card (`YOU'RE SPENDING`, `EXPECTED [STOCK] EXPOSURE`, `DIFFERENCE`), and expandable route evidence accordion.
+  * Eliminate all raw emojis across HTML and dynamic JS scripts, substituting semantic inline SVG icons.
+  * Enforce zero long dashes and accessible text floor (>=14px for product text) verified via `audit_ui_text.py`.
+  * Expand Playwright automated browser suite to 7 assertions capturing visual evidence in `docs/evidence/ui/`.
+  * Redeploy and verify live on Vercel production edge (`https://justfair-theta.vercel.app`).
 

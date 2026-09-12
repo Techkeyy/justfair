@@ -97,16 +97,28 @@ This document contains live, unedited verification evidence from Solana Mainnet,
 
 ---
 
-## 6. Live Production Deployment Proof (Order 006)
-* **Live Production URL:** `https://justfair-theta.vercel.app`
-* **Deployment Id:** `dpl_Nkn7iTNq9eo1wT92fcc56nW42TN1`
-* **Target Environment:** Production (Vercel Global Edge Network)
-* **Live Production Smoke Test Results:**
-  * `GET /` $\to$ HTTP 200 (Complete responsive frontend application loaded)
-  * `GET /api/v1/health` $\to$ HTTP 200 (`{"status":"HEALTHY","service":"JustFair Equity Preflight API","version":"1.0.0"}`)
-  * `GET /api/v1/stocks` $\to$ HTTP 200 (4 tokenized stocks, 2 payment assets)
-  * `POST /api/v1/preflight` (Quote Check: AAPLx + USDC) $\to$ HTTP 200 (Live Jupiter V2 route calculation, Token-2022 dynamic multiplier calculation, truthful market context)
-  * `POST /api/v1/preflight` (Quote Check: NVDAx + SOL) $\to$ HTTP 200 (Live SOL-denominated quote routing)
-  * `POST /api/v1/preflight` (Exact Simulation) $\to$ HTTP 200 (Solana RPC transaction simulation `status: PASS`, `err: null`, `units_consumed: 77731`)
-  * `POST /api/v1/preflight` (Error Handling) $\to$ HTTP 400 (`reason_codes: ["INVALID_AMOUNT"]`)
+## 7. White + Purple Modern UI Restructure & Live Deployment (Order 007)
+* **Design Transformation:**
+  * Base canvas upgraded to crisp `#FFFFFF` / `#F8FAFC` light neutral theme with `#4F46E5` / `#6366F1` primary purple accents.
+  * Dual-view product architecture: `#dashboard-view` (landing surface with hero, 3 value proposition cards, 4-step sequence, and developer API card) and `#app-view` (pre-trade safety inspector workspace).
+  * 100% elimination of raw emojis; all icons replaced with crisp, semantic inline SVGs.
+  * Verified zero long dashes and accessible text floor (>=14px for product text) via `audit_ui_text.py`.
+* **Playwright Automated Browser Proof (`test/browser.test.js`):**
+  * **Test Summary:** 7/7 PASS (0 Failures)
+  * **Visual Artifacts Captured (`docs/evidence/ui/`):**
+    1. `01_dashboard_desktop.png` — Dashboard landing with hero headline, value cards, step-by-step sequence, and API banner.
+    2. `02_app_desktop.png` — Clean application workspace with stock selectors, payment tabs, and non-custodial safety banner.
+    3. `03_app_result.png` — Live trade result rendering locked 3-metric hierarchy (`YOU'RE SPENDING`, `EXPECTED [STOCK] EXPOSURE`, `DIFFERENCE`).
+    4. `04_app_unable_to_verify.png` — Verdict state banner showing `CAN'T VERIFY RIGHT NOW` / `MEASURED` with semantic SVG icons.
+    5. `05_app_simulation.png` — Exact simulation mode badge with Solana RPC simulation confirmation (`err: null`).
+    6. `06_dashboard_mobile.png` — Dashboard landing on 375x812 mobile viewport with zero horizontal overflow.
+    7. `07_app_mobile.png` — Application workspace on 375x812 mobile viewport with zero horizontal overflow.
+* **Live Production Deployment:**
+  * **Live Production URL:** `https://justfair-theta.vercel.app`
+  * **Deployment Id:** `dpl_2GB5muwLGKFBzyex4uyWMzwMUfr6`
+  * **Production Smoke Test (`test/smoke_prod.js`):**
+    * `GET /` $\to$ HTTP 200 (Dashboard & App views verified, locked hierarchy verified, zero-risk claim false)
+    * `GET /api/v1/health` $\to$ HTTP 200 (`HEALTHY`)
+    * `GET /api/v1/stocks` $\to$ HTTP 200 (4 stocks)
+    * `POST /api/v1/preflight` $\to$ HTTP 200 (`SUCCESS`, live route economics returned)
 

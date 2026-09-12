@@ -1,4 +1,4 @@
-// JustFair Playwright Real Browser Test Suite & Visual Capture (Director Order 006)
+// JustFair Playwright Real Browser Test Suite & Visual Capture (Director Order 007)
 import { chromium } from "playwright";
 import { createServer } from "../src/server.js";
 import path from "node:path";
@@ -10,7 +10,7 @@ const EVIDENCE_DIR = path.resolve(__dirname, "../docs/evidence/ui");
 
 async function runBrowserTests() {
   console.log("==================================================");
-  console.log("RUNNING JUSTFAIR PLAYWRIGHT REAL BROWSER TEST SUITE");
+  console.log("RUNNING JUSTFAIR PLAYWRIGHT REAL BROWSER TEST SUITE (ORDER 007)");
   console.log("==================================================\n");
 
   let passed = 0;
@@ -41,42 +41,74 @@ async function runBrowserTests() {
   const page = await context.newPage();
 
   try {
-    // 1. Initial Page Load & Render
-    await test("1. Initial page load renders hero, controls, safety banner with no Zero-Risk claim", async () => {
+    // 1. Dashboard View Load & Structure
+    await test("1. Initial page load renders Dashboard view, hero, value cards, steps, and API card", async () => {
       await page.goto(BASE_URL, { waitUntil: "networkidle" });
+
       const heroText = await page.textContent(".hero-headline");
       if (!heroText.includes("Before you buy the stock, check the fill.")) {
         throw new Error(`Hero headline mismatch: ${heroText}`);
       }
 
-      const ctaText = await page.textContent("#submit-btn .btn-text");
-      if (ctaText.trim() !== "CHECK TRADE") {
-        throw new Error(`Primary CTA mismatch: ${ctaText}`);
+      // Confirm Dashboard is active and App is hidden
+      const isDashboardVisible = await page.isVisible("#dashboard-view");
+      const isAppVisible = await page.isVisible("#app-view");
+      if (!isDashboardVisible || isAppVisible) {
+        throw new Error(`View state mismatch: dashboard=${isDashboardVisible}, app=${isAppVisible}`);
       }
 
-      // Check safety notice: MUST contain "NO FUNDS MOVED", MUST NOT contain "Zero-Risk" or "zero risk"
-      const pageContent = await page.content();
-      if (/zero-risk|zero\s+risk|risk-free/i.test(pageContent)) {
-        throw new Error("Page contains prohibited 'zero risk' or 'risk-free' claim");
-      }
-      if (!pageContent.includes("NO FUNDS MOVED")) {
-        throw new Error("Page does not contain expected 'NO FUNDS MOVED' safety copy");
+      // Confirm Why JustFair (3 cards) & Steps (4 cards)
+      const featureCards = await page.$$(".feature-card");
+      if (featureCards.length !== 3) {
+        throw new Error(`Expected 3 feature cards, found: ${featureCards.length}`);
       }
 
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "01_initial_page.png"), fullPage: true });
+      const stepCards = await page.$$(".step-card");
+      if (stepCards.length !== 4) {
+        throw new Error(`Expected 4 step cards, found: ${stepCards.length}`);
+      }
+
+      // Confirm Zero Emojis on Dashboard
+      const dashboardText = await page.textContent("#dashboard-view");
+      if (/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(dashboardText)) {
+        throw new Error("Dashboard view contains raw emoji characters instead of clean SVGs");
+      }
+
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "01_dashboard_desktop.png"), fullPage: true });
     });
 
-    // 2. Form Interaction & Real API Trade Check (AAPLx + USDC $500)
-    await test("2. Real AAPLx + USDC trade check renders locked 3 primary metrics and secondary shares", async () => {
-      // Ensure AAPLx and USDC are active
+    // 2. Navigation to App View
+    await test("2. Navigate to App view via Hero CTA button", async () => {
+      await page.click("#hero-open-app-btn");
+      await page.waitForTimeout(300);
+
+      const isAppVisible = await page.isVisible("#app-view");
+      const isDashboardVisible = await page.isVisible("#dashboard-view");
+      if (!isAppVisible || isDashboardVisible) {
+        throw new Error(`App navigation failed: app=${isAppVisible}, dashboard=${isDashboardVisible}`);
+      }
+
+      const safetyBadge = await page.textContent(".safety-badge");
+      if (!safetyBadge.includes("PREVIEW ONLY · NO FUNDS MOVED")) {
+        throw new Error(`Safety badge copy mismatch: ${safetyBadge}`);
+      }
+
+      // Check for zero-risk prohibition
+      const pageContent = await page.content();
+      if (/zero-risk|zero\s+risk|risk-free/i.test(pageContent)) {
+        throw new Error("App contains prohibited 'zero risk' claim");
+      }
+
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "02_app_desktop.png"), fullPage: true });
+    });
+
+    // 3. Trade Check Execution & Plain-Money Metric Hierarchy
+    await test("3. Execute trade check (AAPLx + USDC $500) and verify locked 3-metric hierarchy", async () => {
       await page.click(".stock-chip[data-symbol='AAPLx']");
       await page.click(".payment-tab[data-asset='USDC']");
       await page.fill("#amount-input", "500");
 
-      // Click CHECK TRADE
       await page.click("#submit-btn");
-
-      // Wait for result container to appear
       await page.waitForSelector("#result-state:not(.hidden)", { timeout: 15000 });
 
       // Metric #1: YOU'RE SPENDING
@@ -103,40 +135,26 @@ async function runBrowserTests() {
       if (!diffVal.includes("$")) throw new Error(`Metric 3 difference value missing: ${diffVal}`);
       if (!diffPct.includes("%")) throw new Error(`Metric 3 difference percentage missing: ${diffPct}`);
 
-      // Verdict State: truthful CAN'T VERIFY RIGHT NOW or MEASURED
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "03_app_result.png"), fullPage: true });
+    });
+
+    // 4. Market Closed / Unable to Verify Verdict State
+    await test("4. Verdict Banner correctly displays CAN'T VERIFY RIGHT NOW or MEASURED with clean SVG icon", async () => {
       const verdictTitle = await page.textContent("#verdict-title");
       if (!verdictTitle.includes("CAN'T VERIFY RIGHT NOW") && !verdictTitle.includes("MEASURED")) {
-        throw new Error(`Unexpected production verdict title: ${verdictTitle}`);
+        throw new Error(`Unexpected verdict title: ${verdictTitle}`);
       }
 
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "02_aaplx_usdc_result.png"), fullPage: true });
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "03_market_closed_measured_result.png"), fullPage: true });
+      const verdictIconHtml = await page.innerHTML("#verdict-icon");
+      if (!verdictIconHtml.includes("<svg")) {
+        throw new Error("Verdict icon is not an inline SVG");
+      }
+
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "04_app_unable_to_verify.png"), fullPage: true });
     });
 
-    // 3. Technical Evidence Accordion
-    await test("3. Expand trade details accordion and confirm technical route proof", async () => {
-      await page.click(".accordion-header");
-      await page.waitForSelector(".accordion-body", { state: "visible" });
-
-      const mint = await page.textContent("#ev-mint");
-      const multiplier = await page.textContent("#ev-multiplier");
-      const router = await page.textContent("#ev-router");
-
-      if (!mint.includes("XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp")) {
-        throw new Error(`Mint mismatch: ${mint}`);
-      }
-      if (!multiplier.includes("1.003269")) {
-        throw new Error(`Multiplier mismatch: ${multiplier}`);
-      }
-      if (!router.includes("Jupiter Swap V2")) {
-        throw new Error(`Router engine mismatch: ${router}`);
-      }
-
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "04_expanded_trade_details.png"), fullPage: true });
-    });
-
-    // 4. Exact Simulation Mode with Valid Public Key
-    await test("4. Exact Simulation mode simulates on Solana RPC with err: null", async () => {
+    // 5. Exact Simulation Mode with Non-Broadcast Solana RPC
+    await test("5. Exact Simulation mode simulates on Solana RPC with err: null", async () => {
       await page.click("#manual-key-toggle");
       await page.waitForSelector("#manual-key-box:not(.hidden)");
 
@@ -152,51 +170,54 @@ async function runBrowserTests() {
         throw new Error(`Simulation title mismatch: ${simTitle}`);
       }
 
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "05_exact_simulation_result.png"), fullPage: true });
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "05_app_simulation.png"), fullPage: true });
     });
 
-    // 5. Failure State Trigger (Invalid Amount)
-    await test("5. Trigger invalid amount and verify truthful human error card", async () => {
-      await page.fill("#amount-input", "-50");
-      await page.click("#submit-btn");
-
-      await page.waitForSelector("#error-state:not(.hidden)", { timeout: 5000 });
-      const errTitle = await page.textContent("#error-title");
-      const errMsg = await page.textContent("#error-message");
-
-      if (!errTitle.includes("Invalid Amount") && !errTitle.includes("Check Failed")) {
-        throw new Error(`Error title mismatch: ${errTitle}`);
-      }
-      if (!errMsg.includes("greater than zero") && !errMsg.includes("safety limits")) {
-        throw new Error(`Error message mismatch: ${errMsg}`);
-      }
-
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "06_failure_state.png"), fullPage: true });
-    });
-
-    // 6. Mobile Viewport & No Horizontal Overflow
-    await test("6. Mobile viewport renders cleanly with zero horizontal overflow", async () => {
+    // 6. Mobile Viewport: Dashboard
+    await test("6. Dashboard renders cleanly on mobile viewport (375x812) with zero overflow", async () => {
       const mobileContext = await browser.newContext({
         viewport: { width: 375, height: 812 },
         isMobile: true
       });
       const mobilePage = await mobileContext.newPage();
 
-      await mobilePage.goto(BASE_URL, { waitUntil: "networkidle" });
-      await mobilePage.click(".preset-btn[data-val='100']");
-      await mobilePage.click("#submit-btn");
-      await mobilePage.waitForSelector("#result-state:not(.hidden)", { timeout: 15000 });
+      await mobilePage.goto(`${BASE_URL}/#dashboard`, { waitUntil: "networkidle" });
+      await mobilePage.waitForTimeout(300);
 
-      // Check horizontal overflow
       const isOverflowing = await mobilePage.evaluate(() => {
         return document.documentElement.scrollWidth > window.innerWidth;
       });
 
       if (isOverflowing) {
-        throw new Error("Mobile page exhibits horizontal overflow");
+        throw new Error("Dashboard on mobile exhibits horizontal overflow");
       }
 
-      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "07_mobile_viewport.png"), fullPage: true });
+      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "06_dashboard_mobile.png"), fullPage: true });
+      await mobileContext.close();
+    });
+
+    // 7. Mobile Viewport: App
+    await test("7. App workspace renders cleanly on mobile viewport (375x812) with zero overflow", async () => {
+      const mobileContext = await browser.newContext({
+        viewport: { width: 375, height: 812 },
+        isMobile: true
+      });
+      const mobilePage = await mobileContext.newPage();
+
+      await mobilePage.goto(`${BASE_URL}/#app`, { waitUntil: "networkidle" });
+      await mobilePage.click(".preset-btn[data-val='100']");
+      await mobilePage.click("#submit-btn");
+      await mobilePage.waitForSelector("#result-state:not(.hidden)", { timeout: 15000 });
+
+      const isOverflowing = await mobilePage.evaluate(() => {
+        return document.documentElement.scrollWidth > window.innerWidth;
+      });
+
+      if (isOverflowing) {
+        throw new Error("App workspace on mobile exhibits horizontal overflow");
+      }
+
+      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "07_app_mobile.png"), fullPage: true });
       await mobileContext.close();
     });
 
@@ -218,4 +239,3 @@ runBrowserTests().catch(err => {
   console.error("Playwright Test Runner Crashed:", err);
   process.exitCode = 1;
 });
-

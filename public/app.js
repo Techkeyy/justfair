@@ -1,5 +1,6 @@
 // JustFair Consumer Client Application
 // Zero-Custody, Pre-Trade Economic Safety Inspector on Solana
+// White + Purple Modern Dashboard & App System (Order 007)
 
 const STOCK_META = {
   AAPLx: { name: "Apple Inc.", canonical: "AAPL", mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp" },
@@ -11,7 +12,18 @@ const STOCK_META = {
 let currentSolPrice = 135.0; // Fallback estimate before live fetch
 let activeWalletAddress = null;
 
-// DOM Elements
+// DOM Navigation Elements
+const dashboardView = document.getElementById("dashboard-view");
+const appView = document.getElementById("app-view");
+const tabDashboardBtn = document.getElementById("tab-dashboard-btn");
+const tabAppBtn = document.getElementById("tab-app-btn");
+const navBrandLink = document.getElementById("nav-brand-link");
+const headerLaunchBtn = document.getElementById("header-launch-btn");
+const heroOpenAppBtn = document.getElementById("hero-open-app-btn");
+const apiCtaOpenApp = document.getElementById("api-cta-open-app");
+const bottomOpenAppBtn = document.getElementById("bottom-open-app-btn");
+
+// DOM Form Elements
 const form = document.getElementById("preflight-form");
 const stockInput = document.getElementById("stock-select");
 const paymentInput = document.getElementById("payment-select");
@@ -68,7 +80,62 @@ const evSession = document.getElementById("ev-session");
 const evPreflightLevel = document.getElementById("ev-preflight-level");
 const evSimulation = document.getElementById("ev-simulation");
 
-// 1. Stock Selection Handler
+// ==========================================
+// 1. Navigation & View Switching
+// ==========================================
+function switchView(viewName) {
+  if (viewName === "app") {
+    dashboardView.classList.add("hidden");
+    appView.classList.remove("hidden");
+    tabDashboardBtn.classList.remove("active");
+    tabAppBtn.classList.add("active");
+    headerLaunchBtn.classList.add("hidden");
+    window.location.hash = "app";
+  } else {
+    appView.classList.add("hidden");
+    dashboardView.classList.remove("hidden");
+    tabAppBtn.classList.remove("active");
+    tabDashboardBtn.classList.add("active");
+    headerLaunchBtn.classList.remove("hidden");
+    window.location.hash = "dashboard";
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// Event Listeners for View Switching
+if (tabDashboardBtn) tabDashboardBtn.addEventListener("click", () => switchView("dashboard"));
+if (tabAppBtn) tabAppBtn.addEventListener("click", () => switchView("app"));
+if (navBrandLink) navBrandLink.addEventListener("click", (e) => {
+  e.preventDefault();
+  switchView("dashboard");
+});
+if (headerLaunchBtn) headerLaunchBtn.addEventListener("click", () => switchView("app"));
+if (heroOpenAppBtn) heroOpenAppBtn.addEventListener("click", () => switchView("app"));
+if (apiCtaOpenApp) apiCtaOpenApp.addEventListener("click", () => switchView("app"));
+if (bottomOpenAppBtn) bottomOpenAppBtn.addEventListener("click", () => switchView("app"));
+
+// Check hash on load
+window.addEventListener("DOMContentLoaded", () => {
+  const hash = window.location.hash;
+  if (hash === "#app") {
+    switchView("app");
+  } else {
+    switchView("dashboard");
+  }
+});
+
+window.addEventListener("hashchange", () => {
+  const hash = window.location.hash;
+  if (hash === "#app") {
+    switchView("app");
+  } else if (hash === "#dashboard" || hash === "") {
+    switchView("dashboard");
+  }
+});
+
+// ==========================================
+// 2. Stock Selection Handler
+// ==========================================
 stockChips.forEach(chip => {
   chip.addEventListener("click", () => {
     stockChips.forEach(c => {
@@ -82,7 +149,9 @@ stockChips.forEach(chip => {
   });
 });
 
-// 2. Payment Selection Handler
+// ==========================================
+// 3. Payment Selection Handler
+// ==========================================
 paymentTabs.forEach(tab => {
   tab.addEventListener("click", () => {
     paymentTabs.forEach(t => {
@@ -126,7 +195,9 @@ function updatePresets(values, prefix) {
   });
 }
 
-// 3. Amount Input Change Handler
+// ==========================================
+// 4. Amount Input Change Handler
+// ==========================================
 amountInput.addEventListener("input", () => {
   document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
   updateAmountUsdEquiv();
@@ -147,7 +218,9 @@ function updateAmountUsdEquiv() {
   }
 }
 
-// 4. Wallet Connection & Manual Address Management
+// ==========================================
+// 5. Wallet Connection & Manual Address Management
+// ==========================================
 manualKeyToggle.addEventListener("click", () => {
   const isHidden = manualKeyBox.classList.contains("hidden");
   manualKeyBox.classList.toggle("hidden", !isHidden);
@@ -186,6 +259,9 @@ walletBtn.addEventListener("click", async () => {
     }
   } else {
     // Reveal manual address box
+    if (appView.classList.contains("hidden")) {
+      switchView("app");
+    }
     manualKeyBox.classList.remove("hidden");
     manualKeyToggle.textContent = "Hide manual address";
     walletInput.focus();
@@ -205,7 +281,9 @@ function setWalletState(address, label) {
   }
 }
 
-// 5. Form Submission (Unified Preflight Call)
+// ==========================================
+// 6. Form Submission (Unified Preflight Call)
+// ==========================================
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -287,7 +365,9 @@ function resetSubmitBtn() {
   submitBtn.querySelector(".btn-spinner").classList.add("hidden");
 }
 
-// 6. Render Economic Result
+// ==========================================
+// 7. Render Economic Result
+// ==========================================
 function renderResult(data) {
   loadingState.classList.add("hidden");
   errorState.classList.add("hidden");
@@ -321,21 +401,21 @@ function renderResult(data) {
   resDiffVal.textContent = `${diffPrefix}$${Math.abs(econ.difference_usd).toFixed(2)}`;
   resDiffPct.textContent = `(${econ.difference_usd >= 0 ? "+" : ""}${diffPct.toFixed(2)}%)`;
 
-  // Verdict Banner State
+  // Verdict Banner State (Clean SVGs, No Emojis)
   verdictBanner.className = "verdict-banner";
   if (mkt.session === "CLOSED" || bench.freshness_status === "AFTER_HOURS_CLOSE") {
     verdictBanner.classList.add("verdict-closed");
-    verdictIcon.textContent = "🌙";
+    verdictIcon.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
     verdictTitle.textContent = "CAN'T VERIFY RIGHT NOW";
     verdictSubtitle.textContent = `Traditional equity markets are closed. Live DEX routing delivered $${econ.expected_stock_exposure_usd.toFixed(2)} estimated exposure, but benchmark safety cannot be certified outside active trading hours.`;
   } else if (data.verdict === "MEASURED" || data.verification_status === "UNABLE_TO_VERIFY") {
     verdictBanner.classList.add("verdict-measured");
-    verdictIcon.textContent = "⚖️";
+    verdictIcon.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"></path><path d="M4 7l8-4 8 4"></path><path d="M6 18l-3-6h6l-3 6z"></path><path d="M18 18l-3-6h6l-3 6z"></path></svg>`;
     verdictTitle.textContent = "MEASURED";
     verdictSubtitle.textContent = `Economic difference measured at ${diffPrefix}${diffPct.toFixed(2)}%. Threshold safety calibration is pending live market tape verification.`;
   } else {
     verdictBanner.classList.add("verdict-measured");
-    verdictIcon.textContent = "⚖️";
+    verdictIcon.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"></path><path d="M4 7l8-4 8 4"></path><path d="M6 18l-3-6h6l-3 6z"></path><path d="M18 18l-3-6h6l-3 6z"></path></svg>`;
     verdictTitle.textContent = "MEASURED";
     verdictSubtitle.textContent = `Preflight inspection completed. Reason: ${data.reason_codes?.join(", ")}`;
   }
@@ -356,7 +436,7 @@ function renderResult(data) {
       simDesc.textContent = `Simulated via Solana RPC with err: null (${sim.units_consumed?.toLocaleString() || 0} compute units). Zero funds moved.`;
     } else {
       simTitle.textContent = "Exact Simulation: Failed on Upstream Route";
-      simDesc.textContent = `Transaction simulation returned an error. Route economics are displayed from quote check.`;
+      simDesc.textContent = "Transaction simulation returned an error. Route economics are displayed from quote check.";
     }
   } else {
     simBanner.classList.add("hidden");
@@ -371,7 +451,7 @@ function renderResult(data) {
   evProgram.textContent = "Token-2022 (Scaled UI Amount Extension)";
   evMultiplier.textContent = `${econ.multiplier.current_multiplier} (1 token = ${econ.multiplier.current_multiplier} shares)`;
   evRouter.textContent = `Jupiter Swap V2 (Router: ${data.dex_route.router}, Mode: ${data.dex_route.mode})`;
-  evSteps.textContent = data.dex_route.steps?.join(" ➜ ") || "Direct DEX Pool";
+  evSteps.textContent = data.dex_route.steps?.join(" to ") || "Direct DEX Pool";
   evImpact.textContent = `${(parseFloat(data.dex_route.price_impact_pct || 0)).toFixed(4)}%`;
   evBenchmarkSource.textContent = `${bench.provider} (${bench.source})`;
   evSession.textContent = `Reference: ${bench.reference_session} | Current: ${mkt.session || bench.current_market_session}`;
@@ -395,4 +475,3 @@ fetch("/api/v1/preflight", {
     updateAmountUsdEquiv();
   }
 }).catch(() => {});
-

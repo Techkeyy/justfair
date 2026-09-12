@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JustFair: Check Tokenized Stock Trade Fairness Before Buying on Solana</title>
+  <title>JustFair: Pre-Trade Equity Safety Inspector on Solana</title>
   <meta name="description" content="Verify the true economic fairness of tokenized stock trades on Solana before execution. Real-time DEX quotes vs independent equity market benchmarks.">
   <link rel="stylesheet" href="/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,309 +11,550 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="app-container">
-    <!-- Header -->
+  <div class="site-wrapper">
+    <!-- Navigation Bar -->
     <header class="site-header">
-      <div class="header-inner">
-        <a href="/" class="brand-logo" aria-label="JustFair Home">
-          <span class="brand-icon">⚖️</span>
-          <span class="brand-name">JustFair</span>
-          <span class="brand-pill">Solana Equity Preflight</span>
+      <div class="header-container">
+        <a href="#dashboard" class="brand-link" id="nav-brand-link" aria-label="JustFair Home">
+          <div class="brand-icon-box">
+            <svg class="brand-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v18"></path>
+              <path d="M4 7l8-4 8 4"></path>
+              <path d="M6 18l-3-6h6l-3 6z"></path>
+              <path d="M18 18l-3-6h6l-3 6z"></path>
+              <circle cx="12" cy="21" r="1"></circle>
+            </svg>
+          </div>
+          <div class="brand-text-box">
+            <span class="brand-name">JustFair</span>
+            <span class="brand-badge">Preflight</span>
+          </div>
         </a>
+
+        <nav class="nav-menu" aria-label="Main Navigation">
+          <button type="button" class="nav-link active" id="tab-dashboard-btn" data-target="dashboard">Dashboard</button>
+          <button type="button" class="nav-link" id="tab-app-btn" data-target="app">App</button>
+          <a href="#how-it-works" class="nav-link" id="nav-how-btn">How it Works</a>
+          <a href="#api-docs" class="nav-link" id="nav-api-btn">API</a>
+        </nav>
+
         <div class="header-actions">
-          <button id="wallet-toggle-btn" class="btn btn-secondary btn-sm" type="button" aria-expanded="false">
-            <span class="wallet-icon">👛</span>
+          <button id="wallet-toggle-btn" class="btn btn-outline btn-sm" type="button" aria-expanded="false">
+            <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="6" width="20" height="12" rx="3"></rect>
+              <circle cx="16" cy="12" r="2"></circle>
+            </svg>
             <span id="wallet-btn-label">Connect Wallet</span>
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" id="header-launch-btn">
+            <span>Open App</span>
+            <svg class="btn-icon-right" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"></path>
+              <path d="M12 5l7 7-7 7"></path>
+            </svg>
           </button>
         </div>
       </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="main-content">
-      <!-- Hero Section -->
-      <section class="hero-section">
-        <h1 class="hero-headline">Before you buy the stock, check the fill.</h1>
-        <p class="hero-subheadline">
-          JustFair inspects the live Solana DEX route and calculates the exact dollar value of underlying stock exposure you receive before any transaction is executed.
-        </p>
-      </section>
+    <!-- Main Views Container -->
+    <main class="main-body">
 
-      <!-- Safety Notice -->
-      <div class="safety-banner" role="status">
-        <span class="safety-badge">🛡️ PREVIEW ONLY · NO FUNDS MOVED</span>
-        <span class="safety-text">Quote Check analyzes proposed route economics. Exact Simulation tests unsigned transactions. Neither mode signs or broadcasts transactions.</span>
+      <!-- ========================================== -->
+      <!-- VIEW 1: DASHBOARD / LANDING VIEW           -->
+      <!-- ========================================== -->
+      <div id="dashboard-view" class="view-section">
+        <!-- Hero Section -->
+        <section class="dashboard-hero">
+          <div class="hero-badge">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            <span>Non-Custodial Equity Preflight Engine</span>
+          </div>
+          <h1 class="hero-headline">Before you buy the stock, check the fill.</h1>
+          <p class="hero-subheadline">
+            JustFair inspects live Solana DEX routes and calculates the exact dollar value of underlying stock exposure you receive before any transaction is executed.
+          </p>
+          <div class="hero-cta-group">
+            <button type="button" class="btn btn-primary btn-lg" id="hero-open-app-btn">
+              <span>Launch Preflight App</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"></path>
+                <path d="M12 5l7 7-7 7"></path>
+              </svg>
+            </button>
+            <a href="#how-it-works" class="btn btn-secondary btn-lg">
+              <span>Learn How It Works</span>
+            </a>
+          </div>
+        </section>
+
+        <!-- Value Proposition: Why JustFair -->
+        <section class="dashboard-section" id="why-justfair">
+          <div class="section-header">
+            <h2 class="section-title">Why tokenized stocks need pre-trade inspection</h2>
+            <p class="section-subtitle">Tokenized equities on Solana do not behave like simple SPL tokens. JustFair bridges on-chain routing with off-chain equity truth.</p>
+          </div>
+
+          <div class="feature-grid">
+            <div class="feature-card">
+              <div class="feature-icon-box">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+              </div>
+              <h3 class="feature-heading">Dynamic Multiplier Awareness</h3>
+              <p class="feature-desc">
+                xStocks use Token-2022 scaled amounts where token balances and corporate action multipliers evolve dynamically. JustFair reads live on-chain multipliers.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon-box">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
+              <h3 class="feature-heading">Non-Custodial Simulation</h3>
+              <p class="feature-desc">
+                Pre-trade checking only. Quote check inspects proposed economics without a wallet, while exact simulation runs Solana RPC simulation with zero fund access.
+              </p>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon-box">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+              </div>
+              <h3 class="feature-heading">Real-Time Market Benchmark</h3>
+              <p class="feature-desc">
+                Compares DEX routing output against real-time equity market benchmarks to show the true dollar premium or discount before committing capital.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- How It Works Sequence -->
+        <section class="dashboard-section" id="how-it-works">
+          <div class="section-header">
+            <h2 class="section-title">How the Preflight Engine works</h2>
+            <p class="section-subtitle">Four deterministic steps ensure complete economic transparency before you trade.</p>
+          </div>
+
+          <div class="steps-container">
+            <div class="step-card">
+              <div class="step-number">01</div>
+              <h3 class="step-heading">Select Asset &amp; Spend</h3>
+              <p class="step-desc">Pick your target tokenized stock (AAPLx, NVDAx, SPYx, TSLAx) and specify your intended payment in USDC or SOL.</p>
+            </div>
+
+            <div class="step-card">
+              <div class="step-number">02</div>
+              <h3 class="step-heading">Discover Live Route</h3>
+              <p class="step-desc">JustFair queries Jupiter Swap V2 for the most optimal liquidity route across Raydium CLMM and Orca Whirlpools.</p>
+            </div>
+
+            <div class="step-card">
+              <div class="step-number">03</div>
+              <h3 class="step-heading">Apply Token Multipliers</h3>
+              <p class="step-desc">The engine queries Token-2022 account parameters to calculate the true underlying stock share quantity delivered.</p>
+            </div>
+
+            <div class="step-card">
+              <div class="step-number">04</div>
+              <h3 class="step-heading">Measure Economic Truth</h3>
+              <p class="step-desc">The delivered share value is priced against Nasdaq benchmark data to produce the final plain-money verdict.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Developer & Wallet API Card -->
+        <section class="dashboard-section" id="api-docs">
+          <div class="api-banner-card">
+            <div class="api-banner-content">
+              <div class="api-badge">Developer &amp; Wallet API</div>
+              <h2 class="api-headline">Built for users. Embeddable by wallets.</h2>
+              <p class="api-description">
+                Protect your users from illiquid routing and mispriced tokenized assets. Call our high-throughput REST API endpoint directly from wallets and dApps.
+              </p>
+              <div class="api-links">
+                <a href="/api/v1/stocks" target="_blank" class="btn btn-secondary btn-sm">GET /api/v1/stocks</a>
+                <button type="button" class="btn btn-primary btn-sm" id="api-cta-open-app">Try in App</button>
+              </div>
+            </div>
+            <div class="api-banner-code">
+              <div class="code-topbar">
+                <span class="code-method">POST</span>
+                <span class="code-endpoint">/api/v1/preflight</span>
+              </div>
+              <pre class="code-body"><code>curl -X POST https://justfair-theta.vercel.app/api/v1/preflight \
+  -H "Content-Type: application/json" \
+  -d '{
+    "inputAsset": "USDC",
+    "stock": "AAPLx",
+    "amount": 500
+  }'</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- Bottom CTA -->
+        <section class="dashboard-cta">
+          <h2 class="cta-headline">Ready to inspect your tokenized stock trade?</h2>
+          <p class="cta-subtitle">Check real DEX fill economics in seconds without moving funds.</p>
+          <button type="button" class="btn btn-primary btn-lg" id="bottom-open-app-btn">
+            <span>Open JustFair App</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"></path>
+              <path d="M12 5l7 7-7 7"></path>
+            </svg>
+          </button>
+        </section>
       </div>
 
-      <!-- Trade Inspector Form -->
-      <section class="trade-card" aria-label="Pre-Trade Safety Inspector">
-        <form id="preflight-form" novalidate>
-          <!-- Stock Selector -->
-          <div class="form-group">
-            <label class="form-label" for="stock-select">Choose Tokenized Stock</label>
-            <div class="stock-grid" role="radiogroup" aria-label="Select Stock Asset">
-              <button type="button" class="stock-chip active" data-symbol="AAPLx" role="radio" aria-checked="true">
-                <span class="stock-symbol">AAPL</span>
-                <span class="stock-name">Apple Inc.</span>
-                <span class="stock-tag">xStock</span>
-              </button>
-              <button type="button" class="stock-chip" data-symbol="NVDAx" role="radio" aria-checked="false">
-                <span class="stock-symbol">NVDA</span>
-                <span class="stock-name">NVIDIA Corp.</span>
-                <span class="stock-tag">xStock</span>
-              </button>
-              <button type="button" class="stock-chip" data-symbol="SPYx" role="radio" aria-checked="false">
-                <span class="stock-symbol">SPY</span>
-                <span class="stock-name">S&amp;P 500 ETF</span>
-                <span class="stock-tag">xStock</span>
-              </button>
-              <button type="button" class="stock-chip" data-symbol="TSLAx" role="radio" aria-checked="false">
-                <span class="stock-symbol">TSLA</span>
-                <span class="stock-name">Tesla Inc.</span>
-                <span class="stock-tag">xStock</span>
-              </button>
+      <!-- ========================================== -->
+      <!-- VIEW 2: APPLICATION WORKSPACE VIEW        -->
+      <!-- ========================================== -->
+      <div id="app-view" class="view-section hidden">
+        <div class="app-workspace">
+          <!-- Non-Custodial Safety Banner -->
+          <div class="safety-banner" role="status">
+            <div class="safety-badge">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+              <span>PREVIEW ONLY · NO FUNDS MOVED</span>
             </div>
-            <input type="hidden" id="stock-select" name="stock" value="AAPLx">
+            <span class="safety-text">Quote Check analyzes proposed route economics. Exact Simulation tests unsigned transactions. Neither mode signs or broadcasts transactions.</span>
           </div>
 
-          <!-- Payment Asset Selector & Amount -->
-          <div class="form-row">
-            <div class="form-group flex-1">
-              <label class="form-label" for="payment-select">Pay With</label>
-              <div class="payment-tabs" role="radiogroup" aria-label="Select Payment Currency">
-                <button type="button" class="payment-tab active" data-asset="USDC" role="radio" aria-checked="true">
-                  <span class="token-icon">💵</span>
-                  <span class="token-symbol">USDC</span>
-                  <span class="token-sub">1:1 USD</span>
+          <!-- Trade Inspector Card -->
+          <div class="trade-card" aria-label="Pre-Trade Safety Inspector">
+            <form id="preflight-form" novalidate>
+              <!-- Stock Selector -->
+              <div class="form-group">
+                <div class="form-label-row">
+                  <label class="form-label" for="stock-select">Choose Tokenized Stock</label>
+                  <span class="form-label-hint">Supported xStocks</span>
+                </div>
+                <div class="stock-grid" role="radiogroup" aria-label="Select Stock Asset">
+                  <button type="button" class="stock-chip active" data-symbol="AAPLx" role="radio" aria-checked="true">
+                    <span class="stock-symbol">AAPL</span>
+                    <span class="stock-name">Apple Inc.</span>
+                    <span class="stock-tag">xStock</span>
+                  </button>
+                  <button type="button" class="stock-chip" data-symbol="NVDAx" role="radio" aria-checked="false">
+                    <span class="stock-symbol">NVDA</span>
+                    <span class="stock-name">NVIDIA Corp.</span>
+                    <span class="stock-tag">xStock</span>
+                  </button>
+                  <button type="button" class="stock-chip" data-symbol="SPYx" role="radio" aria-checked="false">
+                    <span class="stock-symbol">SPY</span>
+                    <span class="stock-name">S&amp;P 500 ETF</span>
+                    <span class="stock-tag">xStock</span>
+                  </button>
+                  <button type="button" class="stock-chip" data-symbol="TSLAx" role="radio" aria-checked="false">
+                    <span class="stock-symbol">TSLA</span>
+                    <span class="stock-name">Tesla Inc.</span>
+                    <span class="stock-tag">xStock</span>
+                  </button>
+                </div>
+                <input type="hidden" id="stock-select" name="stock" value="AAPLx">
+              </div>
+
+              <!-- Payment Asset Selector & Amount -->
+              <div class="form-row">
+                <div class="form-col">
+                  <label class="form-label" for="payment-select">Pay With</label>
+                  <div class="payment-tabs" role="radiogroup" aria-label="Select Payment Currency">
+                    <button type="button" class="payment-tab active" data-asset="USDC" role="radio" aria-checked="true">
+                      <div class="token-icon-wrap">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <path d="M12 6v12"></path>
+                          <path d="M15 9.5a3 3 0 0 0-3-2.5c-2 0-3 1-3 2.5s1 2.5 3 2.5 3 1 3 2.5-1 2.5-3 2.5a3 3 0 0 1-3-2.5"></path>
+                        </svg>
+                      </div>
+                      <div class="token-info">
+                        <span class="token-symbol">USDC</span>
+                        <span class="token-sub">1:1 USD</span>
+                      </div>
+                    </button>
+                    <button type="button" class="payment-tab" data-asset="SOL" role="radio" aria-checked="false">
+                      <div class="token-icon-wrap">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                          <circle cx="12" cy="12" r="4"></circle>
+                          <path d="M12 2v2"></path>
+                          <path d="M12 20v2"></path>
+                          <path d="M4.93 4.93l1.41 1.41"></path>
+                          <path d="M17.66 17.66l1.41 1.41"></path>
+                          <path d="M2 12h2"></path>
+                          <path d="M20 12h2"></path>
+                          <path d="M4.93 19.07l1.41-1.41"></path>
+                          <path d="M17.66 6.34l1.41-1.41"></path>
+                        </svg>
+                      </div>
+                      <div class="token-info">
+                        <span class="token-symbol">SOL</span>
+                        <span class="token-sub" id="sol-spot-sub">Live Price</span>
+                      </div>
+                    </button>
+                  </div>
+                  <input type="hidden" id="payment-select" name="inputAsset" value="USDC">
+                </div>
+
+                <div class="form-col">
+                  <div class="form-label-row">
+                    <label class="form-label" for="amount-input">Amount to Spend</label>
+                    <span class="label-sub" id="amount-usd-equivalent">$500.00 USD</span>
+                  </div>
+                  <div class="input-wrapper">
+                    <span class="input-prefix" id="amount-prefix">$</span>
+                    <input 
+                      type="number" 
+                      id="amount-input" 
+                      name="amount" 
+                      class="form-input" 
+                      value="500" 
+                      min="1" 
+                      max="1000000" 
+                      step="any" 
+                      required 
+                      aria-describedby="amount-presets"
+                    >
+                  </div>
+                  <div class="amount-presets" id="amount-presets">
+                    <button type="button" class="preset-btn" data-val="100">$100</button>
+                    <button type="button" class="preset-btn active" data-val="500">$500</button>
+                    <button type="button" class="preset-btn" data-val="1000">$1,000</button>
+                    <button type="button" class="preset-btn" data-val="2500">$2,500</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Wallet / Exact Simulation Option -->
+              <div class="wallet-section" id="wallet-drawer">
+                <div class="wallet-info-bar">
+                  <div class="wallet-status-group">
+                    <span class="wallet-dot" id="wallet-dot"></span>
+                    <span class="wallet-status-label" id="wallet-status-text">Mode: Quote Precheck (No wallet required)</span>
+                  </div>
+                  <button type="button" id="manual-key-toggle" class="btn-link" aria-expanded="false">
+                    Enter address manually
+                  </button>
+                </div>
+                <div class="manual-key-input-box hidden" id="manual-key-box">
+                  <label class="form-label" for="wallet-input">Solana Public Address for Exact RPC Simulation</label>
+                  <input 
+                    type="text" 
+                    id="wallet-input" 
+                    class="form-input font-mono" 
+                    placeholder="e.g. 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+                  >
+                  <p class="form-hint">Only your public wallet address is used for non-broadcast simulation. Never enter a seed phrase or private key.</p>
+                </div>
+              </div>
+
+              <!-- Primary Submit Button -->
+              <div class="form-actions">
+                <button type="submit" id="submit-btn" class="btn btn-primary btn-block btn-lg">
+                  <span class="btn-text">CHECK TRADE</span>
+                  <span class="btn-spinner hidden" aria-hidden="true"></span>
                 </button>
-                <button type="button" class="payment-tab" data-asset="SOL" role="radio" aria-checked="false">
-                  <span class="token-icon">☀️</span>
-                  <span class="token-symbol">SOL</span>
-                  <span class="token-sub" id="sol-spot-sub">Live Price</span>
-                </button>
               </div>
-              <input type="hidden" id="payment-select" name="inputAsset" value="USDC">
+            </form>
+          </div>
+
+          <!-- Loading State -->
+          <section id="loading-state" class="state-card hidden" aria-live="polite">
+            <div class="loading-spinner"></div>
+            <h2 class="state-title">Analyzing Trade Route...</h2>
+            <p class="state-desc" id="loading-step-text">Checking live Jupiter Swap V2 route, Token-2022 multiplier, and independent equity benchmark.</p>
+          </section>
+
+          <!-- Error State -->
+          <section id="error-state" class="state-card error-card hidden" aria-live="assertive">
+            <div class="error-icon-box">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+            </div>
+            <h2 class="state-title" id="error-title">Unable to Check Trade</h2>
+            <p class="state-desc" id="error-message">An error occurred while inspecting the trade.</p>
+            <button type="button" id="error-retry-btn" class="btn btn-secondary">Try Again</button>
+          </section>
+
+          <!-- Result State -->
+          <section id="result-state" class="result-container hidden" aria-live="polite">
+            <!-- Verdict Banner -->
+            <div class="verdict-banner" id="verdict-banner">
+              <div class="verdict-icon-box" id="verdict-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3v18"></path>
+                  <path d="M4 7l8-4 8 4"></path>
+                  <path d="M6 18l-3-6h6l-3 6z"></path>
+                  <path d="M18 18l-3-6h6l-3 6z"></path>
+                </svg>
+              </div>
+              <div class="verdict-text-group">
+                <h2 class="verdict-title" id="verdict-title">MEASURED</h2>
+                <p class="verdict-subtitle" id="verdict-subtitle">Economic difference measured against independent market benchmark.</p>
+              </div>
             </div>
 
-            <div class="form-group flex-1">
-              <label class="form-label" for="amount-input">
-                <span>Amount to Spend</span>
-                <span class="label-sub" id="amount-usd-equivalent">$500.00 USD</span>
-              </label>
-              <div class="input-wrapper">
-                <span class="input-prefix" id="amount-prefix">$</span>
-                <input 
-                  type="number" 
-                  id="amount-input" 
-                  name="amount" 
-                  class="form-input" 
-                  value="500" 
-                  min="1" 
-                  max="1000000" 
-                  step="any" 
-                  required 
-                  aria-describedby="amount-helper"
-                >
+            <!-- Big 3 Numbers Card (Locked Plain-Money Hierarchy) -->
+            <div class="plain-money-card">
+              <div class="money-stat">
+                <span class="money-label">YOU'RE SPENDING</span>
+                <span class="money-value" id="res-spend-val">$500.00</span>
+                <span class="money-sub" id="res-spend-sub">500.00 USDC</span>
               </div>
-              <div class="amount-presets" id="amount-presets">
-                <button type="button" class="preset-btn" data-val="100">$100</button>
-                <button type="button" class="preset-btn active" data-val="500">$500</button>
-                <button type="button" class="preset-btn" data-val="1000">$1,000</button>
-                <button type="button" class="preset-btn" data-val="2500">$2,500</button>
+
+              <div class="money-divider">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14"></path>
+                  <path d="M12 5l7 7-7 7"></path>
+                </svg>
               </div>
-            </div>
-          </div>
 
-          <!-- Wallet / Exact Simulation Option -->
-          <div class="wallet-section" id="wallet-drawer">
-            <div class="wallet-info-bar">
-              <div class="wallet-status-group">
-                <span class="wallet-dot" id="wallet-dot"></span>
-                <span class="wallet-status-label" id="wallet-status-text">Mode: Quote Precheck (No wallet required)</span>
+              <div class="money-stat">
+                <span class="money-label" id="res-exposure-label">EXPECTED APPLE EXPOSURE</span>
+                <span class="money-value" id="res-exposure-val">$498.23</span>
+                <span class="money-sub" id="res-exposure-sub">1.499484 AAPL @ $332.27</span>
               </div>
-              <button type="button" id="manual-key-toggle" class="btn-link" aria-expanded="false">
-                Enter address manually
-              </button>
-            </div>
-            <div class="manual-key-input-box hidden" id="manual-key-box">
-              <label class="form-label" for="wallet-input">Solana Public Address for Exact RPC Simulation</label>
-              <input 
-                type="text" 
-                id="wallet-input" 
-                class="form-input font-mono" 
-                placeholder="e.g. 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
-              >
-              <p class="form-hint">Only your public wallet address is used for non-broadcast simulation. Never enter a seed phrase or private key.</p>
-            </div>
-          </div>
 
-          <!-- Primary Submit Button -->
-          <div class="form-actions">
-            <button type="submit" id="submit-btn" class="btn btn-primary btn-lg">
-              <span class="btn-text">CHECK TRADE</span>
-              <span class="btn-spinner hidden" aria-hidden="true"></span>
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <!-- Loading State -->
-      <section id="loading-state" class="state-card hidden" aria-live="polite">
-        <div class="loading-spinner"></div>
-        <h2 class="state-title">Analyzing Trade Route...</h2>
-        <p class="state-desc" id="loading-step-text">Checking live Jupiter Swap V2 route, Token-2022 multiplier, and independent equity benchmark.</p>
-      </section>
-
-      <!-- Error State -->
-      <section id="error-state" class="state-card error-card hidden" aria-live="assertive">
-        <div class="error-icon">⚠️</div>
-        <h2 class="state-title" id="error-title">Unable to Check Trade</h2>
-        <p class="state-desc" id="error-message">An error occurred while inspecting the trade.</p>
-        <button type="button" id="error-retry-btn" class="btn btn-secondary">Try Again</button>
-      </section>
-
-      <!-- Result State -->
-      <section id="result-state" class="result-container hidden" aria-live="polite">
-        <!-- Verdict Banner -->
-        <div class="verdict-banner" id="verdict-banner">
-          <div class="verdict-status-icon" id="verdict-icon">⚖️</div>
-          <div class="verdict-text-group">
-            <h2 class="verdict-title" id="verdict-title">MEASURED</h2>
-            <p class="verdict-subtitle" id="verdict-subtitle">Economic difference measured against independent market benchmark.</p>
-          </div>
-        </div>
-
-        <!-- Big 3 Numbers Card -->
-        <div class="plain-money-card">
-          <div class="money-stat">
-            <span class="money-label">YOU'RE SPENDING</span>
-            <span class="money-value" id="res-spend-val">$500.00</span>
-            <span class="money-sub" id="res-spend-sub">500.00 USDC</span>
-          </div>
-
-          <div class="money-divider">➜</div>
-
-          <div class="money-stat">
-            <span class="money-label" id="res-exposure-label">EXPECTED APPLE EXPOSURE</span>
-            <span class="money-value" id="res-exposure-val">$498.23</span>
-            <span class="money-sub" id="res-exposure-sub">1.499484 AAPL @ $332.27</span>
-          </div>
-
-          <div class="money-divider">=</div>
-
-          <div class="money-stat highlight">
-            <span class="money-label">DIFFERENCE</span>
-            <span class="money-value" id="res-diff-val">-$1.77</span>
-            <span class="money-sub" id="res-diff-pct">(-0.35%)</span>
-          </div>
-        </div>
-
-        <!-- Plain English Explanation -->
-        <div class="explanation-box">
-          <p class="explanation-text" id="res-explanation">
-            This route would spend $500.00 USDC to acquire approximately 1.499484 shares of Apple equity on Solana, delivering $498.23 of underlying exposure.
-          </p>
-        </div>
-
-        <!-- Exact Simulation Status (When Wallet Present) -->
-        <div class="simulation-banner hidden" id="simulation-banner">
-          <span class="sim-icon" id="sim-icon">⚡</span>
-          <div class="sim-content">
-            <strong id="sim-title">Exact Transaction Simulation: Passed</strong>
-            <span id="sim-desc">Simulated via Solana RPC with err: null (128,222 compute units). Zero funds moved.</span>
-          </div>
-        </div>
-
-        <!-- Safe Exit to Jupiter -->
-        <div class="jupiter-exit-card">
-          <a href="https://jup.ag" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" id="jupiter-exit-link">
-            <span>Open Pair in Jupiter</span>
-            <span class="external-icon">↗</span>
-          </a>
-          <span class="jupiter-disclaimer">Jupiter generates a fresh transaction upon opening. JustFair does not sign or approve new trades.</span>
-        </div>
-
-        <!-- Expandable Details Accordion -->
-        <details class="evidence-accordion" id="evidence-drawer">
-          <summary class="accordion-header">
-            <span>View Technical Proof &amp; Route Evidence</span>
-            <span class="accordion-arrow">▼</span>
-          </summary>
-          <div class="accordion-body">
-            <div class="evidence-grid">
-              <div class="evidence-item">
-                <span class="ev-label">Tokenized Stock Mint</span>
-                <span class="ev-val font-mono" id="ev-mint">XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp</span>
+              <div class="money-divider">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="9" x2="19" y2="9"></line>
+                  <line x1="5" y1="15" x2="19" y2="15"></line>
+                </svg>
               </div>
-              <div class="evidence-item">
-                <span class="ev-label">Token Program</span>
-                <span class="ev-val font-mono" id="ev-program">Token-2022 (Scaled UI Amount)</span>
-              </div>
-              <div class="evidence-item">
-                <span class="ev-label">Active Multiplier</span>
-                <span class="ev-val" id="ev-multiplier">1.003269 (1 token = 1.003269 shares)</span>
-              </div>
-              <div class="evidence-item">
-                <span class="ev-label">DEX Route Engine</span>
-                <span class="ev-val" id="ev-router">Jupiter Swap V2 (Router: metis, Mode: ultra)</span>
-              </div>
-              <div class="evidence-item">
-                <span class="ev-label">Routing Steps</span>
-                <span class="ev-val" id="ev-steps">Raydium CLMM ➜ Whirlpool</span>
-              </div>
-              <div class="evidence-item">
-                <span class="ev-label">Price Impact</span>
-                <span class="ev-val" id="ev-impact">-0.002%</span>
-              </div>
-              <div class="evidence-item">
-                <span class="ev-label">Benchmark Reference</span>
-                <span class="ev-val" id="ev-benchmark-source">Nasdaq Real-Time Stock Market Tape</span>
-              </div>
-              <div class="evidence-item">
-                <span class="ev-label">Market Session</span>
-                <span class="ev-val" id="ev-session">POST_MARKET (Current: CLOSED)</span>
-              </div>
-              <div class="evidence-item">
-                <span class="ev-label">Preflight Level</span>
-                <span class="ev-val" id="ev-preflight-level">QUOTE_CHECK</span>
-              </div>
-              <div class="evidence-item">
-                <span class="ev-label">RPC Simulation Result</span>
-                <span class="ev-val" id="ev-simulation">PASS (err: null)</span>
+
+              <div class="money-stat highlight">
+                <span class="money-label">DIFFERENCE</span>
+                <span class="money-value" id="res-diff-val">-$1.77</span>
+                <span class="money-sub" id="res-diff-pct">(-0.35%)</span>
               </div>
             </div>
-          </div>
-        </details>
-      </section>
 
-      <!-- Reusable API Section -->
-      <section class="api-showcase-section">
-        <div class="api-showcase-card">
-          <div class="api-header">
-            <span class="api-badge">Developer &amp; Wallet API</span>
-            <h3 class="api-title">Built for users. Embeddable by wallets.</h3>
-            <p class="api-desc">
-              Integrate the JustFair Equity Preflight Engine directly into wallets, frontends, or automated routing safety guards via our REST API.
-            </p>
-          </div>
-          <div class="api-example-box">
-            <div class="code-header">
-              <span class="code-method">POST</span>
-              <span class="code-path">/api/v1/preflight</span>
+            <!-- Plain English Explanation -->
+            <div class="explanation-box">
+              <p class="explanation-text" id="res-explanation">
+                This route would spend $500.00 USDC to acquire approximately 1.499484 shares of Apple equity on Solana, delivering $498.23 of underlying exposure.
+              </p>
             </div>
-            <pre class="code-block"><code>curl -X POST https://justfair.dev/api/v1/preflight \
-  -H "Content-Type: application/json" \
-  -d '{"inputAsset":"USDC","stock":"AAPLx","amount":500}'</code></pre>
-          </div>
+
+            <!-- Exact Simulation Status (When Wallet Present) -->
+            <div class="simulation-banner hidden" id="simulation-banner">
+              <div class="sim-icon-box">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+              </div>
+              <div class="sim-content">
+                <strong id="sim-title">Exact Transaction Simulation: Passed</strong>
+                <span id="sim-desc">Simulated via Solana RPC with err: null (128,222 compute units). Zero funds moved.</span>
+              </div>
+            </div>
+
+            <!-- Safe Exit to Jupiter -->
+            <div class="jupiter-exit-card">
+              <a href="https://jup.ag" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" id="jupiter-exit-link">
+                <span>Open Pair in Jupiter</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </a>
+              <span class="jupiter-disclaimer">Jupiter generates a fresh transaction upon opening. JustFair does not sign or approve trades.</span>
+            </div>
+
+            <!-- Expandable Technical Details Accordion -->
+            <details class="evidence-accordion" id="evidence-drawer">
+              <summary class="accordion-header">
+                <span>View Technical Proof &amp; Route Evidence</span>
+                <svg class="accordion-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </summary>
+              <div class="accordion-body">
+                <div class="evidence-grid">
+                  <div class="evidence-item">
+                    <span class="ev-label">Tokenized Stock Mint</span>
+                    <span class="ev-val font-mono" id="ev-mint">XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp</span>
+                  </div>
+                  <div class="evidence-item">
+                    <span class="ev-label">Token Program</span>
+                    <span class="ev-val font-mono" id="ev-program">Token-2022 (Scaled UI Amount)</span>
+                  </div>
+                  <div class="evidence-item">
+                    <span class="ev-label">Active Multiplier</span>
+                    <span class="ev-val" id="ev-multiplier">1.003269 (1 token = 1.003269 shares)</span>
+                  </div>
+                  <div class="evidence-item">
+                    <span class="ev-label">DEX Route Engine</span>
+                    <span class="ev-val" id="ev-router">Jupiter Swap V2 (Router: metis, Mode: ultra)</span>
+                  </div>
+                  <div class="evidence-item">
+                    <span class="ev-label">Routing Steps</span>
+                    <span class="ev-val" id="ev-steps">Raydium CLMM to Whirlpool</span>
+                  </div>
+                  <div class="evidence-item">
+                    <span class="ev-label">Price Impact</span>
+                    <span class="ev-val" id="ev-impact">-0.002%</span>
+                  </div>
+                  <div class="evidence-item">
+                    <span class="ev-label">Benchmark Reference</span>
+                    <span class="ev-val" id="ev-benchmark-source">Nasdaq Real-Time Stock Market Tape</span>
+                  </div>
+                  <div class="evidence-item">
+                    <span class="ev-label">Market Session</span>
+                    <span class="ev-val" id="ev-session">POST_MARKET (Current: CLOSED)</span>
+                  </div>
+                  <div class="evidence-item">
+                    <span class="ev-label">Preflight Level</span>
+                    <span class="ev-val" id="ev-preflight-level">QUOTE_CHECK</span>
+                  </div>
+                  <div class="evidence-item">
+                    <span class="ev-label">RPC Simulation Result</span>
+                    <span class="ev-val" id="ev-simulation">PASS (err: null)</span>
+                  </div>
+                </div>
+              </div>
+            </details>
+          </section>
         </div>
-      </section>
+      </div>
     </main>
 
-    <!-- Footer -->
+    <!-- Site Footer -->
     <footer class="site-footer">
-      <div class="footer-inner">
-        <p class="footer-text">JustFair is an independent pre-trade safety inspection tool for tokenized equities on Solana. Non-custodial. Zero fund access.</p>
-        <p class="footer-meta">Stocklana Hackathon 2026. MIT Licensed.</p>
+      <div class="footer-container">
+        <div class="footer-left">
+          <div class="footer-brand">
+            <svg class="brand-svg-sm" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3v18"></path>
+              <path d="M4 7l8-4 8 4"></path>
+              <path d="M6 18l-3-6h6l-3 6z"></path>
+              <path d="M18 18l-3-6h6l-3 6z"></path>
+            </svg>
+            <span>JustFair</span>
+          </div>
+          <p class="footer-desc">Independent pre-trade economic safety inspection for tokenized equities on Solana. Non-custodial with zero fund access.</p>
+        </div>
+        <div class="footer-right">
+          <span class="footer-meta">Stocklana Hackathon 2026</span>
+          <span class="footer-meta">MIT Licensed</span>
+        </div>
       </div>
     </footer>
   </div>
@@ -321,4 +562,3 @@
   <script type="module" src="/app.js"></script>
 </body>
 </html>
-
