@@ -39,13 +39,6 @@
         </nav>
 
         <div class="header-actions">
-          <button id="wallet-toggle-btn" class="btn btn-outline btn-sm" type="button" aria-expanded="false">
-            <svg class="btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="6" width="20" height="12" rx="3"></rect>
-              <circle cx="16" cy="12" r="2"></circle>
-            </svg>
-            <span id="wallet-btn-label">Connect Wallet</span>
-          </button>
           <button type="button" class="btn btn-primary btn-sm" id="header-launch-btn">
             <span>Open App</span>
             <svg class="btn-icon-right" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -64,7 +57,7 @@
       <!-- VIEW 1: DASHBOARD / LANDING VIEW           -->
       <!-- ========================================== -->
       <div id="dashboard-view" class="view-section">
-        <!-- Full-Bleed White Hero Section (Uncropped Statue Artwork + White Scrim Mask) -->
+        <!-- 1. Full-Bleed White Hero Section (Uncropped Statue Artwork + White Scrim Mask) -->
         <section class="dashboard-hero hero-split-white">
           <div class="hero-split-container">
             <!-- Left Hero Content Column -->
@@ -73,21 +66,21 @@
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                 </svg>
-                <span>Non-Custodial Equity Preflight Engine</span>
+                <span>Pre-trade protection for tokenized stocks</span>
               </div>
               <h1 class="hero-headline">Before you buy the stock,<br>check the fill.</h1>
               <p class="hero-subheadline">
-                JustFair inspects live Solana DEX routes and calculates the current expected dollar value of underlying stock exposure using available equity reference data before any transaction is executed.
+                See how much real stock exposure your money is actually buying before you make the trade.
               </p>
               <div class="hero-cta-group">
                 <button type="button" class="btn btn-primary btn-lg" id="hero-open-app-btn">
-                  <span>Launch Preflight App</span>
+                  <span>Check a stock trade</span>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M5 12h14"></path>
                     <path d="M12 5l7 7-7 7"></path>
                   </svg>
                 </button>
-                <a href="#how-it-works" class="btn btn-secondary btn-lg" id="hero-learn-btn">
+                <a href="#differentiation" class="btn btn-secondary btn-lg" id="hero-learn-btn">
                   <span>Learn How It Works</span>
                 </a>
               </div>
@@ -103,90 +96,227 @@
           </div>
         </section>
 
-        <!-- Value Proposition: Why JustFair (Consumer Outcomes) -->
-        <section class="dashboard-section reveal-section" id="why-justfair">
+        <!-- 2. Key Differentiation: Wallet vs JustFair -->
+        <section class="dashboard-section reveal-section" id="differentiation">
           <div class="section-header">
-            <h2 class="section-title">Pre-trade inspection for tokenized stocks</h2>
-            <p class="section-subtitle">Tokenized equities on Solana do not behave like standard SPL tokens. JustFair bridges on-chain DEX routing with equity truth.</p>
+            <h2 class="section-title diff-main-title">A swap can execute perfectly<br>and still be a bad stock trade.</h2>
+            <p class="section-subtitle">
+              Wallets are good at checking whether a swap will execute safely. JustFair checks something different: whether the tokenized stock you're receiving is actually worth what you're paying for it.
+            </p>
+            <div class="diff-framing-box">
+              <span class="diff-framing-text">Wallets solve one problem. JustFair solves the next one.</span>
+            </div>
           </div>
 
-          <div class="feature-grid">
-            <div class="feature-card reveal-item">
-              <div class="feature-icon-box">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
+          <div class="comparison-grid">
+            <!-- LEFT: YOUR WALLET CHECKS -->
+            <div class="comparison-card wallet-check-card reveal-item">
+              <div class="comparison-card-header">
+                <div class="comparison-icon-box wallet-icon-box">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="6" width="20" height="12" rx="3"></rect>
+                    <circle cx="16" cy="12" r="2"></circle>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="comparison-title">YOUR WALLET CHECKS</h3>
+                  <span class="comparison-sub">Execution mechanics</span>
+                </div>
               </div>
-              <h3 class="feature-heading">SEE WHAT YOU'RE ACTUALLY GETTING</h3>
-              <p class="feature-desc">
-                Understand how much stock exposure the route gives you after pool fees, liquidity slippage, and Token-2022 share multiplier adjustments.
-              </p>
+              <ul class="comparison-list">
+                <li>
+                  <svg class="check-icon muted" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Route</span>
+                </li>
+                <li>
+                  <svg class="check-icon muted" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Slippage</span>
+                </li>
+                <li>
+                  <svg class="check-icon muted" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Price impact</span>
+                </li>
+                <li>
+                  <svg class="check-icon muted" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Fees</span>
+                </li>
+                <li>
+                  <svg class="check-icon muted" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Whether the transaction should succeed</span>
+                </li>
+              </ul>
             </div>
 
-            <div class="feature-card reveal-item">
-              <div class="feature-icon-box">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                  <path d="M9 12l2 2 4-4"></path>
-                </svg>
+            <!-- RIGHT: JUSTFAIR ALSO CHECKS -->
+            <div class="comparison-card justfair-check-card reveal-item">
+              <div class="comparison-card-header">
+                <div class="comparison-icon-box justfair-icon-box">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18"></path>
+                    <path d="M4 7l8-4 8 4"></path>
+                    <path d="M6 18l-3-6h6l-3 6z"></path>
+                    <path d="M18 18l-3-6h6l-3 6z"></path>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="comparison-title">JUSTFAIR ALSO CHECKS</h3>
+                  <span class="comparison-sub">Underlying equity economics</span>
+                </div>
               </div>
-              <h3 class="feature-heading">CHECK BEFORE MONEY MOVES</h3>
-              <p class="feature-desc">
-                Preview the route and transaction before anything is signed or sent. Non-custodial Quote Precheck requires no wallet at all.
-              </p>
-            </div>
-
-            <div class="feature-card reveal-item">
-              <div class="feature-icon-box">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23"></line>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-              </div>
-              <h3 class="feature-heading">UNDERSTAND THE DIFFERENCE</h3>
-              <p class="feature-desc">
-                See the execution gap in plain dollar terms compared against equity benchmark reference prices before committing capital.
-              </p>
+              <ul class="comparison-list">
+                <li>
+                  <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>What the xStock represents</span>
+                </li>
+                <li>
+                  <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Current stock-share multiplier</span>
+                </li>
+                <li>
+                  <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Underlying equity reference</span>
+                </li>
+                <li>
+                  <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Dollar value of expected stock exposure</span>
+                </li>
+                <li>
+                  <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Difference between what you spend and what you receive</span>
+                </li>
+              </ul>
             </div>
           </div>
         </section>
 
-        <!-- How It Works Sequence -->
+        <!-- 3. Illustrative $500 Example Card -->
+        <section class="dashboard-section reveal-section" id="trade-example">
+          <div class="example-card reveal-item">
+            <div class="example-top-bar">
+              <span class="example-pill">Example</span>
+              <span class="example-disclaimer">Illustrative scenario · Why stock preflight matters</span>
+            </div>
+
+            <div class="example-metrics-grid">
+              <div class="example-metric-box">
+                <span class="example-metric-label">YOU SPEND</span>
+                <span class="example-metric-val">$500</span>
+                <span class="example-metric-sub">500 USDC on Solana</span>
+              </div>
+
+              <div class="example-metric-box example-wallet-box">
+                <span class="example-metric-label">WALLET CHECK</span>
+                <div class="example-pills-list">
+                  <span class="ex-pill">Low price impact</span>
+                  <span class="ex-pill">Route found</span>
+                  <span class="ex-pill">Transaction expected to succeed</span>
+                </div>
+              </div>
+
+              <div class="example-metric-box example-justfair-box">
+                <span class="example-metric-label">JUSTFAIR CHECK</span>
+                <span class="example-metric-val purple">$482</span>
+                <span class="example-metric-sub">Expected Apple exposure</span>
+              </div>
+
+              <div class="example-metric-box example-diff-box">
+                <span class="example-metric-label">DIFFERENCE</span>
+                <span class="example-metric-val diff-neg">-$18</span>
+                <span class="example-metric-sub">Hidden execution gap</span>
+              </div>
+            </div>
+
+            <div class="example-footer">
+              <p class="example-quote">
+                "The swap can be technically healthy while the stock deal is still expensive."
+              </p>
+              <p class="example-subtext">
+                JustFair compares the proposed tokenized-stock trade with the underlying equity before you commit capital.
+              </p>
+              <div class="example-cta-wrap">
+                <button type="button" class="btn btn-primary btn-md" id="example-open-app-btn">
+                  <span>Check a stock trade</span>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14"></path>
+                    <path d="M12 5l7 7-7 7"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. How JustFair Works -->
         <section class="dashboard-section reveal-section" id="how-it-works">
           <div class="section-header">
-            <h2 class="section-title">How the Preflight Engine works</h2>
-            <p class="section-subtitle">Four deterministic steps ensure complete economic transparency before you trade.</p>
+            <h2 class="section-title">How JustFair Works</h2>
+            <p class="section-subtitle">Five deterministic steps ensure complete economic transparency before you trade.</p>
           </div>
 
-          <div class="steps-container">
+          <div class="steps-container-5">
             <div class="step-card reveal-item">
               <div class="step-number">01</div>
-              <h3 class="step-heading">Select Asset &amp; Spend</h3>
-              <p class="step-desc">Pick your target tokenized stock (AAPLx, NVDAx, SPYx, TSLAx) and specify your intended payment in USDC or SOL.</p>
+              <h3 class="step-heading">Choose a tokenized stock</h3>
+              <p class="step-desc">Pick your target stock (e.g. AAPLx, NVDAx, SPYx, TSLAx) and enter what you plan to spend in USDC or SOL.</p>
             </div>
 
             <div class="step-card reveal-item">
               <div class="step-number">02</div>
-              <h3 class="step-heading">Discover Live Route</h3>
-              <p class="step-desc">JustFair queries Jupiter Swap V2 for the best available route from Jupiter across supported Solana liquidity.</p>
+              <h3 class="step-heading">Check the Solana route</h3>
+              <p class="step-desc">JustFair checks the available Solana route across supported liquidity to discover the best execution path.</p>
             </div>
 
             <div class="step-card reveal-item">
               <div class="step-number">03</div>
-              <h3 class="step-heading">Apply Token-2022 Multiplier</h3>
-              <p class="step-desc">The engine reads on-chain metadata to calculate the real underlying share multiplier and corporate actions.</p>
+              <h3 class="step-heading">Calculate stock exposure</h3>
+              <p class="step-desc">The engine reads on-chain Token-2022 metadata and share multipliers to calculate the real stock exposure behind the tokens.</p>
             </div>
 
             <div class="step-card reveal-item">
               <div class="step-number">04</div>
-              <h3 class="step-heading">Measure Economic Truth</h3>
-              <p class="step-desc">The delivered share value is priced against independent equity data to produce the final plain-money verdict.</p>
+              <h3 class="step-heading">Compare with equity reference</h3>
+              <p class="step-desc">The delivered exposure is compared against an eligible underlying-equity reference price.</p>
+            </div>
+
+            <div class="step-card reveal-item">
+              <div class="step-number">05</div>
+              <h3 class="step-heading">Inspect the difference</h3>
+              <p class="step-desc">You see the exact dollar difference between what you spend and what you receive before any money moves.</p>
+            </div>
+          </div>
+
+          <!-- 5. Truthfulness / No-Guessing Callout -->
+          <div class="truthfulness-callout reveal-item">
+            <div class="truth-icon-box">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+            </div>
+            <div class="truth-text-wrap">
+              <h4 class="truth-title">Truthful Market Stance</h4>
+              <p class="truth-desc">
+                If the underlying stock market is closed or the reference cannot be verified, JustFair says so instead of guessing.
+              </p>
             </div>
           </div>
         </section>
 
-        <!-- Demoted Developer & Wallet API Card -->
+        <!-- 6. Bottom Consumer CTA -->
+        <section class="dashboard-cta reveal-section">
+          <h2 class="cta-headline">Ready to inspect your tokenized stock trade?</h2>
+          <p class="cta-subtitle">Check real DEX fill economics in seconds without moving funds.</p>
+          <button type="button" class="btn btn-primary btn-lg" id="bottom-open-app-btn">
+            <span>Check a stock trade</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"></path>
+              <path d="M12 5l7 7-7 7"></path>
+            </svg>
+          </button>
+        </section>
+
+        <!-- 7. Developer & Wallet API Section (Stays Last) -->
         <section class="dashboard-section reveal-section" id="api-docs">
           <div class="api-compact-card">
             <div class="api-compact-header">
@@ -194,7 +324,7 @@
                 <div class="api-badge">Developer &amp; Wallet API</div>
                 <h3 class="api-compact-title">Built for users. Embeddable by wallets.</h3>
                 <p class="api-compact-desc">
-                  The same Equity Preflight Engine is available through the JustFair REST API.
+                  The same Equity Preflight Engine can be integrated into wallets, trading interfaces, and tokenized-stock apps.
                 </p>
               </div>
               <div class="api-compact-actions">
@@ -219,19 +349,6 @@
   }'</code></pre>
             </div>
           </div>
-        </section>
-
-        <!-- Bottom CTA -->
-        <section class="dashboard-cta reveal-section">
-          <h2 class="cta-headline">Ready to inspect your tokenized stock trade?</h2>
-          <p class="cta-subtitle">Check real DEX fill economics in seconds without moving funds.</p>
-          <button type="button" class="btn btn-primary btn-lg" id="bottom-open-app-btn">
-            <span>Open JustFair App</span>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14"></path>
-              <path d="M12 5l7 7-7 7"></path>
-            </svg>
-          </button>
         </section>
       </div>
 

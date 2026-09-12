@@ -186,11 +186,22 @@ export function navigateToSection(target, targetStock = null) {
     if (window.location.hash !== "#dashboard" && window.location.hash !== "") {
       history.pushState(null, "", "#dashboard");
     }
+  } else if (target === "differentiation") {
+    switchView("dashboard");
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const el = document.getElementById("differentiation");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        history.pushState(null, "", "#differentiation");
+      }, 50);
+    });
   } else if (target === "how-it-works") {
     switchView("dashboard");
     requestAnimationFrame(() => {
       setTimeout(() => {
-        const el = document.getElementById("how-it-works") || document.getElementById("why-justfair");
+        const el = document.getElementById("how-it-works");
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "start" });
         }
@@ -237,7 +248,7 @@ if (navApiBtn) navApiBtn.addEventListener("click", (e) => {
 const heroLearnBtn = document.getElementById("hero-learn-btn");
 if (heroLearnBtn) heroLearnBtn.addEventListener("click", (e) => {
   e.preventDefault();
-  navigateToSection("how-it-works");
+  navigateToSection("differentiation");
 });
 if (headerLaunchBtn) headerLaunchBtn.addEventListener("click", (e) => {
   e.preventDefault();
@@ -246,6 +257,11 @@ if (headerLaunchBtn) headerLaunchBtn.addEventListener("click", (e) => {
 if (heroOpenAppBtn) heroOpenAppBtn.addEventListener("click", (e) => {
   e.preventDefault();
   navigateToSection("app", "AAPLx");
+});
+const exampleOpenAppBtn = document.getElementById("example-open-app-btn");
+if (exampleOpenAppBtn) exampleOpenAppBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("app");
 });
 if (apiCtaOpenApp) apiCtaOpenApp.addEventListener("click", (e) => {
   e.preventDefault();
@@ -260,16 +276,22 @@ function handleRoute() {
   const hash = window.location.hash.toLowerCase();
   if (hash === "#app") {
     switchView("app");
+  } else if (hash === "#differentiation") {
+    switchView("dashboard");
+    setTimeout(() => {
+      const el = document.getElementById("differentiation");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
   } else if (hash === "#how-it-works") {
     switchView("dashboard");
     setTimeout(() => {
-      const el = document.getElementById("how-it-works") || document.getElementById("why-justfair");
+      const el = document.getElementById("how-it-works");
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
   } else if (hash === "#api" || hash === "#api-docs") {
     switchView("dashboard");
     setTimeout(() => {
-      const el = document.getElementById("api-docs") || document.getElementById("api-showcase");
+      const el = document.getElementById("api-docs");
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
   } else {

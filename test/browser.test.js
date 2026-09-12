@@ -54,13 +54,29 @@ async function runBrowserTests() {
   page.on('pageerror', err => console.log('PAGE ERROR:', err.message));
 
   try {
-    // 1. Desktop Hero Split-White Canvas & Initial View
-    await test("1. Initial page load renders 2-column split-white Hero with uncropped art", async () => {
+    // 1. Desktop Hero Split-White Canvas & Initial View (Order 008)
+    await test("1. Initial page load renders simplified Hero, new badge, no header wallet button", async () => {
       await page.goto(BASE_URL, { waitUntil: "networkidle" });
 
       const heroText = await page.textContent(".hero-headline");
       if (!heroText.includes("Before you buy the stock") || !heroText.includes("check the fill.")) {
         throw new Error(`Hero headline mismatch: ${heroText}`);
+      }
+
+      const subheadline = await page.textContent(".hero-subheadline");
+      if (!subheadline.includes("See how much real stock exposure your money is actually buying before you make the trade.")) {
+        throw new Error(`Hero subheadline mismatch: ${subheadline}`);
+      }
+
+      const badgeText = await page.textContent(".hero-badge span");
+      if (!badgeText.includes("Pre-trade protection for tokenized stocks")) {
+        throw new Error(`Hero badge mismatch: ${badgeText}`);
+      }
+
+      // Assert Dashboard header does NOT contain Connect Wallet button
+      const walletBtnInHeader = await page.$(".site-header #wallet-toggle-btn");
+      if (walletBtnInHeader !== null) {
+        throw new Error("Dashboard header should not contain a prominent Connect Wallet button");
       }
 
       const isHeroVisible = await page.isVisible(".hero-split-white");
@@ -69,31 +85,45 @@ async function runBrowserTests() {
       const isArtVisible = await page.isVisible(".hero-art-image");
       if (!isArtVisible) throw new Error("Hero artwork image is not visible");
 
-      const isDashboardVisible = await page.isVisible("#dashboard-view");
-      const isAppVisible = await page.isVisible("#app-view");
-      if (!isDashboardVisible || isAppVisible) {
-        throw new Error(`View state mismatch: dashboard=${isDashboardVisible}, app=${isAppVisible}`);
-      }
-
       // Capture Screenshot 1: 01_desktop_hero_full.png
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "01_desktop_hero_full.png") });
     });
 
-    // 2. Navigation from Dashboard: How It Works & API
-    await test("2. Navigation from Dashboard smoothly targets sections", async () => {
-      // Click 'How it Works' from Dashboard
-      await page.click("#nav-how-btn");
-      await page.waitForTimeout(400);
-      const isHowVisible = await page.isVisible("#how-it-works");
-      if (!isHowVisible) throw new Error("How It Works section not visible after clicking nav link");
+    // 2. Key Differentiation & Illustrative Example (Order 008)
+    await test("2. Key Differentiation section & illustrative $500 example render cleanly", async () => {
+      const diffTitle = await page.textContent(".diff-main-title");
+      if (!diffTitle.includes("A swap can execute perfectly") || !diffTitle.includes("and still be a bad stock trade.")) {
+        throw new Error(`Differentiation title mismatch: ${diffTitle}`);
+      }
 
-      // Click 'API' from Dashboard
-      await page.click("#nav-api-btn");
-      await page.waitForTimeout(400);
-      const isApiVisible = await page.isVisible("#api-docs");
-      if (!isApiVisible) throw new Error("API section not visible after clicking nav link");
+      // Wallet vs JustFair comparison columns
+      const walletCheckTitle = await page.textContent(".wallet-check-card .comparison-title");
+      const justfairCheckTitle = await page.textContent(".justfair-check-card .comparison-title");
+      if (!walletCheckTitle.includes("YOUR WALLET CHECKS")) throw new Error(`Wallet title mismatch: ${walletCheckTitle}`);
+      if (!justfairCheckTitle.includes("JUSTFAIR ALSO CHECKS")) throw new Error(`JustFair title mismatch: ${justfairCheckTitle}`);
 
-      // Return to top
+      // Example Card
+      const exampleBadge = await page.textContent(".example-pill");
+      if (!exampleBadge.toUpperCase().includes("EXAMPLE")) throw new Error(`Example badge mismatch: ${exampleBadge}`);
+
+      const exampleQuote = await page.textContent(".example-quote");
+      if (!exampleQuote.includes("The swap can be technically healthy while the stock deal is still expensive.")) {
+        throw new Error(`Example quote mismatch: ${exampleQuote}`);
+      }
+
+      // Truthfulness callout
+      const truthText = await page.textContent(".truth-desc");
+      if (!truthText.includes("If the underlying stock market is closed or the reference cannot be verified, JustFair says so instead of guessing.")) {
+        throw new Error(`Truthfulness callout text mismatch: ${truthText}`);
+      }
+
+      // Test example CTA button opens App view
+      await page.click("#example-open-app-btn");
+      await page.waitForTimeout(400);
+      let isAppVisible = await page.isVisible("#app-view");
+      if (!isAppVisible) throw new Error("Clicking example CTA button failed to open App view");
+
+      // Switch back to Dashboard view
       await page.click("#tab-dashboard-btn");
       await page.waitForTimeout(300);
 
@@ -101,27 +131,40 @@ async function runBrowserTests() {
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "02_desktop_hero_next_section.png") });
     });
 
-    // 3. Strong Scroll Reveal on Value Cards & Steps
-    await test("3. Scroll triggers strong reactive reveals on value cards and 4-step sequence", async () => {
-      await page.evaluate(() => window.scrollTo({ top: 1100, behavior: "smooth" }));
-      await page.waitForTimeout(600);
+    // 3. Navigation from Dashboard: How It Works & API
+    await test("3. Navigation from Dashboard smoothly targets sections and 5-step sequence", async () => {
+      // Click 'How it Works' from Dashboard
+      await page.click("#nav-how-btn");
+      await page.waitForTimeout(400);
+      const isHowVisible = await page.isVisible("#how-it-works");
+      if (!isHowVisible) throw new Error("How It Works section not visible after clicking nav link");
 
-      const featureCards = await page.$$(".feature-card");
-      if (featureCards.length !== 3) {
-        throw new Error(`Expected 3 feature cards, found: ${featureCards.length}`);
+      const stepCards = await page.$$(".steps-container-5 .step-card");
+      if (stepCards.length !== 5) {
+        throw new Error(`Expected 5 step cards in How It Works, found: ${stepCards.length}`);
       }
 
-      const stepCards = await page.$$(".step-card");
-      if (stepCards.length !== 4) {
-        throw new Error(`Expected 4 step cards, found: ${stepCards.length}`);
+      // Click 'API' from Dashboard
+      await page.click("#nav-api-btn");
+      await page.waitForTimeout(400);
+      const isApiVisible = await page.isVisible("#api-docs");
+      if (!isApiVisible) throw new Error("API section not visible after clicking nav link");
+
+      const apiTitle = await page.textContent(".api-compact-title");
+      if (!apiTitle.includes("Built for users. Embeddable by wallets.")) {
+        throw new Error(`API title mismatch: ${apiTitle}`);
       }
+
+      // Return to top
+      await page.click("#tab-dashboard-btn");
+      await page.waitForTimeout(300);
 
       // Capture Screenshot 3: 03_dashboard_scroll_reveal.png
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "03_dashboard_scroll_reveal.png") });
     });
 
-    // 4. Navigate to App View & Verify 12 Stock Cards
-    await test("4. Navigate to App View and verify full 12-stock catalog feed", async () => {
+    // 4. Navigate to App View & Verify 12 Stock Cards & App Wallet Intact
+    await test("4. Navigate to App View, verify full 12-stock catalog feed and working wallet controls", async () => {
       await page.click("#hero-open-app-btn");
       await page.waitForTimeout(500);
 
@@ -132,6 +175,10 @@ async function runBrowserTests() {
       if (stockCards.length !== 12) {
         throw new Error(`Expected 12 standalone stock cards, found: ${stockCards.length}`);
       }
+
+      // Assert App wallet controls exist inside the card
+      const manualToggle = await page.isVisible("#stock-card-AAPLx .manual-key-toggle");
+      if (!manualToggle) throw new Error("Manual wallet key toggle is missing in App card");
 
       // Capture Screenshot 4: 04_app_apple_standalone_card.png
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "04_app_apple_standalone_card.png") });

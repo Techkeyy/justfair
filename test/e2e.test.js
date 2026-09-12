@@ -36,8 +36,8 @@ async function runE2ETests() {
       if (!html.includes("Before you buy the stock") || !html.includes("check the fill.")) {
         throw new Error("Missing required primary hero headline");
       }
-      if (!html.includes("CHECK TRADE") && !html.includes("Launch Preflight App")) {
-        throw new Error("Missing required CHECK TRADE CTA");
+      if (!html.includes("CHECK TRADE") && !html.includes("Check a stock trade") && !html.includes("Launch Preflight App")) {
+        throw new Error("Missing required CHECK TRADE / Check a stock trade CTA");
       }
       if (!html.includes("stock-cards-container") || !html.includes("feed-controls-bar")) {
         throw new Error("Missing stock feed container or controls bar");
