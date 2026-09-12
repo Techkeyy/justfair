@@ -1,32 +1,25 @@
 # JustFair — Architecture & Engineering Decisions Log (DECISIONS.md)
 
-## Decision 001: Asset Selection & Token Standards
-* **Context:** We need liquid, canonical tokenized equities on Solana mainnet.
-* **Decision:** Choose **xStocks** (issued under Solana Token Extensions / Token-2022).
-* **Rationale:**
-  * Mint verification confirms active liquidity pools on Raydium and Orca.
-  * Verified 8-decimal precision (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`).
-  * 1:1 economic multiplier (1.0 token = 1 share of underlying stock).
-  * Initial test asset locked: **AAPLx** (`XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp`), followed by NVDAx, SPYx, TSLAx.
+## Decision 001: Asset Selection & Dynamic Multiplier Integration
+* **Context:** Tokenized stocks on Solana (xStocks) use Token-2022 extensions where corporate actions / splits modify the multiplier over time. Hardcoded multipliers fail silently when corporate actions trigger.
+* **Decision:** Dynamically resolve multiplier at runtime directly from the on-chain Token-2022 `scaledUiAmountConfig` extension using Solana RPC `getAccountInfo`.
+* **Verification:** AAPLx active multiplier confirmed on-chain as `1.0026642075893797` with scheduled pending multiplier `1.0032690125398187`.
 
-## Decision 002: DEX Aggregator & Routing Provider
-* **Context:** We need real-time, executable route finding across all Solana AMMs without hardcoding single pools.
-* **Decision:** Use **Jupiter DEX Routing API** (`public.jupiterapi.com` / `api.jup.ag/swap/v1`).
-* **Rationale:**
-  * Old host `quote-api.jup.ag` is deprecated (returns DNS ENOTFOUND).
-  * `public.jupiterapi.com` provides real-time quotes, multi-hop routing (Whirlpool, Raydium, Meteora), and transaction construction.
-  * When `quote.platformFee` is detected, pass `feeAccount` or user ATA to enable valid VersionedTransaction generation.
+## Decision 002: Official Jupiter Swap API Architecture
+* **Context:** `public.jupiterapi.com` was a temporary gateway and `quote-api.jup.ag` is deprecated.
+* **Decision:** Migrate fully to official `https://api.jup.ag/swap/v1/quote` and `https://api.jup.ag/swap/v1/swap` with support for optional `JUPITER_API_KEY` header and client-side retry/backoff.
 
-## Decision 003: Independent Underlying Equity Benchmark Source
-* **Context:** JustFair must never compare an on-chain DEX price to itself. It requires an independent TradFi market truth.
-* **Decision:** Use **Nasdaq/TradFi Market Reference API** supplemented with Pyth Equity Feed metadata.
-* **Rationale:**
-  * Fetches real-world market prices (`regularMarketPrice`, previous close, exchange metadata).
-  * Pyth metadata confirms market trading hours (`is_open`, `next_open`, `next_close`) to flag weekend/after-hours market session risks.
+## Decision 003: Truthful Market Reference Labeling & Session Classification
+* **Context:** Yahoo Finance is a market data aggregator, not the official Nasdaq primary feed.
+* **Decision:** Label the source truthfully as `source_type: "MARKET_DATA_AGGREGATOR"`. Ingest Pyth market hours and compute canonical market session (`REGULAR`, `PRE_MARKET`, `POST_MARKET`, `OVERNIGHT`, `CLOSED`).
 
-## Decision 004: Transaction Simulation Safety & Zero-Custody Guarantee
-* **Context:** User trades must be simulated on Solana mainnet without broadcasting transactions or moving user funds.
-* **Decision:** Execute `simulateTransaction` directly against Solana Mainnet RPC with `sigVerify: false` and `replaceRecentBlockhash: true`.
-* **Rationale:**
-  * Provides genuine pre-flight execution analysis (compute unit consumption, log traces, instruction errors).
-  * Purely non-custodial: private keys and signatures are never requested or stored.
+## Decision 004: Dual Simulation Architecture (Quote Precheck vs Exact Preflight)
+* **Context:** A consumer product must allow users to inspect trade fairness before connecting a wallet, while also supporting exact on-chain simulation when a wallet is provided.
+* **Decision:**
+  * Mode A: **Quote Precheck** (no wallet required, calculates fair value from live DEX route, `simulation.status: "NOT_RUN"`).
+  * Mode B: **Exact Preflight** (accepts arbitrary user public key, constructs VersionedTransaction, runs RPC `simulateTransaction`).
+  * Strict simulation rule: `simulation.status === "PASS"` only if `result.value.err === null`. Any non-null error triggers `UNABLE_TO_VERIFY`.
+
+## Decision 005: Deferred Verdict Thresholds
+* **Context:** Hardcoding arbitrary FAIR/CAUTION/BAD_FILL percentage cutoffs without empirical market evidence violates research discipline.
+* **Decision:** Emit raw financial metrics (`difference_usd`, `difference_pct`) with `verification_status: "VERIFIED" | "UNABLE_TO_VERIFY"`. Defer subjective threshold categorization to Phase 2.

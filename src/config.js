@@ -28,7 +28,6 @@ export const SUPPORTED_STOCKS = {
     canonicalSymbol: "AAPL",
     mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
     decimals: 8,
-    multiplier: 1.0, // 1.0 token = 1.0 share
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "AAPL",
     pythQuery: "Equity.US.AAPL/USD"
@@ -39,7 +38,6 @@ export const SUPPORTED_STOCKS = {
     canonicalSymbol: "NVDA",
     mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
     decimals: 8,
-    multiplier: 1.0,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "NVDA",
     pythQuery: "Equity.US.NVDA/USD"
@@ -50,7 +48,6 @@ export const SUPPORTED_STOCKS = {
     canonicalSymbol: "SPY",
     mint: "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
     decimals: 8,
-    multiplier: 1.0,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "SPY",
     pythQuery: "Equity.US.SPY/USD"
@@ -61,7 +58,6 @@ export const SUPPORTED_STOCKS = {
     canonicalSymbol: "TSLA",
     mint: "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
     decimals: 8,
-    multiplier: 1.0,
     programId: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     referenceSymbol: "TSLA",
     pythQuery: "Equity.US.TSLA/USD"
@@ -69,12 +65,10 @@ export const SUPPORTED_STOCKS = {
 };
 
 export const API_ENDPOINTS = {
-  JUPITER_QUOTE: "https://public.jupiterapi.com/quote",
-  JUPITER_SWAP: "https://public.jupiterapi.com/swap",
-  SOLANA_RPC: "https://api.mainnet-beta.solana.com",
-  YAHOO_CHART_BASE: "https://query1.finance.yahoo.com/v8/finance/chart",
+  // Official Jupiter Swap v1/v2 endpoints on api.jup.ag
+  JUPITER_QUOTE: "https://api.jup.ag/swap/v1/quote",
+  JUPITER_SWAP: "https://api.jup.ag/swap/v1/swap",
+  SOLANA_RPC: process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+  MARKET_DATA_CHART: "https://query1.finance.yahoo.com/v8/finance/chart",
   PYTH_FEEDS: "https://hermes.pyth.network/v2/price_feeds"
 };
-
-// Safe fallback public wallet for unsigned simulation if user wallet not connected
-export const SIMULATION_DUMMY_WALLET = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
