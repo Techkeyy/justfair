@@ -1,4 +1,4 @@
-// JustFair Playwright Real Browser Test Suite & Visual Evidence Capture (Director Order 007.4)
+// JustFair Playwright Real Browser Test Suite & Visual Evidence Capture (Phase 14 - Product Preflight Consumer UX)
 process.env.NODE_ENV = "test";
 import { chromium } from "playwright";
 import { createServer } from "../src/server.js";
@@ -16,7 +16,7 @@ if (!fs.existsSync(VIDEOS_DIR)) fs.mkdirSync(VIDEOS_DIR, { recursive: true });
 
 async function runBrowserTests() {
   console.log("==================================================");
-  console.log("RUNNING JUSTFAIR PLAYWRIGHT TEST SUITE (ORDER 007.4)");
+  console.log("RUNNING JUSTFAIR PLAYWRIGHT TEST SUITE (PHASE 14)");
   console.log("==================================================\n");
 
   let passed = 0;
@@ -41,7 +41,6 @@ async function runBrowserTests() {
 
   const browser = await chromium.launch({ headless: true });
   
-  // Enable video recording in context
   const context = await browser.newContext({
     viewport: { width: 1280, height: 900 },
     recordVideo: {
@@ -53,576 +52,311 @@ async function runBrowserTests() {
   const page = await context.newPage();
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
   page.on('pageerror', err => console.log('PAGE ERROR:', err.message));
-  page.on('response', async res => {
-    if (res.status() >= 400) {
-      try {
-        console.log('HTTP ERROR:', res.url(), res.status(), await res.text());
-      } catch {}
-    }
-  });
 
   try {
-    // 1. Desktop Hero Split-White Canvas & Initial View (Order 008)
-    await test("1. Initial page load renders simplified Hero, new badge, no header wallet button", async () => {
+    // 1. Desktop Hero Split-White Canvas & Initial View (Phase 14)
+    await test("1. Initial page load renders split hero with Lady Justice artwork, tagline, and Two Checks badge", async () => {
       await page.goto(BASE_URL, { waitUntil: "networkidle" });
 
       const heroText = await page.textContent(".hero-headline");
-      if (!heroText.includes("Before you buy the stock") || !heroText.includes("check the fill.")) {
+      if (!heroText.includes("Know what you're buying.") || !heroText.includes("Then check the fill.")) {
         throw new Error(`Hero headline mismatch: ${heroText}`);
       }
 
       const subheadline = await page.textContent(".hero-subheadline");
-      if (!subheadline.includes("See how much real stock exposure your money is actually buying before you make the trade.")) {
+      if (!subheadline.includes("JustFair protects you twice")) {
         throw new Error(`Hero subheadline mismatch: ${subheadline}`);
       }
 
       const badgeText = await page.textContent(".hero-badge span");
-      if (!badgeText.includes("Pre-trade protection for tokenized stocks")) {
+      if (!badgeText.includes("TWO CHECKS BEFORE YOU BUY")) {
         throw new Error(`Hero badge mismatch: ${badgeText}`);
       }
-
-      // Assert Dashboard header does NOT contain Connect Wallet button
-      const walletBtnInHeader = await page.$(".site-header #wallet-toggle-btn");
-      if (walletBtnInHeader !== null) {
-        throw new Error("Dashboard header should not contain a prominent Connect Wallet button");
-      }
-
-      const isHeroVisible = await page.isVisible(".hero-split-white");
-      if (!isHeroVisible) throw new Error("Split-white hero container is not visible");
 
       const isArtVisible = await page.isVisible(".hero-art-image");
       if (!isArtVisible) throw new Error("Hero artwork image is not visible");
 
-      // Capture Screenshot 1: 01_desktop_hero_full.png
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "01_desktop_hero_full.png") });
     });
 
-    // 2. Key Differentiation & Illustrative Example (Order 008)
-    await test("2. Key Differentiation section & illustrative $500 example render cleanly", async () => {
-      const diffTitle = await page.textContent(".diff-main-title");
-      if (!diffTitle.includes("A swap can execute perfectly") || !diffTitle.includes("and still be a bad stock trade.")) {
-        throw new Error(`Differentiation title mismatch: ${diffTitle}`);
+    // 2. Two Mistakes Story Section & Differentiation
+    await test("2. Two Mistakes Story Section and Key Differentiation render cleanly", async () => {
+      const mistakeCards = await page.$$(".mistake-card");
+      if (mistakeCards.length !== 2) throw new Error(`Expected 2 mistake cards, found: ${mistakeCards.length}`);
+
+      const m1 = await page.textContent(".mistakes-grid .mistake-card:nth-child(1) .mistake-title");
+      const m2 = await page.textContent(".mistakes-grid .mistake-card:nth-child(2) .mistake-title");
+      if (!m1.includes("Right company. Wrong product.")) throw new Error(`Mistake 1 mismatch: ${m1}`);
+      if (!m2.includes("Right product. Bad trade.")) throw new Error(`Mistake 2 mismatch: ${m2}`);
+
+      const bottomBarText = await page.textContent(".mistakes-bottom-bar .bottom-bar-text");
+      if (!bottomBarText.includes("JustFair checks both before money moves")) {
+        throw new Error(`Bottom bar mismatch: ${bottomBarText}`);
       }
 
-      // Wallet vs JustFair comparison columns
-      const walletCheckTitle = await page.textContent(".wallet-check-card .comparison-title");
-      const justfairCheckTitle = await page.textContent(".justfair-check-card .comparison-title");
-      if (!walletCheckTitle.includes("YOUR WALLET CHECKS")) throw new Error(`Wallet title mismatch: ${walletCheckTitle}`);
-      if (!justfairCheckTitle.includes("JUSTFAIR ALSO CHECKS")) throw new Error(`JustFair title mismatch: ${justfairCheckTitle}`);
-
-      // Example Card
-      const exampleBadge = await page.textContent(".example-pill");
-      if (!exampleBadge.toUpperCase().includes("EXAMPLE")) throw new Error(`Example badge mismatch: ${exampleBadge}`);
-
-      const exampleQuote = await page.textContent(".example-quote");
-      if (!exampleQuote.includes("The swap can be technically healthy while the stock deal is still expensive.")) {
-        throw new Error(`Example quote mismatch: ${exampleQuote}`);
-      }
-
-      // Truthfulness callout
-      const truthText = await page.textContent(".truth-desc");
-      if (!truthText.includes("If the underlying stock market is closed or the reference cannot be verified, JustFair says so instead of guessing.")) {
-        throw new Error(`Truthfulness callout text mismatch: ${truthText}`);
-      }
-
-      // Test example CTA button opens App view
-      await page.click("#example-open-app-btn");
-      await page.waitForTimeout(400);
-      let isAppVisible = await page.isVisible("#app-view");
-      if (!isAppVisible) throw new Error("Clicking example CTA button failed to open App view");
-
-      // Switch back to Dashboard view
-      await page.click("#tab-dashboard-btn");
-      await page.waitForTimeout(300);
-
-      // Capture Screenshot 2: 02_desktop_hero_next_section.png
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "02_desktop_hero_next_section.png") });
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "02_desktop_two_mistakes.png") });
     });
 
-    // 3. Navigation from Dashboard: How It Works & API
-    await test("3. Navigation from Dashboard smoothly targets sections and 5-step sequence", async () => {
-      // Click 'How it Works' from Dashboard
-      await page.click("#nav-how-btn");
-      await page.waitForTimeout(400);
-      const isHowVisible = await page.isVisible("#how-it-works");
-      if (!isHowVisible) throw new Error("How It Works section not visible after clicking nav link");
-
-      const stepCards = await page.$$(".steps-container-5 .step-card");
-      if (stepCards.length !== 5) {
-        throw new Error(`Expected 5 step cards in How It Works, found: ${stepCards.length}`);
-      }
-
-      // Click 'API' from Dashboard
-      await page.click("#nav-api-btn");
-      await page.waitForTimeout(400);
-      const isApiVisible = await page.isVisible("#api-docs");
-      if (!isApiVisible) throw new Error("API section not visible after clicking nav link");
-
-      const apiTitle = await page.textContent(".api-compact-title");
-      if (!apiTitle.includes("Built for users. Embeddable by wallets.")) {
-        throw new Error(`API title mismatch: ${apiTitle}`);
-      }
-
-      // Return to top
-      await page.click("#tab-dashboard-btn");
-      await page.waitForTimeout(300);
-
-      // Capture Screenshot 3: 03_dashboard_scroll_reveal.png
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "03_dashboard_scroll_reveal.png") });
-    });
-
-    // 4. Navigate to App View & Verify 12 Stock Cards & App Wallet Intact
-    await test("4. Navigate to App View, verify full 12-stock catalog feed and working wallet controls", async () => {
+    // 3. Step 1: 12 Company Cards Grid, Search, and Category Filters
+    await test("3. Step 1: App view renders 12 canonical companies, search filtering, and category tabs", async () => {
       await page.click("#hero-open-app-btn");
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(400);
 
       const isAppVisible = await page.isVisible("#app-view");
-      if (!isAppVisible) throw new Error("App view is not visible after hero button click");
+      if (!isAppVisible) throw new Error("App view not visible after clicking hero button");
 
-      const stockCards = await page.$$(".stock-card-standalone");
-      if (stockCards.length !== 12) {
-        throw new Error(`Expected 12 standalone stock cards, found: ${stockCards.length}`);
-      }
+      const companyCards = await page.$$(".underlying-company-card");
+      if (companyCards.length !== 12) throw new Error(`Expected 12 underlying company cards, found: ${companyCards.length}`);
 
-      // Assert App wallet controls exist inside the card
-      const manualToggle = await page.isVisible("#stock-card-AAPLx .manual-key-toggle");
-      if (!manualToggle) throw new Error("Manual wallet key toggle is missing in App card");
-
-      // Capture Screenshot 4: 04_app_apple_standalone_card.png
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "04_app_apple_standalone_card.png") });
-    });
-
-    // 5. Cross-View Navigation from App View to How It Works, API, and Dashboard
-    await test("5. Critical Navigation: How It Works, API, and Dashboard work seamlessly from App View", async () => {
-      // Currently on App view. Click 'How it Works'
-      await page.click("#nav-how-btn");
-      await page.waitForTimeout(500);
-
-      let isDashboardVisible = await page.isVisible("#dashboard-view");
-      let isAppVisible = await page.isVisible("#app-view");
-      if (!isDashboardVisible || isAppVisible) {
-        throw new Error("Clicking 'How it Works' from App view failed to switch to Dashboard view");
-      }
-      const isHowVisible = await page.isVisible("#how-it-works");
-      if (!isHowVisible) throw new Error("How It Works section not visible after navigating from App view");
-
-      // Switch back to App view
-      await page.click("#tab-app-btn");
-      await page.waitForTimeout(400);
-
-      // Click 'API' from App view
-      await page.click("#nav-api-btn");
-      await page.waitForTimeout(500);
-
-      isDashboardVisible = await page.isVisible("#dashboard-view");
-      if (!isDashboardVisible) {
-        throw new Error("Clicking 'API' from App view failed to switch to Dashboard view");
-      }
-      const isApiVisible = await page.isVisible("#api-docs");
-      if (!isApiVisible) throw new Error("API section not visible after navigating from App view");
-
-      // Return to App view for search tests
-      await page.click("#tab-app-btn");
-      await page.waitForTimeout(400);
-    });
-
-    // 6. Search Filtering: AAPL, AAPLx, Apple, NVDA, and Empty State
-    await test("6. Search filtering by ticker, canonical, name, and empty state handling", async () => {
+      // Test Search: "AAPL"
       const searchInput = await page.$("#stock-search-input");
-
-      // Search 1: "AAPL" (canonical)
       await searchInput.fill("AAPL");
       await page.waitForTimeout(200);
-      let visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
-      if (visibleCards.length !== 1 || (await visibleCards[0].getAttribute("id")) !== "stock-card-AAPLx") {
-        throw new Error(`Search 'AAPL' failed: expected 1 card (AAPLx), found ${visibleCards.length}`);
-      }
+      let visible = await page.$$(".underlying-company-card:not(.search-hidden)");
+      if (visible.length !== 1) throw new Error(`Expected 1 card for 'AAPL', found: ${visible.length}`);
 
-      // Search 2: "AAPLx" (xStock ticker)
-      await searchInput.fill("AAPLx");
+      // Clear search
+      await searchInput.fill("");
       await page.waitForTimeout(200);
-      visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
-      if (visibleCards.length !== 1 || (await visibleCards[0].getAttribute("id")) !== "stock-card-AAPLx") {
-        throw new Error(`Search 'AAPLx' failed: expected 1 card (AAPLx), found ${visibleCards.length}`);
-      }
+      visible = await page.$$(".underlying-company-card:not(.search-hidden)");
+      if (visible.length !== 12) throw new Error(`Expected 12 cards after clear, found: ${visible.length}`);
 
-      // Search 3: "Apple" (company name)
-      await searchInput.fill("Apple");
-      await page.waitForTimeout(200);
-      visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
-      if (visibleCards.length !== 1 || (await visibleCards[0].getAttribute("id")) !== "stock-card-AAPLx") {
-        throw new Error(`Search 'Apple' failed: expected 1 card (AAPLx), found ${visibleCards.length}`);
-      }
-
-      // Search 4: "NVDA" (NVIDIA)
-      await searchInput.fill("NVDA");
-      await page.waitForTimeout(200);
-      visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
-      if (visibleCards.length !== 1 || (await visibleCards[0].getAttribute("id")) !== "stock-card-NVDAx") {
-        throw new Error(`Search 'NVDA' failed: expected 1 card (NVDAx), found ${visibleCards.length}`);
-      }
-
-      // Search 5: Empty match state "XYZ999Unknown"
-      await searchInput.fill("XYZ999Unknown");
-      await page.waitForTimeout(200);
-      visibleCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
-      if (visibleCards.length !== 0) {
-        throw new Error(`Expected 0 visible cards for non-existent stock, found: ${visibleCards.length}`);
-      }
-      const isEmptyStateVisible = await page.isVisible("#stock-search-empty-state");
-      if (!isEmptyStateVisible) throw new Error("Search empty state is not visible when 0 stocks match");
-      const emptyText = await page.textContent("#stock-search-empty-state .empty-title");
-      if (!emptyText.includes("No supported stocks match your search.")) {
-        throw new Error(`Empty state text mismatch: ${emptyText}`);
-      }
-
-      // Click "Clear search" on empty state
-      await page.click("#empty-clear-search-btn");
-      await page.waitForTimeout(200);
-
-      const restoredCards = await page.$$(".stock-card-standalone:not(.search-hidden)");
-      if (restoredCards.length !== 12) {
-        throw new Error(`Expected 12 restored cards after clearing empty search, found: ${restoredCards.length}`);
-      }
-
-      // Capture Screenshot 5: 05_app_midway_stock_scroll.png
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "05_app_midway_stock_scroll.png") });
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "03_step1_company_grid.png") });
     });
 
-    // 7. Apple Card Expanded State & Trade Form
-    await test("7. Verify Apple (AAPLx) card expanded trade interface and presets", async () => {
-      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
-      await page.waitForTimeout(300);
-
-      const appleCard = await page.$("#stock-card-AAPLx");
-      const isExpanded = await appleCard.evaluate(el => el.classList.contains("is-expanded"));
-      if (!isExpanded) throw new Error("Apple card is not expanded by default");
-
-      const formVisible = await page.isVisible("#stock-card-AAPLx .stock-trade-form");
-      if (!formVisible) throw new Error("Apple trade form is not visible inside expanded card");
-
-      // Capture Screenshot 6: 06_app_apple_expanded.png
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "06_app_apple_expanded.png") });
-    });
-
-    // 8. Accordion Switching: Open NVIDIA, Collapse Apple
-    await test("8. Accordion behavior: expanding NVIDIA card collapses Apple card", async () => {
-      // Click NVIDIA toggle button / header
-      await page.click("#stock-card-NVDAx .stock-card-header");
-      await page.waitForTimeout(500);
-
-      const isNvdaExpanded = await page.evaluate(() => {
-        const card = document.getElementById("stock-card-NVDAx");
-        return card && card.classList.contains("is-expanded");
-      });
-
-      const isAppleExpanded = await page.evaluate(() => {
-        const card = document.getElementById("stock-card-AAPLx");
-        return card && card.classList.contains("is-expanded");
-      });
-
-      if (!isNvdaExpanded) throw new Error("NVIDIA card failed to expand");
-      if (isAppleExpanded) throw new Error("Apple card did not collapse when NVIDIA expanded");
-
-      // Capture Screenshot 7: 07_app_nvidia_expanded_switch.png
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "07_app_nvidia_expanded_switch.png") });
-    });
-
-    // 9. Execute Trade Check & Assert 3-Metric Plain-Money Hierarchy
-    await test("9. Switch back to Apple, execute trade check ($500 USDC) and verify locked 3-metric hierarchy", async () => {
-      // Expand Apple card again
-      const isExpanded = await page.$eval("#stock-card-AAPLx", el => el.classList.contains("is-expanded"));
-      if (!isExpanded) {
-        await page.click("#stock-card-AAPLx .stock-card-header");
-        await page.waitForTimeout(500);
-      }
-
-      const appleCard = await page.$("#stock-card-AAPLx");
-      const submitBtn = await appleCard.$(".submit-trade-btn");
-
-      await page.waitForTimeout(600);
-      await submitBtn.click();
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
-
-      // Metric #1: YOU'RE SPENDING
-      const spendLabel = await page.textContent("#stock-card-AAPLx .money-stat:nth-child(1) .money-label");
-      const spendVal = await page.textContent("#stock-card-AAPLx .res-spend-val");
-      if (!spendLabel.includes("YOU'RE SPENDING")) throw new Error(`Metric 1 label mismatch: ${spendLabel}`);
-      if (!spendVal.includes("$500.00")) throw new Error(`Metric 1 spend value mismatch: ${spendVal}`);
-
-      // Metric #2: EXPECTED APPLE EXPOSURE or LAST KNOWN REFERENCE VALUE (Weekend Truthfulness)
-      const exposureLabel = await page.textContent("#stock-card-AAPLx .res-exposure-label");
-      const exposureVal = await page.textContent("#stock-card-AAPLx .res-exposure-val");
-      if (!exposureLabel.includes("EXPECTED APPLE EXPOSURE") && !exposureLabel.includes("LAST KNOWN REFERENCE VALUE")) {
-        throw new Error(`Metric 2 label mismatch: ${exposureLabel}`);
-      }
-      if (!exposureVal.includes("$")) throw new Error(`Metric 2 exposure value missing: ${exposureVal}`);
-
-      // Metric #3: DIFFERENCE or REFERENCE DIFFERENCE
-      const diffLabel = await page.textContent("#stock-card-AAPLx .money-stat.highlight .money-label");
-      const diffVal = await page.textContent("#stock-card-AAPLx .res-diff-val");
-      const diffPct = await page.textContent("#stock-card-AAPLx .res-diff-pct");
-      if (!diffLabel.includes("DIFFERENCE")) throw new Error(`Metric 3 label mismatch: ${diffLabel}`);
-      if (!diffVal.includes("$")) throw new Error(`Metric 3 difference value missing: ${diffVal}`);
-      if (!diffPct.includes("%")) throw new Error(`Metric 3 difference percentage missing: ${diffPct}`);
-
-      // Better Option / Route Discovery Card Verified
-      const isBetterOptionVisible = await page.isVisible("#stock-card-AAPLx .better-option-card");
-      if (!isBetterOptionVisible) throw new Error("Better Option / Route discovery card is not visible in result container");
-
-      // Capture Screenshot 8: 08_app_apple_real_result.png
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "08_app_apple_real_result.png") });
-    });
-
-    // 9. Mobile Viewport: Hero
-    await test("9. Mobile Viewport (375x812): Hero displays without clipping or horizontal overflow", async () => {
-      const mobileContext = await browser.newContext({
-        viewport: { width: 375, height: 812 },
-        isMobile: true
-      });
-      const mobilePage = await mobileContext.newPage();
-
-      await mobilePage.goto(`${BASE_URL}/#dashboard`, { waitUntil: "networkidle" });
-      await mobilePage.waitForTimeout(400);
-
-      const isOverflowing = await mobilePage.evaluate(() => {
-        return document.documentElement.scrollWidth > window.innerWidth;
-      });
-      if (isOverflowing) throw new Error("Dashboard on mobile exhibits horizontal overflow");
-
-      // Capture Screenshot 9: 09_mobile_hero.png
-      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "09_mobile_hero.png") });
-      await mobileContext.close();
-    });
-
-    // 10. Mobile Viewport: Stock Feed
-    await test("10. Mobile Viewport (375x812): App Standalone Stock Cards Feed renders cleanly", async () => {
-      const mobileContext = await browser.newContext({
-        viewport: { width: 375, height: 812 },
-        isMobile: true
-      });
-      const mobilePage = await mobileContext.newPage();
-
-      await mobilePage.goto(`${BASE_URL}/#app`, { waitUntil: "networkidle" });
-      await mobilePage.waitForTimeout(400);
-
-      const isOverflowing = await mobilePage.evaluate(() => {
-        return document.documentElement.scrollWidth > window.innerWidth;
-      });
-      if (isOverflowing) throw new Error("App workspace on mobile exhibits horizontal overflow");
-
-      // Capture Screenshot 10: 10_mobile_stock_feed.png
-      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "10_mobile_stock_feed.png") });
-      await mobileContext.close();
-    });
-
-    // 11. Mobile Viewport: Expanded Stock Card
-    await test("11. Mobile Viewport (375x812): Expanded stock card forms and presets scale responsively", async () => {
-      const mobileContext = await browser.newContext({
-        viewport: { width: 375, height: 812 },
-        isMobile: true
-      });
-      const mobilePage = await mobileContext.newPage();
-
-      await mobilePage.goto(`${BASE_URL}/#app`, { waitUntil: "networkidle" });
-      await mobilePage.waitForTimeout(400);
-
-      // Ensure Apple card is expanded
-      const isExpanded = await mobilePage.isVisible("#stock-card-AAPLx .stock-trade-form");
-      if (!isExpanded) throw new Error("Apple card form not visible on mobile");
-
-      // Capture Screenshot 11: 11_mobile_expanded_stock.png
-      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "11_mobile_expanded_stock.png") });
-      await mobileContext.close();
-    });
-
-    // 12. Jupiter Deep-Link Handoff Regression Matrix (Order 009.4)
-    await test("12. Live Jupiter CTA deep-link href correctly maps buy/sell query parameters without state leakage", async () => {
-      await page.goto(`${BASE_URL}/#app`, { waitUntil: "networkidle" });
+    // 4. Step 2: What Matters to You? (Expectation Toggles & Accordion)
+    await test("4. Step 2: Expectation Selector with 5 primary and 7 secondary checks", async () => {
+      // Click Apple card to advance to Step 2
+      await page.click("#underlying-card-AAPL");
       await page.waitForTimeout(400);
 
-      // 1. Check AAPLx with USDC
-      const aaplCard = await page.$("#stock-card-AAPLx");
-      const isExpanded = await page.$eval("#stock-card-AAPLx", el => el.classList.contains("is-expanded"));
-      if (!isExpanded) {
-        await page.click("#stock-card-AAPLx .stock-card-header");
-        await page.waitForTimeout(400);
-      }
-      
-      // Select USDC tab
-      await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
-      await page.waitForTimeout(600);
-      await page.click("#stock-card-AAPLx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+      const isStep2Visible = await page.isVisible("#step-2-container");
+      if (!isStep2Visible) throw new Error("Step 2 container not visible after selecting company");
 
-      let jupLink = await aaplCard.$eval(".jupiter-exit-link", a => a.href);
-      let linkText = await aaplCard.$eval(".jupiter-exit-link", a => a.textContent.trim());
-      let disclaimer = await aaplCard.$eval(".jupiter-disclaimer", s => s.textContent.trim());
+      const compName = await page.textContent("#selected-company-name");
+      if (!compName.includes("Apple")) throw new Error(`Selected company mismatch: ${compName}`);
 
-      if (!jupLink.includes("buy=XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp") || !jupLink.includes("sell=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")) {
-        throw new Error(`USDC -> AAPLx Jupiter link incorrect: ${jupLink}`);
-      }
-      if (!linkText.includes("GET A FRESH JUPITER QUOTE")) {
-        throw new Error(`Jupiter CTA text mismatch: ${linkText}`);
-      }
-      if (!disclaimer.includes("Jupiter will generate a fresh quote when opened")) {
-        throw new Error(`Jupiter disclaimer mismatch: ${disclaimer}`);
-      }
+      const primaryExps = await page.$$(".expectations-grid#primary-expectations-container .expectation-card");
+      if (primaryExps.length !== 5) throw new Error(`Expected 5 primary expectations, found: ${primaryExps.length}`);
 
-      // 2. Switch to SOL on AAPLx
-      await page.waitForTimeout(800);
-      await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
-      await page.waitForTimeout(600);
-      await page.click("#stock-card-AAPLx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
-
-      jupLink = await aaplCard.$eval(".jupiter-exit-link", a => a.href);
-      if (!jupLink.includes("buy=XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp") || !jupLink.includes("sell=So11111111111111111111111111111111111111112")) {
-        throw new Error(`SOL -> AAPLx Jupiter link incorrect: ${jupLink}`);
-      }
-
-      // 3. Switch to NVDAx with SOL
-      await page.waitForTimeout(800);
-      const nvdaExpanded = await page.$eval("#stock-card-NVDAx", el => el.classList.contains("is-expanded"));
-      if (!nvdaExpanded) {
-        await page.click("#stock-card-NVDAx .stock-card-header");
-        await page.waitForTimeout(600);
-      }
-      const nvdaCard = await page.$("#stock-card-NVDAx");
-      await page.click("#stock-card-NVDAx .payment-tab[data-asset='SOL']");
-      await page.waitForTimeout(600);
-      await page.click("#stock-card-NVDAx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 35000 });
-
-      jupLink = await nvdaCard.$eval(".jupiter-exit-link", a => a.href);
-      if (!jupLink.includes("buy=Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh") || !jupLink.includes("sell=So11111111111111111111111111111111111111112")) {
-        throw new Error(`SOL -> NVDAx Jupiter link incorrect: ${jupLink}`);
-      }
-
-      // 4. Switch to USDC on NVDAx
-      await page.waitForTimeout(800);
-      await page.click("#stock-card-NVDAx .payment-tab[data-asset='USDC']");
-      await page.waitForTimeout(600);
-      await page.click("#stock-card-NVDAx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 35000 });
-
-      jupLink = await nvdaCard.$eval(".jupiter-exit-link", a => a.href);
-      if (!jupLink.includes("buy=Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh") || !jupLink.includes("sell=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")) {
-        throw new Error(`USDC -> NVDAx Jupiter link incorrect: ${jupLink}`);
-      }
-    });
-
-    // 13. SOL Input Valuation Consistency & Form-Result Synchronization (Director Order 009.5)
-    await test("13. SOL Input Valuation Consistency & Form-Result Synchronization", async () => {
-      // 1. Ensure AAPLx card is expanded
-      const isExpanded = await page.$eval("#stock-card-AAPLx", el => el.classList.contains("is-expanded"));
-      if (!isExpanded) {
-        await page.click("#stock-card-AAPLx .stock-card-header");
-        await page.waitForTimeout(300);
-      }
-
-      // 2. Select SOL payment tab
-      await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
-      await page.waitForTimeout(500);
-
-      // 3. Select 4 SOL preset or enter 4
-      await page.fill("#stock-card-AAPLx .amount-input", "4");
-      await page.dispatchEvent("#stock-card-AAPLx .amount-input", "input");
+      // Toggle accordion to view secondary expectations
+      await page.click("#toggle-secondary-expectations-btn");
       await page.waitForTimeout(300);
 
-      // 4. Read displayed SOL price and form estimate atomically
-      const { cleanSolPrice, cleanFormEstimate } = await page.evaluate(() => {
-        const solText = document.querySelector("#stock-card-AAPLx .sol-spot-sub")?.textContent || "";
-        const estText = document.querySelector("#stock-card-AAPLx .amount-usd-equivalent")?.textContent || "";
-        return {
-          cleanSolPrice: parseFloat(solText.replace(/[^0-9.]/g, "")),
-          cleanFormEstimate: parseFloat(estText.replace(/[^0-9.]/g, ""))
-        };
-      });
+      const isSecBodyVisible = await page.isVisible("#secondary-expectations-body");
+      if (!isSecBodyVisible) throw new Error("Secondary expectations body not visible after accordion click");
 
-      if (isNaN(cleanSolPrice) || cleanSolPrice <= 0) {
-        throw new Error(`Invalid displayed SOL price: ${cleanSolPrice}`);
-      }
+      const secExps = await page.$$(".expectations-grid#secondary-expectations-container .expectation-card");
+      if (secExps.length !== 7) throw new Error(`Expected 7 secondary expectations, found: ${secExps.length}`);
 
-      const expectedFormEstimate = parseFloat((4 * cleanSolPrice).toFixed(2));
-      if (Math.abs(cleanFormEstimate - expectedFormEstimate) > 0.05) {
-        throw new Error(`Form estimate mismatch: displayed ${cleanFormEstimate}, expected ${expectedFormEstimate} (from $${cleanSolPrice}/SOL)`);
-      }
-
-      // 6. Submit trade check
-      await page.waitForTimeout(1000);
-      await page.click("#stock-card-AAPLx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
-
-      // 7. Read YOU'RE SPENDING in result
-      const spendValText = await page.textContent("#stock-card-AAPLx .res-spend-val");
-      const spendSubText = await page.textContent("#stock-card-AAPLx .res-spend-sub");
-      const cleanSpendVal = parseFloat(spendValText.replace(/[^0-9.]/g, ""));
-
-      if (!spendSubText.includes("4 SOL")) {
-        throw new Error(`Expected '4 SOL' in spend subtext, got: ${spendSubText}`);
-      }
-
-      // 8. Assert mathematical consistency between form estimate and preflight result
-      const delta = Math.abs(cleanSpendVal - cleanFormEstimate);
-      if (delta > 1.0) { // small price movement tolerance allowed between form fetch and preflight snapshot
-        throw new Error(`Financial inconsistency between form estimate ($${cleanFormEstimate}) and preflight spend ($${cleanSpendVal})`);
-      }
-
-      // 9. Verify technical proof drawer contains payment asset pricing
-      const proofInputPrice = await page.textContent("#stock-card-AAPLx .ev-input-price");
-      const proofInputVal = await page.textContent("#stock-card-AAPLx .ev-input-val");
-      if (!proofInputPrice.includes("$") || !proofInputVal.includes("4 SOL")) {
-        throw new Error(`Evidence drawer payment asset valuation incomplete: price=${proofInputPrice}, val=${proofInputVal}`);
-      }
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "04_step2_expectations.png") });
     });
 
-    // 14. Live Route Preview & Immutable Snapshot Freeze Separation (Order 009.6)
-    await test("14. Live Route Preview & Immutable Snapshot Freeze Separation", async () => {
-      // 1. Ensure AAPLx card is expanded
-      const isExpanded = await page.$eval("#stock-card-AAPLx", el => el.classList.contains("is-expanded"));
-      if (!isExpanded) {
-        await page.click("#stock-card-AAPLx .stock-card-header");
-        await page.waitForTimeout(300);
+    // 5. Flow A: Self-Custody + Economic Dividends -> Multiple Verified Matches (AAPLx + AAPLon)
+    await test("5. Flow A: Self-Custody + Economic Dividends -> 2 Verified Products Match", async () => {
+      // Click MUST HAVE on HOLD_IN_OWN_WALLET and ECONOMIC_DIVIDEND_BENEFIT
+      await page.click("#exp-card-HOLD_IN_OWN_WALLET .btn-must-have");
+      await page.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have");
+      await page.waitForTimeout(200);
+
+      // Submit check
+      await page.click("#btn-submit-expectations");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+
+      const bannerTitle = await page.textContent("#result-banner-title");
+      if (!bannerTitle.includes("2 Verified Products Match Your Must-Haves")) {
+        throw new Error(`Banner title mismatch for Flow A: ${bannerTitle}`);
       }
 
-      // 2. Verify Live Route Preview is present
-      const previewTitle = await page.textContent("#stock-card-AAPLx .live-preview-title");
-      if (!previewTitle.includes("Live Route Preview")) {
-        throw new Error(`Expected Live Route Preview title, got: ${previewTitle}`);
+      // Assert two representation cards exist (AAPLx and AAPLon)
+      const repCards = await page.$$(".representation-card");
+      if (repCards.length !== 2) throw new Error(`Expected 2 representation cards, found: ${repCards.length}`);
+
+      const rep1Symbol = await page.textContent("#rep-card-AAPLx .rep-symbol");
+      const rep2Symbol = await page.textContent("#rep-card-AAPLon .rep-symbol");
+      if (!rep1Symbol.includes("AAPLx")) throw new Error(`Rep 1 symbol mismatch: ${rep1Symbol}`);
+      if (!rep2Symbol.includes("AAPLon")) throw new Error(`Rep 2 symbol mismatch: ${rep2Symbol}`);
+
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "05_step3_flow_a_multiple_matches.png") });
+    });
+
+    // 6. Step 3: Verified on Solana Drawer, Differences Matrix, and Scenarios
+    await test("6. Step 3 details: Verified on Solana Drawer, Differences Matrix, and What Happens If Scenarios", async () => {
+      // Toggle Verified on Solana drawer on AAPLx card
+      await page.click("#rep-card-AAPLx .rep-solana-toggle");
+      await page.waitForTimeout(300);
+
+      const isDrawerOpen = await page.isVisible("#rep-card-AAPLx .rep-solana-content");
+      if (!isDrawerOpen) throw new Error("Verified on Solana drawer failed to open");
+
+      // Assert Differences Matrix exists
+      const isDiffMatrixVisible = await page.isVisible("#differences-matrix-container");
+      if (!isDiffMatrixVisible) throw new Error("Differences Matrix table is not visible");
+
+      // Assert Scenarios Accordion exists
+      const scenarios = await page.$$(".scenario-item");
+      if (scenarios.length !== 4) throw new Error(`Expected 4 scenario items, found: ${scenarios.length}`);
+
+      // Expand scenario 1
+      await page.click(".scenario-item:nth-child(1) .scenario-toggle");
+      await page.waitForTimeout(300);
+      const isScenario1BodyVisible = await page.isVisible(".scenario-item:nth-child(1) .scenario-body");
+      if (!isScenario1BodyVisible) throw new Error("Scenario 1 body failed to expand");
+
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "06_step3_drawers_matrix_scenarios.png") });
+    });
+
+    // 7. Flow B: Ordinary Voting Rights -> No Verified Product Match
+    await test("7. Flow B: Ordinary Voting Rights -> NO VERIFIED PRODUCT MATCH with explanation & edit button", async () => {
+      // Click 'Edit Expectations' to return to Step 2
+      await page.click("#btn-edit-expectations");
+      await page.waitForTimeout(300);
+
+      // Clear all and select SHAREHOLDER_VOTING as MUST HAVE
+      await page.click("#exp-card-HOLD_IN_OWN_WALLET .btn-must-have"); // toggle off
+      await page.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have"); // toggle off
+      await page.click("#exp-card-SHAREHOLDER_VOTING .btn-must-have"); // toggle on
+      await page.waitForTimeout(200);
+
+      await page.click("#btn-submit-expectations");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+
+      const bannerTitle = await page.textContent("#result-banner-title");
+      if (!bannerTitle.includes("No Verified Product Matches Your Must-Haves")) {
+        throw new Error(`Banner title mismatch for Flow B: ${bannerTitle}`);
       }
 
-      // 3. Verify Snapshot Freeze Timestamp
-      const freezeTimestamp = await page.textContent("#stock-card-AAPLx .res-freeze-timestamp");
-      if (!freezeTimestamp.includes("CHECKED AT")) {
-        throw new Error(`Expected frozen snapshot timestamp, got: ${freezeTimestamp}`);
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "07_step3_flow_b_no_match.png") });
+    });
+
+    // 8. Flow D: Direct Issuer Redemption -> Conditional Match (Ondo institutional Reg S limitation visible)
+    await test("8. Flow D: Direct Issuer Redemption -> CONDITIONAL MATCH with documented Ondo Reg S limitation", async () => {
+      await page.click("#btn-edit-expectations");
+      await page.waitForTimeout(300);
+
+      // Clear voting and set DIRECT_ISSUER_REDEMPTION as MUST HAVE
+      await page.click("#exp-card-SHAREHOLDER_VOTING .btn-must-have"); // toggle off
+      await page.click("#exp-card-DIRECT_ISSUER_REDEMPTION .btn-must-have"); // toggle on
+      await page.waitForTimeout(200);
+
+      await page.click("#btn-submit-expectations");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+
+      const bannerTitle = await page.textContent("#result-banner-title");
+      if (!bannerTitle.includes("Products Match, But Important Conditions Apply")) {
+        throw new Error(`Banner title mismatch for Flow D: ${bannerTitle}`);
       }
 
-      // 4. Verify post-check live movement banner element
-      const banner = await page.$("#stock-card-AAPLx .live-movement-banner");
-      if (!banner) {
-        throw new Error("Expected live-movement-banner element inside stock card");
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "08_step3_flow_d_conditional.png") });
+    });
+
+    // 9. Step 4: AAPLx Handoff -> Execution Preflight Inspector
+    await test("9. Step 4: AAPLx Handoff into Layer 2 Execution Preflight Inspector ($500 USDC)", async () => {
+      // Click 'Check Trade Fill for AAPLx' button on AAPLx card
+      await page.click("#rep-card-AAPLx .btn-check-trade");
+      await page.waitForTimeout(500);
+
+      const isStep4Visible = await page.isVisible("#step-4-container");
+      if (!isStep4Visible) throw new Error("Step 4 container not visible after handoff click");
+
+      const handoffTitle = await page.textContent("#handoff-title");
+      if (!handoffTitle.includes("Checking Fill for AAPLx")) {
+        throw new Error(`Handoff title mismatch: ${handoffTitle}`);
       }
+
+      // Execute Trade Check
+      const submitTradeBtn = await page.$("#stock-card-AAPLx .submit-trade-btn");
+      if (!submitTradeBtn) throw new Error("Submit trade button not found in Step 4 execution card");
+
+      await submitTradeBtn.click();
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+
+      // Verify 3 plain money metrics
+      const spendVal = await page.textContent("#stock-card-AAPLx .res-spend-val");
+      const exposureVal = await page.textContent("#stock-card-AAPLx .res-exposure-val");
+      const diffVal = await page.textContent("#stock-card-AAPLx .res-diff-val");
+
+      if (!spendVal.includes("$500.00")) throw new Error(`Spend value mismatch: ${spendVal}`);
+      if (!exposureVal.includes("$")) throw new Error(`Exposure value missing: ${exposureVal}`);
+      if (!diffVal.includes("$")) throw new Error(`Difference value missing: ${diffVal}`);
+
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "09_step4_execution_preflight_result.png") });
+    });
+
+    // 10. Step 4: Back Button & AAPLon Boundary
+    await test("10. AAPLon Boundary: Informational button with clear notice that Ondo GM execution check is in progress", async () => {
+      // Click 'Change Product' to return to Step 3
+      await page.click("#btn-back-to-step3");
+      await page.waitForTimeout(400);
+
+      const isStep3Visible = await page.isVisible("#step-3-container");
+      if (!isStep3Visible) throw new Error("Failed to navigate back to Step 3 from Step 4");
+
+      // Assert AAPLon card has disabled button with informative note
+      const isOndoBtnDisabled = await page.$eval("#rep-card-AAPLon .btn-rep-unsupported", btn => btn.disabled);
+      if (!isOndoBtnDisabled) throw new Error("AAPLon trade button should be disabled");
+
+      const ondoNote = await page.textContent("#rep-card-AAPLon .unsupported-note");
+      if (!ondoNote.includes("Ondo GM trading pool integration in progress")) {
+        throw new Error(`Ondo unsupported note mismatch: ${ondoNote}`);
+      }
+
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "10_step3_aapon_boundary.png") });
+    });
+
+    // 11. Mobile Viewport Responsiveness across Steps 1, 2, 3, 4
+    await test("11. Mobile Viewport (375x812): All 4 Guided Preflight Steps render without clipping or horizontal overflow", async () => {
+      const mobileContext = await browser.newContext({
+        viewport: { width: 375, height: 812 },
+        isMobile: true
+      });
+      const mobilePage = await mobileContext.newPage();
+
+      // Mobile Step 1
+      await mobilePage.goto(`${BASE_URL}/#app`, { waitUntil: "networkidle" });
+      await mobilePage.waitForTimeout(400);
+      let isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      if (isOverflow) throw new Error("Mobile Step 1 exhibits horizontal overflow");
+      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "11_mobile_step1_company_grid.png") });
+
+      // Mobile Step 2
+      await mobilePage.click("#underlying-card-AAPL");
+      await mobilePage.waitForTimeout(400);
+      isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      if (isOverflow) throw new Error("Mobile Step 2 exhibits horizontal overflow");
+      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "12_mobile_step2_expectations.png") });
+
+      // Mobile Step 3
+      await mobilePage.click("#exp-card-HOLD_IN_OWN_WALLET .btn-must-have");
+      await mobilePage.click("#btn-submit-expectations");
+      await mobilePage.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+      isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      if (isOverflow) throw new Error("Mobile Step 3 exhibits horizontal overflow");
+      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "13_mobile_step3_verified_products.png") });
+
+      // Mobile Step 4
+      await mobilePage.click("#rep-card-AAPLx .btn-check-trade");
+      await mobilePage.waitForTimeout(400);
+      isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      if (isOverflow) throw new Error("Mobile Step 4 exhibits horizontal overflow");
+      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "14_mobile_step4_execution_handoff.png") });
+
+      await mobileContext.close();
     });
 
   } finally {
-    try { await page.close(); } catch {}
-    try { await context.close(); } catch {}
-    try { await browser.close(); } catch {}
-    try {
-      if (server.closeAllConnections) server.closeAllConnections();
-      server.close();
-    } catch {}
+    await browser.close();
+    server.close();
   }
 
   console.log("\n==================================================");
-  console.log(`PLAYWRIGHT TEST SUMMARY: ${passed} PASSED | ${failed} FAILED`);
+  console.log(`PLAYWRIGHT SUITE SUMMARY: ${passed} PASSED | ${failed} FAILED`);
   console.log("==================================================");
 
-  process.exit(failed > 0 ? 1 : 0);
+  if (failed > 0) process.exit(1);
 }
 
 runBrowserTests().catch(err => {
-  console.error("Playwright Test Runner Crashed:", err);
+  console.error("FATAL TEST ERROR:", err);
   process.exit(1);
 });

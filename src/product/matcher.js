@@ -218,7 +218,7 @@ export function generateExpectationExplanation({ key, state, capability, rep, un
         if (rep.issuerProfile?.issuerId === "BACKED_ASSETS_JE" || rep.issuerProfile?.issuerId === "BACKED_ASSETS") {
           return `Direct primary redemption with Backed Assets (JE) Limited is available to eligible retail and institutional participants upon KYC onboarding and token surrender ($5,000 minimum transaction size). Everyday retail users trade on DEXes without onboarding.`;
         } else {
-          return `Direct primary redemption with Ondo Global Markets (BVI) Limited requires platform KYC onboarding under Regulation S (non-US persons only). Everyday retail users trade on DEXes without onboarding.`;
+          return `Direct primary redemption with Ondo Global Markets (BVI) Limited requires issuer onboarding and KYC. Ondo's current documentation says direct onboarding is presently open to institutional participants, with retail onboarding planned. Everyday retail users trade on DEXes without onboarding.`;
         }
       }
       return `${ticker} supports direct redemption with the issuer.`;

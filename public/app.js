@@ -125,6 +125,197 @@ export const STOCK_META = {
   }
 };
 
+// Canonical 12-Underlying Catalog for Product Preflight (Phase 14)
+export const UNDERLYING_CATALOG = {
+  AAPL: {
+    canonical: "AAPL",
+    name: "Apple",
+    fullName: "Apple Inc.",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/apple.svg",
+    representations: ["AAPLx", "AAPLon"],
+    desc: "Apple Inc. common stock tokenized on Solana"
+  },
+  NVDA: {
+    canonical: "NVDA",
+    name: "NVIDIA",
+    fullName: "NVIDIA Corporation",
+    category: "Crypto & AI",
+    logo: "/assets/stocks/nvidia.svg",
+    representations: ["NVDAx", "NVDAon"],
+    desc: "NVIDIA AI computing equity on Solana"
+  },
+  SPY: {
+    canonical: "SPY",
+    name: "S&P 500 ETF",
+    fullName: "SPDR S&P 500 ETF Trust",
+    category: "Index ETFs",
+    logo: "/assets/stocks/spdr.svg",
+    representations: ["SPYx", "SPYon"],
+    desc: "SPDR S&P 500 ETF Trust exposure on Solana"
+  },
+  TSLA: {
+    canonical: "TSLA",
+    name: "Tesla",
+    fullName: "Tesla Inc.",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/tesla.svg",
+    representations: ["TSLAx", "TSLAon"],
+    desc: "Tesla electric vehicle equity on Solana"
+  },
+  MSFT: {
+    canonical: "MSFT",
+    name: "Microsoft",
+    fullName: "Microsoft Corporation",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/microsoft.svg",
+    representations: ["MSFTx", "MSFTon"],
+    desc: "Microsoft cloud & software equity on Solana"
+  },
+  AMZN: {
+    canonical: "AMZN",
+    name: "Amazon",
+    fullName: "Amazon.com Inc.",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/amazon.svg",
+    representations: ["AMZNx", "AMZNon"],
+    desc: "Amazon e-commerce & cloud equity on Solana"
+  },
+  GOOGL: {
+    canonical: "GOOGL",
+    name: "Alphabet (Google)",
+    fullName: "Alphabet Inc.",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/google.svg",
+    representations: ["GOOGLx", "GOOGLon"],
+    desc: "Google search & AI equity on Solana"
+  },
+  META: {
+    canonical: "META",
+    name: "Meta Platforms",
+    fullName: "Meta Platforms Inc.",
+    category: "Mega-Cap Tech",
+    logo: "/assets/stocks/meta.svg",
+    representations: ["METAx", "METAon"],
+    desc: "Meta social & AI equity on Solana"
+  },
+  COIN: {
+    canonical: "COIN",
+    name: "Coinbase",
+    fullName: "Coinbase Global Inc.",
+    category: "Crypto & AI",
+    logo: "/assets/stocks/coinbase.svg",
+    representations: ["COINx", "COINon"],
+    desc: "Coinbase exchange equity on Solana"
+  },
+  AMD: {
+    canonical: "AMD",
+    name: "AMD",
+    fullName: "Advanced Micro Devices Inc.",
+    category: "Crypto & AI",
+    logo: "/assets/stocks/amd.svg",
+    representations: ["AMDx", "AMDon"],
+    desc: "AMD semiconductor equity on Solana"
+  },
+  MSTR: {
+    canonical: "MSTR",
+    name: "MicroStrategy",
+    fullName: "MicroStrategy Incorporated",
+    category: "Crypto & AI",
+    logo: "/assets/stocks/microstrategy.svg",
+    representations: ["MSTRx", "MSTRon"],
+    desc: "MicroStrategy Bitcoin treasury equity on Solana"
+  },
+  QQQ: {
+    canonical: "QQQ",
+    name: "Invesco QQQ (Nasdaq 100)",
+    fullName: "Invesco QQQ Trust Series 1",
+    category: "Index ETFs",
+    logo: "/assets/stocks/qqq.svg",
+    representations: ["QQQx", "QQQon"],
+    desc: "Invesco QQQ Nasdaq 100 ETF exposure on Solana"
+  }
+};
+
+// 12 Consumer Product Expectations (5 Primary + 7 Secondary)
+export const EXPECTATIONS_CONFIG = {
+  primary: [
+    {
+      capability: "HOLD_IN_OWN_WALLET",
+      title: "Hold in own Solana wallet (Self-custody)",
+      desc: "Direct wallet custody on Solana without custodial account dependency."
+    },
+    {
+      capability: "ECONOMIC_DIVIDEND_BENEFIT",
+      title: "Receive economic dividend value",
+      desc: "Receive proportional value of company dividends via price adjustment or pool appreciation."
+    },
+    {
+      capability: "DIRECT_SHARE_OWNERSHIP",
+      title: "Own real shares in the underlying company",
+      desc: "Direct equity ownership registered on the underlying corporation's official share registry."
+    },
+    {
+      capability: "SHAREHOLDER_VOTING",
+      title: "Shareholder voting rights",
+      desc: "Direct voting rights in corporate governance, board elections, and shareholder proxy ballots."
+    },
+    {
+      capability: "WEEKEND_TRADING",
+      title: "Weekend & 24/7 trading",
+      desc: "Ability to trade on Solana DEXes on weekends and outside traditional US equity market hours."
+    }
+  ],
+  secondary: [
+    {
+      capability: "CASH_DIVIDEND_PAYOUT",
+      title: "Cash dividend payouts sent to wallet (USDC/USD)",
+      desc: "Direct cash dividend distributions deposited into your personal Solana wallet."
+    },
+    {
+      capability: "DIRECT_ISSUER_REDEMPTION",
+      title: "Direct redemption option with issuer",
+      desc: "Right to redeem tokens directly with the issuer for underlying collateral or cash."
+    },
+    {
+      capability: "IN_KIND_SHARE_REDEMPTION",
+      title: "Redeem for actual company shares",
+      desc: "Contractual right to redeem tokens directly with the issuer for real physical/brokerage shares."
+    },
+    {
+      capability: "NO_KYC_REDEMPTION",
+      title: "Redeem without identity verification",
+      desc: "Right to redeem directly with the issuer without KYC/AML identity verification."
+    },
+    {
+      capability: "UNDERLYING_BANKRUPTCY_CLAIM",
+      title: "Direct claim on underlying company",
+      desc: "Direct priority creditor/shareholder claim if the underlying operating company fails."
+    },
+    {
+      capability: "REPRESENTATION_FREEZE_RESISTANCE",
+      title: "Tokens cannot be frozen by issuer",
+      desc: "Token smart contract guarantees assets cannot be frozen or blacklisted by the issuer."
+    },
+    {
+      capability: "TOKEN_TO_STOCK_SPLIT_ADJUSTMENT",
+      title: "Automatic stock split adjustment",
+      desc: "Smart contract multiplier automatically adjusts token supply on corporate stock splits."
+    }
+  ]
+};
+
+// Global App & Product Preflight State
+export const appState = {
+  currentStep: 1,
+  selectedUnderlying: "AAPL",
+  expectations: {}, // capability -> 'MUST_HAVE' | 'NICE_TO_HAVE'
+  productPreflightResult: null,
+  selectedRepresentation: "AAPLx",
+  searchQuery: "",
+  categoryFilter: "ALL"
+};
+
 let currentSolPrice = null; // Authoritative live price from /api/v1/prices
 let solPriceTimestamp = null;
 let solPriceStatus = "LOADING";
@@ -618,10 +809,724 @@ function handleRoute() {
   }
 }
 
+// ==========================================
+// 4-STEP GUIDED PRODUCT PREFLIGHT WORKFLOW (PHASE 14)
+// ==========================================
+
+export function goToStep(step) {
+  if (step < 1 || step > 4) return;
+  appState.currentStep = step;
+
+  // Update Tracker Items
+  for (let i = 1; i <= 4; i++) {
+    const item = document.getElementById(`tracker-step-${i}`);
+    if (item) {
+      item.classList.remove("active", "completed");
+      if (i === step) {
+        item.classList.add("active");
+      } else if (i < step) {
+        item.classList.add("completed");
+      }
+    }
+    const container = document.getElementById(`step-${i}-container`);
+    if (container) {
+      container.classList.toggle("hidden", i !== step);
+    }
+  }
+
+  // Smooth scroll to top of app workspace
+  const appWorkspace = document.querySelector(".app-workspace");
+  if (appWorkspace) {
+    appWorkspace.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+// Step 1: Render Company Grid
+export function renderUnderlyingGrid() {
+  const container = document.getElementById("underlying-grid-container");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const keys = Object.keys(UNDERLYING_CATALOG);
+  keys.forEach(canonical => {
+    const data = UNDERLYING_CATALOG[canonical];
+    const isSelected = appState.selectedUnderlying === canonical;
+
+    const card = document.createElement("div");
+    card.className = `underlying-company-card ${isSelected ? "is-selected" : ""}`;
+    card.id = `underlying-card-${canonical}`;
+    card.setAttribute("data-canonical", canonical);
+    card.setAttribute("data-category", data.category);
+    card.setAttribute("data-keywords", `${data.name} ${canonical} ${data.fullName} ${data.representations.join(" ")}`.toLowerCase());
+
+    card.innerHTML = `
+      <div class="underlying-card-top">
+        <div class="underlying-card-logo-wrap">
+          <img src="${data.logo}" alt="${data.name} logo" class="underlying-card-logo" loading="lazy">
+        </div>
+        <div class="underlying-card-brand">
+          <div class="underlying-title-row">
+            <h3 class="underlying-name">${data.name}</h3>
+            <span class="underlying-ticker">${data.canonical}</span>
+          </div>
+          <p class="underlying-fullname">${data.fullName}</p>
+        </div>
+      </div>
+      <div class="underlying-card-footer">
+        <span class="underlying-reps-pill">2 Solana Tokens (${data.representations.join(", ")})</span>
+        <span class="underlying-category-pill">${data.category}</span>
+      </div>
+    `;
+
+    card.addEventListener("click", () => {
+      selectUnderlying(canonical);
+    });
+
+    container.appendChild(card);
+  });
+}
+
+export function selectUnderlying(canonical) {
+  if (!UNDERLYING_CATALOG[canonical]) return;
+
+  // State isolation: changing company resets old product results & handoff
+  if (appState.selectedUnderlying !== canonical) {
+    appState.productPreflightResult = null;
+    appState.selectedRepresentation = `${canonical}x`;
+  }
+
+  appState.selectedUnderlying = canonical;
+
+  // Highlight selected card
+  document.querySelectorAll(".underlying-company-card").forEach(c => {
+    c.classList.toggle("is-selected", c.getAttribute("data-canonical") === canonical);
+  });
+
+  // Update selected company banner in Step 2 & 3
+  const meta = UNDERLYING_CATALOG[canonical];
+  const logo = document.getElementById("selected-company-logo");
+  const name = document.getElementById("selected-company-name");
+  const ticker = document.getElementById("selected-company-ticker");
+  const fullname = document.getElementById("selected-company-fullname");
+
+  if (logo) logo.src = meta.logo;
+  if (name) name.textContent = meta.name;
+  if (ticker) ticker.textContent = meta.canonical;
+  if (fullname) fullname.textContent = meta.fullName;
+
+  renderExpectationsGrid();
+  goToStep(2);
+}
+
+// Step 2: Render Expectations Grid
+export function renderExpectationsGrid() {
+  const primaryContainer = document.getElementById("primary-expectations-container");
+  const secondaryContainer = document.getElementById("secondary-expectations-container");
+
+  if (primaryContainer) {
+    primaryContainer.innerHTML = "";
+    EXPECTATIONS_CONFIG.primary.forEach(exp => {
+      primaryContainer.appendChild(createExpectationCard(exp));
+    });
+  }
+
+  if (secondaryContainer) {
+    secondaryContainer.innerHTML = "";
+    EXPECTATIONS_CONFIG.secondary.forEach(exp => {
+      secondaryContainer.appendChild(createExpectationCard(exp));
+    });
+  }
+
+  updateExpectationsGuidance();
+}
+
+function createExpectationCard(exp) {
+  const card = document.createElement("div");
+  const currentPriority = appState.expectations[exp.capability] || null;
+
+  card.className = `expectation-card ${currentPriority === "MUST_HAVE" ? "priority-must-have" : currentPriority === "NICE_TO_HAVE" ? "priority-nice-to-have" : ""}`;
+  card.id = `exp-card-${exp.capability}`;
+
+  const badgeMarkup = currentPriority === "MUST_HAVE"
+    ? `<span class="expectation-badge badge-must-have">MUST HAVE</span>`
+    : currentPriority === "NICE_TO_HAVE"
+    ? `<span class="expectation-badge badge-nice-to-have">NICE TO HAVE</span>`
+    : "";
+
+  card.innerHTML = `
+    <div class="expectation-header">
+      <div class="expectation-title-row">
+        <h4 class="expectation-title">${exp.title}</h4>
+        <div class="badge-slot">${badgeMarkup}</div>
+      </div>
+      <p class="expectation-desc">${exp.desc}</p>
+    </div>
+    <div class="expectation-controls">
+      <button type="button" class="btn-priority btn-must-have ${currentPriority === 'MUST_HAVE' ? 'active-must-have' : ''}" data-action="MUST_HAVE">MUST HAVE</button>
+      <button type="button" class="btn-priority btn-nice-to-have ${currentPriority === 'NICE_TO_HAVE' ? 'active-nice-to-have' : ''}" data-action="NICE_TO_HAVE">NICE TO HAVE</button>
+      <button type="button" class="btn-priority-clear ${!currentPriority ? 'hidden' : ''}" data-action="CLEAR" title="Clear selection">✕</button>
+    </div>
+  `;
+
+  // Attach button events
+  const mustBtn = card.querySelector(".btn-must-have");
+  const niceBtn = card.querySelector(".btn-nice-to-have");
+  const clearBtn = card.querySelector(".btn-priority-clear");
+
+  if (mustBtn) {
+    mustBtn.addEventListener("click", () => {
+      if (appState.expectations[exp.capability] === "MUST_HAVE") {
+        delete appState.expectations[exp.capability];
+      } else {
+        appState.expectations[exp.capability] = "MUST_HAVE";
+      }
+      renderExpectationsGrid();
+    });
+  }
+
+  if (niceBtn) {
+    niceBtn.addEventListener("click", () => {
+      if (appState.expectations[exp.capability] === "NICE_TO_HAVE") {
+        delete appState.expectations[exp.capability];
+      } else {
+        appState.expectations[exp.capability] = "NICE_TO_HAVE";
+      }
+      renderExpectationsGrid();
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      delete appState.expectations[exp.capability];
+      renderExpectationsGrid();
+    });
+  }
+
+  return card;
+}
+
+function updateExpectationsGuidance() {
+  const guidanceBox = document.getElementById("expectations-guidance-box");
+  const mustHavesCount = Object.values(appState.expectations).filter(p => p === "MUST_HAVE").length;
+  const niceToHavesCount = Object.values(appState.expectations).filter(p => p === "NICE_TO_HAVE").length;
+
+  if (guidanceBox) {
+    if (mustHavesCount === 0 && niceToHavesCount === 0) {
+      guidanceBox.innerHTML = `
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>Select what matters to you, or click <strong>CHECK PRODUCTS</strong> to see all verified representations.</span>
+      `;
+    } else {
+      guidanceBox.innerHTML = `
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span><strong>${mustHavesCount} Must-Have${mustHavesCount === 1 ? '' : 's'}</strong> and <strong>${niceToHavesCount} Nice-to-Have${niceToHavesCount === 1 ? '' : 's'}</strong> selected.</span>
+      `;
+    }
+  }
+}
+
+// Step 2 -> 3: Submit Product Preflight Check
+let productPreflightAbortController = null;
+
+const CAPABILITY_TO_SCHEMA_KEY = {
+  HOLD_IN_OWN_WALLET: "SELF_CUSTODY",
+  ECONOMIC_DIVIDEND_BENEFIT: "ECONOMIC_DIVIDEND_BENEFIT",
+  DIRECT_SHARE_OWNERSHIP: "DIRECT_SHARE_OWNERSHIP",
+  SHAREHOLDER_VOTING: "ORDINARY_VOTING_RIGHTS",
+  WEEKEND_TRADING: "WEEKEND_TRADING",
+  CASH_DIVIDEND_PAYOUT: "CASH_DIVIDEND_PAYOUT",
+  DIRECT_ISSUER_REDEMPTION: "DIRECT_ISSUER_REDEMPTION",
+  IN_KIND_SHARE_REDEMPTION: "IN_KIND_SHARE_REDEMPTION",
+  NO_KYC_REDEMPTION: "REDEMPTION_WITHOUT_KYC",
+  UNDERLYING_BANKRUPTCY_CLAIM: "COLLATERAL_PROTECTION_STRUCTURE",
+  REPRESENTATION_FREEZE_RESISTANCE: "WALLET_TRANSFERABILITY",
+  TOKEN_TO_STOCK_SPLIT_ADJUSTMENT: "TOKEN_2022_MULTIPLIER_ACCRETION"
+};
+
+const PRIORITY_MAP = {
+  MUST_HAVE: "REQUIRED",
+  NICE_TO_HAVE: "OPTIONAL"
+};
+
+export async function submitProductPreflight() {
+  const submitBtn = document.getElementById("btn-submit-expectations");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span>CHECKING PRODUCTS...</span>`;
+  }
+
+  if (productPreflightAbortController) {
+    try { productPreflightAbortController.abort(); } catch {}
+  }
+  productPreflightAbortController = new AbortController();
+
+  let expectationsPayload = Object.entries(appState.expectations).map(([capability, priority]) => ({
+    key: CAPABILITY_TO_SCHEMA_KEY[capability] || capability,
+    priority: PRIORITY_MAP[priority] || "REQUIRED"
+  }));
+
+  // If user selected zero expectations, send baseline non-constraining check
+  if (expectationsPayload.length === 0) {
+    expectationsPayload = [{ key: "SELF_CUSTODY", priority: "OPTIONAL" }];
+  }
+
+  try {
+    const res = await fetch("/api/v1/product-preflight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        underlying: appState.selectedUnderlying,
+        expectations: expectationsPayload
+      }),
+      signal: productPreflightAbortController.signal
+    });
+
+    const data = await res.json();
+    if (data.request_status === "COMPLETED" || data.overall_result) {
+      appState.productPreflightResult = data;
+      renderProductPreflightResults(data);
+      goToStep(3);
+    } else {
+      alert(data.message || data.error || "Product preflight check failed. Please retry.");
+    }
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      alert("Network error while inspecting product representations.");
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `
+        <span>CHECK PRODUCTS</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12h14"></path>
+          <path d="M12 5l7 7-7 7"></path>
+        </svg>
+      `;
+    }
+  }
+}
+
+// Step 3: Render Product Preflight Results
+export function renderProductPreflightResults(data) {
+  const underlying = data.underlying || appState.selectedUnderlying;
+  const meta = UNDERLYING_CATALOG[underlying] || { name: underlying, canonical: underlying, logo: "/assets/stocks/apple.svg" };
+
+  // Context bar
+  const step3Logo = document.getElementById("step3-company-logo");
+  const step3Name = document.getElementById("step3-company-name");
+  const step3MustHaves = document.getElementById("step3-musthaves-badge");
+
+  if (step3Logo) step3Logo.src = meta.logo;
+  if (step3Name) step3Name.textContent = `${meta.name} (${meta.canonical})`;
+
+  const mustHavesCount = Object.values(appState.expectations).filter(p => p === "MUST_HAVE").length;
+  if (step3MustHaves) {
+    step3MustHaves.textContent = `${mustHavesCount} Must-Have${mustHavesCount === 1 ? '' : 's'} Checked`;
+  }
+
+  // Result Banner
+  const banner = document.getElementById("product-result-banner");
+  const bannerIconBox = document.getElementById("result-banner-icon-box");
+  const bannerTitle = document.getElementById("result-banner-title");
+  const bannerSubtitle = document.getElementById("result-banner-subtitle");
+
+  const products = data.products || [];
+  const matchProducts = products.filter(p => p.evaluation?.status === "MATCH");
+  const condProducts = products.filter(p => p.evaluation?.status === "CONDITIONAL_MATCH");
+  const overallResult = data.overall_result;
+
+  if (banner) {
+    banner.className = "product-result-banner";
+
+    if (overallResult === "MULTIPLE_VERIFIED_MATCHES" || matchProducts.length > 1) {
+      banner.classList.add("status-match");
+      if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>`;
+      if (bannerTitle) bannerTitle.textContent = `${matchProducts.length} Verified Products Match Your Must-Haves`;
+      if (bannerSubtitle) bannerSubtitle.textContent = `Both xStocks and Ondo Stocks satisfy all your required capabilities for ${meta.name}. Review the side-by-side details below before trading.`;
+    } else if (overallResult === "MATCHES_REQUIRED_EXPECTATIONS" || matchProducts.length === 1) {
+      banner.classList.add("status-match");
+      if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+      if (bannerTitle) bannerTitle.textContent = `1 Verified Product Matches Your Must-Haves`;
+      if (bannerSubtitle) bannerSubtitle.textContent = `Representation ${matchProducts[0].symbol} satisfies all your specified requirements for ${meta.name}.`;
+    } else if (overallResult === "CONDITIONAL_MATCHES" || condProducts.length > 0) {
+      banner.classList.add("status-conditional");
+      if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+      if (bannerTitle) bannerTitle.textContent = `Products Match, But Important Conditions Apply`;
+      if (bannerSubtitle) bannerSubtitle.textContent = `Verified representations match your requirements subject to specific institutional onboarding, KYC, or redemption minimums.`;
+    } else if (overallResult === "NO_VERIFIED_PRODUCT_MATCH") {
+      banner.classList.add("status-mismatch");
+      if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
+      if (bannerTitle) bannerTitle.textContent = `No Verified Product Matches Your Must-Haves`;
+      if (bannerSubtitle) bannerSubtitle.textContent = `No tokenized stock on Solana satisfies all your specified must-have requirements for ${meta.name}. See the conflict details below.`;
+    } else {
+      banner.classList.add("status-warning");
+      if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`;
+      if (bannerTitle) bannerTitle.textContent = `Product Verification Warning`;
+      if (bannerSubtitle) bannerSubtitle.textContent = `On-chain contract verification is incomplete or unavailable for this underlying.`;
+    }
+  }
+
+  // Side-by-Side Representation Cards Grid (Equal Prominence)
+  const repsContainer = document.getElementById("representation-cards-container");
+  if (repsContainer && products.length > 0) {
+    repsContainer.innerHTML = "";
+
+    products.forEach(rep => {
+      const isMatch = rep.evaluation?.status === "MATCH";
+      const isConditional = rep.evaluation?.status === "CONDITIONAL_MATCH";
+      const isSupported = rep.executionPreflightSupported || rep.executionPreflightSupport === "SUPPORTED";
+
+      const badgeClass = isMatch ? "rep-badge-match" : isConditional ? "rep-badge-conditional" : "rep-badge-mismatch";
+      const badgeText = isMatch ? "MATCHES MUST-HAVES" : isConditional ? "CONDITIONAL MATCH" : "MISMATCHES MUST-HAVES";
+
+      const card = document.createElement("div");
+      card.className = "representation-card";
+      card.id = `rep-card-${rep.symbol}`;
+
+      // Default capabilities breakdown for display
+      const isOndo = rep.symbol.endsWith("on");
+      const defaultCaps = [
+        {
+          label: "Self-Custody (Hold in own wallet)",
+          status: "MATCH",
+          note: "Direct Solana Token-2022 wallet custody"
+        },
+        {
+          label: "Economic Dividend Benefit",
+          status: "MATCH",
+          note: "Value accrued via share price multiplier"
+        },
+        {
+          label: "Shareholder Voting Rights",
+          status: "MISMATCH",
+          note: "No voting rights passed to token holders"
+        },
+        {
+          label: "24/7 & Weekend DEX Trading",
+          status: "MATCH",
+          note: "Trades on Solana DEX pools 24/7"
+        },
+        {
+          label: "Direct Issuer Redemption",
+          status: "CONDITIONAL",
+          note: isOndo ? "Non-US Reg S institutional KYC required" : "Retail eligible ($5,000 min, KYC required)"
+        },
+        {
+          label: "Direct Cash Dividend Payouts",
+          status: "MISMATCH",
+          note: "No cash USDC distributions directly into wallets"
+        }
+      ];
+
+      // Build capability items markup
+      const capsMarkup = defaultCaps.map(cap => {
+        const isCapMatch = cap.status === "MATCH";
+        const isCapCond = cap.status === "CONDITIONAL";
+        const isCapFalse = cap.status === "MISMATCH";
+
+        const iconSvg = isCapMatch
+          ? `<svg class="rep-cap-icon icon-true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+          : isCapCond
+          ? `<svg class="rep-cap-icon icon-conditional" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>`
+          : `<svg class="rep-cap-icon icon-false" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+
+        return `
+          <li class="rep-cap-item">
+            ${iconSvg}
+            <div class="rep-cap-text-wrap">
+              <span class="rep-cap-label">${cap.label}</span>
+              ${cap.note ? `<span class="rep-cap-note">${cap.note}</span>` : ''}
+            </div>
+          </li>
+        `;
+      }).join("");
+
+      card.innerHTML = `
+        <div class="rep-card-header">
+          <div class="rep-brand-group">
+            <div>
+              <h3 class="rep-symbol">${rep.symbol}</h3>
+              <p class="rep-issuer">${rep.issuer}</p>
+            </div>
+          </div>
+          <span class="rep-match-badge ${badgeClass}">${badgeText}</span>
+        </div>
+
+        <ul class="rep-capabilities-list">
+          ${capsMarkup}
+        </ul>
+
+        <div class="rep-explanation-box">
+          <p>${rep.evaluation?.summary || (isMatch ? 'Verified Token-2022 representation satisfies all required expectations.' : 'Check capability notes above for full details.')}</p>
+        </div>
+
+        <!-- Verified on Solana Drawer -->
+        <div class="rep-solana-drawer">
+          <button type="button" class="rep-solana-toggle" aria-expanded="false">
+            <span>Verified on Solana Details</span>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="rep-solana-content hidden">
+            <div class="solana-fact-row">
+              <span class="solana-fact-label">Mint Address:</span>
+              <span class="solana-fact-val">
+                ${rep.mint ? `${rep.mint.slice(0, 4)}...${rep.mint.slice(-4)}` : 'N/A'}
+                <button type="button" class="mint-copy-btn" data-mint="${rep.mint || ''}" title="Copy full mint address">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+              </span>
+            </div>
+            <div class="solana-fact-row">
+              <span class="solana-fact-label">Token Program:</span>
+              <span class="solana-fact-val">${rep.tokenProgram || 'Token-2022'}</span>
+            </div>
+            <div class="solana-fact-row">
+              <span class="solana-fact-label">Active Multiplier:</span>
+              <span class="solana-fact-val">${rep.assetVerification?.observedMultiplier || '1.0'}</span>
+            </div>
+            <div class="solana-fact-row">
+              <span class="solana-fact-label">Primary Source:</span>
+              <span class="solana-fact-val">${isOndo ? 'ondoprotocol/gm-solana-simulator & Solana Mainnet' : 'Backed Assets Prospectus & Solana Mainnet'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Action -->
+        <div class="rep-action-wrap">
+          ${isSupported ? `
+            <button type="button" class="btn btn-primary btn-md btn-rep-supported btn-check-trade" data-symbol="${rep.symbol}">
+              <span>Check Trade Fill for ${rep.symbol}</span>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
+            </button>
+          ` : `
+            <button type="button" class="btn btn-secondary btn-md btn-rep-unsupported" disabled>
+              <span>Trade check not yet available</span>
+            </button>
+            <p class="unsupported-note">JustFair execution engine currently monitors xStocks liquidity pools on Solana. Ondo GM trading pool integration in progress.</p>
+          `}
+        </div>
+      `;
+
+      // Attach Drawer toggle
+      const drawerToggle = card.querySelector(".rep-solana-toggle");
+      const drawerContent = card.querySelector(".rep-solana-content");
+      if (drawerToggle && drawerContent) {
+        drawerToggle.addEventListener("click", () => {
+          const isHidden = drawerContent.classList.contains("hidden");
+          drawerContent.classList.toggle("hidden", !isHidden);
+          drawerToggle.setAttribute("aria-expanded", String(isHidden));
+        });
+      }
+
+      // Attach Copy Mint button
+      const copyBtn = card.querySelector(".mint-copy-btn");
+      if (copyBtn) {
+        copyBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const mint = copyBtn.getAttribute("data-mint");
+          if (mint) {
+            navigator.clipboard.writeText(mint);
+            copyBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+            setTimeout(() => {
+              copyBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+            }, 1500);
+          }
+        });
+      }
+
+      // Attach Trade Handoff button
+      const tradeBtn = card.querySelector(".btn-check-trade");
+      if (tradeBtn) {
+        tradeBtn.addEventListener("click", () => {
+          handoffToExecutionPreflight(rep.symbol);
+        });
+      }
+
+      repsContainer.appendChild(card);
+    });
+  }
+
+  // Render Differences Matrix
+  renderDifferencesTable(data);
+
+  // Render Scenarios
+  renderScenariosAccordion(data);
+}
+
+export function renderDifferencesTable(data) {
+  const wrap = document.getElementById("differences-table-wrap");
+  if (!wrap) return;
+
+  wrap.innerHTML = `
+    <table class="diff-matrix-table">
+      <thead>
+        <tr>
+          <th>Structural Factor</th>
+          <th>xStocks (Backed Assets)</th>
+          <th>Ondo Stocks (Ondo GM)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="diff-factor-cell">Legal Issuer Entity</td>
+          <td>Backed Assets (JE) Limited (Jersey SPV)</td>
+          <td>Ondo Global Markets (BVI) Limited (BVI SPV)</td>
+        </tr>
+        <tr>
+          <td class="diff-factor-cell">Collateral & Backing</td>
+          <td>Bankruptcy-remote Jersey SPV holding 1:1 shares with custodian</td>
+          <td>Bankruptcy-remote BVI SPV holding omnibus equity exposure</td>
+        </tr>
+        <tr>
+          <td class="diff-factor-cell">Direct Issuer Redemption</td>
+          <td>Retail eligible with KYC ($5,000 minimum threshold)</td>
+          <td>Non-US Reg S institutional KYC onboarding required</td>
+        </tr>
+        <tr>
+          <td class="diff-factor-cell">Dividend Pass-Through</td>
+          <td>Reinvestment into token price multiplier / DEX pool value</td>
+          <td>Reinvestment into token price multiplier / pool value</td>
+        </tr>
+        <tr>
+          <td class="diff-factor-cell">Token Freeze Authority</td>
+          <td>Standard Token-2022 transfer fee / authority hooks</td>
+          <td>Token-2022 transfer hook & compliance freeze authority</td>
+        </tr>
+        <tr>
+          <td class="diff-factor-cell">JustFair Execution Preflight</td>
+          <td><strong style="color: #059669;">Supported</strong> (Live DEX route analysis)</td>
+          <td><strong style="color: #6B7280;">In Progress</strong> (Integration scheduled)</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+}
+
+export function renderScenariosAccordion(data) {
+  const container = document.getElementById("scenarios-accordion-container");
+  if (!container) return;
+
+  const scenarios = [
+    {
+      title: "What happens if the company pays a dividend?",
+      desc: "Tokenized stock products pass economic dividend value via token price adjustment or pool appreciation. No tokenized stock on Solana currently sends automatic cash USDC dividend drops into personal wallets."
+    },
+    {
+      title: "What happens if the company splits its stock?",
+      desc: "Smart contracts adjust the share multiplier or token supply on-chain according to corporate actions. JustFair tracks and verifies multiplier transitions in real time."
+    },
+    {
+      title: "What happens if the token issuer becomes insolvent?",
+      desc: "Both xStocks (Jersey SPV) and Ondo (BVI SPV) utilize bankruptcy-remote special purpose vehicles where collateral shares are segregated from the issuer's operating balance sheet."
+    },
+    {
+      title: "What happens if the underlying company goes bankrupt?",
+      desc: "Tokenized stock holders possess a claim against the bankruptcy-remote SPV holding the underlying equity, but do NOT hold a direct preferred creditor claim on the operating company."
+    }
+  ];
+
+  container.innerHTML = "";
+  scenarios.forEach((sc, idx) => {
+    const item = document.createElement("div");
+    item.className = "scenario-item";
+    item.innerHTML = `
+      <button type="button" class="scenario-toggle" aria-expanded="false">
+        <span>${sc.title}</span>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="scenario-body hidden">
+        <p>${sc.desc}</p>
+      </div>
+    `;
+
+    const toggle = item.querySelector(".scenario-toggle");
+    const body = item.querySelector(".scenario-body");
+    toggle.addEventListener("click", () => {
+      const isHidden = body.classList.contains("hidden");
+      body.classList.toggle("hidden", !isHidden);
+      toggle.setAttribute("aria-expanded", String(isHidden));
+    });
+
+    container.appendChild(item);
+  });
+}
+
+export function handoffToExecutionPreflight(symbol) {
+  appState.selectedRepresentation = symbol;
+
+  const handoffTitle = document.getElementById("handoff-title");
+  const handoffSub = document.getElementById("handoff-sub");
+
+  if (handoffTitle) handoffTitle.textContent = `Checking Fill for ${symbol}`;
+  if (handoffSub) {
+    const isBacked = symbol.endsWith("x");
+    handoffSub.textContent = isBacked
+      ? `Backed Assets (JE) Limited · Token-2022 Verified on Solana`
+      : `Ondo Global Markets (BVI) Limited · Token-2022 Verified on Solana`;
+  }
+
+  // Activate the execution card for symbol in Step 4
+  renderAllStockCards(symbol);
+  goToStep(4);
+}
+
+export function initStepNavigation() {
+  // Step tracker clicks
+  for (let i = 1; i <= 4; i++) {
+    const btn = document.getElementById(`tracker-step-${i}`);
+    if (btn) {
+      btn.addEventListener("click", () => {
+        goToStep(i);
+      });
+    }
+  }
+
+  // Step 2 buttons
+  const changeCompBtn = document.getElementById("btn-change-company");
+  if (changeCompBtn) changeCompBtn.addEventListener("click", () => goToStep(1));
+
+  const backToStep1Btn = document.getElementById("btn-back-to-step1");
+  if (backToStep1Btn) backToStep1Btn.addEventListener("click", () => goToStep(1));
+
+  const submitExpBtn = document.getElementById("btn-submit-expectations");
+  if (submitExpBtn) submitExpBtn.addEventListener("click", () => submitProductPreflight());
+
+  const toggleSecBtn = document.getElementById("toggle-secondary-expectations-btn");
+  const secBody = document.getElementById("secondary-expectations-body");
+  if (toggleSecBtn && secBody) {
+    toggleSecBtn.addEventListener("click", () => {
+      const isHidden = secBody.classList.contains("hidden");
+      secBody.classList.toggle("hidden", !isHidden);
+      toggleSecBtn.setAttribute("aria-expanded", String(isHidden));
+    });
+  }
+
+  // Step 3 buttons
+  const editExpBtn = document.getElementById("btn-edit-expectations");
+  if (editExpBtn) editExpBtn.addEventListener("click", () => goToStep(2));
+
+  const backToStep2Btn = document.getElementById("btn-back-to-step2");
+  if (backToStep2Btn) backToStep2Btn.addEventListener("click", () => goToStep(2));
+
+  // Step 4 buttons
+  const backToStep3Btn = document.getElementById("btn-back-to-step3");
+  if (backToStep3Btn) backToStep3Btn.addEventListener("click", () => goToStep(3));
+}
+
 // Handle initial load & hash changes
 window.addEventListener("DOMContentLoaded", () => {
+  renderUnderlyingGrid();
+  renderExpectationsGrid();
   renderAllStockCards("AAPLx");
   initSearchAndFilters();
+  initStepNavigation();
   initApiDrawer();
   initScrollReveal();
   handleRoute();
@@ -1068,10 +1973,11 @@ function clearSearch() {
 }
 
 function applyFilters() {
-  const cards = document.querySelectorAll(".stock-card-standalone");
+  const companyCards = document.querySelectorAll(".underlying-company-card");
+  const standaloneCards = document.querySelectorAll(".stock-card-standalone");
   let visibleCount = 0;
 
-  cards.forEach(card => {
+  companyCards.forEach(card => {
     const rawCat = card.getAttribute("data-category") || "";
     const cardCatSlug = normalizeCategory(rawCat);
     const filterCatSlug = normalizeCategory(currentCategoryFilter);
@@ -1084,6 +1990,24 @@ function applyFilters() {
       card.classList.remove("hidden");
       card.classList.remove("search-hidden");
       visibleCount++;
+    } else {
+      card.classList.add("hidden");
+      card.classList.add("search-hidden");
+    }
+  });
+
+  standaloneCards.forEach(card => {
+    const rawCat = card.getAttribute("data-category") || "";
+    const cardCatSlug = normalizeCategory(rawCat);
+    const filterCatSlug = normalizeCategory(currentCategoryFilter);
+
+    const matchesCategory = filterCatSlug === "all" || cardCatSlug === filterCatSlug;
+    const keywords = card.getAttribute("data-keywords") || "";
+    const matchesSearch = currentSearchQuery === "" || keywords.includes(currentSearchQuery);
+
+    if (matchesCategory && matchesSearch) {
+      card.classList.remove("hidden");
+      card.classList.remove("search-hidden");
     } else {
       card.classList.add("hidden");
       card.classList.add("search-hidden");

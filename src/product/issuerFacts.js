@@ -280,7 +280,7 @@ export const ISSUER_CAPABILITIES = {
       conditional: true,
       evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
       title: "Direct Primary Issuer Redemption",
-      summary: "Direct primary minting and redemption for cash/USDon requires completing platform KYC onboarding with Ondo Global Markets (BVI) Limited (non-US persons only under Regulation S). On-chain retail users trade via solver network and DEX routing without KYC.",
+      summary: "Direct primary minting and redemption requires platform KYC onboarding with Ondo Global Markets (BVI) Limited (non-US persons under Regulation S). Ondo's current documentation states direct onboarding is presently open to institutional participants only, with retail onboarding planned. Everyday retail users trade on-chain via solver networks and DEX routing without onboarding.",
       kycRequired: true,
       qualifiedInvestorOnly: false,
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_PRODUCT_DOCS,

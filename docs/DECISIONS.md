@@ -116,18 +116,18 @@
   * **Immutable Handoff Contract:** Valid matches export exact mint and metadata alongside `execution_preflight_support: "SUPPORTED"` (xStocks) or `"NOT_YET_SUPPORTED"` (Ondo).
   * **REST API:** `POST /api/v1/product-preflight` accepts both Mode A and Mode B JSON payloads with strict validation and standard error handling.
 
-## Decision 014: Redemption Concepts Split & In-Kind Delivery Verification (Phase 13 / Order 012.1)
-* **Context:** Director Order 012.1 identified that previous redemption expectations blended distinct primary concepts (direct redemption vs. in-kind share delivery vs. holding ownership).
+## Decision 015: Product Preflight Consumer UX & Non-Custodial Guided Flow (Phase 14 / Order 013)
+* **Context:** Director Order 013 establishes Phase 14, turning the Product Preflight API engine into an intuitive 4-step consumer experience connecting Layer 1 (Product Preflight) with Layer 2 (Execution Preflight).
 * **Decision:**
-  * **Concept Separation:**
-    1. `DIRECT_SHARE_OWNERSHIP`: Evaluates whether a token holder directly owns registered company common stock while holding the token (VERIFIED_FALSE for both xStocks and Ondo).
-    2. `DIRECT_ISSUER_REDEMPTION`: Evaluates whether a primary direct redemption relationship exists with the issuer (CONDITIONAL for both, subject to issuer KYC and minimums).
-    3. `IN_KIND_SHARE_REDEMPTION`: Evaluates whether the product provides a mechanism to convert tokens into actual registered underlying company shares (CONDITIONAL for xStocks via xPort/Alpaca; VERIFIED_FALSE for Ondo Global Markets where primary redemptions settle in USD/settlement assets under Regulation S).
-    4. `CASH_STABLECOIN_REDEMPTION`: Evaluates primary direct redemption returning cash or stablecoin proceeds (CONDITIONAL for both).
-  * **Profile G Acceptance Profile:** Sourced from primary issuer facts:
-    * `underlying: "AAPL"`, `expectations: [{ key: "IN_KIND_SHARE_REDEMPTION", priority: "REQUIRED" }]`
-    * `AAPLx`: `CONDITIONAL_MATCH`
-    * `AAPLon`: `MISMATCH`
-    * `overall_result`: `CONDITIONAL_MATCHES`
-  * **Production Deployment:** Deployed to Vercel production at `https://justfair-theta.vercel.app` (Deployment ID: `dpl_9zn4v81WHsha9v5DUFVbBz1jYK85`).
+  * **Hero Split-White Canvas & Tagline:** Tagline established as *"Know what you're buying. Then check the fill."* with a "TWO CHECKS BEFORE YOU BUY" badge and "Two Mistakes" story section explaining (1) Right company / Wrong product vs. (2) Right product / Bad trade.
+  * **Guided 4-Step User Journey:**
+    1. *Step 1 — Choose Company:* 12 canonical underlyings (AAPL, NVDA, SPY, TSLA, MSFT, AMZN, GOOGL, META, COIN, AMD, MSTR, QQQ) with category filtering and instant search.
+    2. *Step 2 — What Matters to You?:* 5 immediately visible primary expectations + 7 secondary checks in a collapsible accordion. Each card features toggles for `MUST HAVE` (Required) vs `NICE TO HAVE` (Optional) vs unselected.
+    3. *Step 3 — See Verified Products:* Side-by-side representation cards rendered with equal prominence (e.g. `AAPLx` vs `AAPLon`), semantic SVG icons, plain-language explanations, "Verified on Solana" drawer with exact mint and copy button, Differences Matrix, "What happens if...?" scenarios accordion, and verified dividend safety callout.
+    4. *Step 4 — Check the Trade:* User explicitly selects a representation (`AAPLx`) to hand off an immutable object to Layer 2 Execution Preflight ($500 USDC / SOL trade inspector). For unintegrated representations (`AAPLon`), an informational boundary button explicitly notes that Ondo GM trading pool integration is in progress without auto-switching.
+  * **Strict State Isolation:** Changing company resets product results and handoffs; toggling expectations updates guidance dynamically without leaking state.
+  * **Equal Prominence & Neutral Presentation:** Representations are presented side-by-side without subjective rankings or arbitrary scores.
+  * **Automated Verification Battery:** 92/92 tests passing across unit, integration, streaming, and Playwright browser suites (11/11 browser test flows with screenshots captured in `docs/evidence/ui/`).
+  * **Production Deployment:** Live on Vercel at `https://justfair-theta.vercel.app`.
+
 
