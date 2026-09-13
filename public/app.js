@@ -237,70 +237,65 @@ export const UNDERLYING_CATALOG = {
   }
 };
 
-// 12 Consumer Product Expectations (5 Primary + 7 Secondary)
+// 11 Canonical Consumer Product Expectations (Phase 13 / Phase 14)
 export const EXPECTATIONS_CONFIG = {
   primary: [
     {
-      capability: "HOLD_IN_OWN_WALLET",
-      title: "Hold in own Solana wallet (Self-custody)",
-      desc: "Direct wallet custody on Solana without custodial account dependency."
+      capability: "SELF_CUSTODY",
+      title: "Hold it in my own wallet",
+      desc: "Direct self-custodial storage on Solana without relying on a custodial brokerage account."
     },
     {
       capability: "ECONOMIC_DIVIDEND_BENEFIT",
-      title: "Receive economic dividend value",
-      desc: "Receive proportional value of company dividends via price adjustment or pool appreciation."
+      title: "Benefit economically from dividends",
+      desc: "Receive proportional economic value of company dividends via price multiplier adjustment."
+    },
+    {
+      capability: "CASH_DIVIDEND_PAYOUT",
+      title: "Cash dividends paid directly to me",
+      desc: "Receive dividend distributions as cash/USDC deposits sent directly into your personal wallet."
+    },
+    {
+      capability: "ORDINARY_VOTING_RIGHTS",
+      title: "Normal shareholder voting rights",
+      desc: "Direct proxy voting rights in corporate governance, board elections, and shareholder resolutions."
     },
     {
       capability: "DIRECT_SHARE_OWNERSHIP",
-      title: "Own real shares in the underlying company",
-      desc: "Direct equity ownership registered on the underlying corporation's official share registry."
-    },
-    {
-      capability: "SHAREHOLDER_VOTING",
-      title: "Shareholder voting rights",
-      desc: "Direct voting rights in corporate governance, board elections, and shareholder proxy ballots."
-    },
-    {
-      capability: "WEEKEND_TRADING",
-      title: "Weekend & 24/7 trading",
-      desc: "Ability to trade on Solana DEXes on weekends and outside traditional US equity market hours."
+      title: "Direct ownership of company shares",
+      desc: "Direct equity title registered on the underlying corporation's official share registry."
     }
   ],
   secondary: [
     {
-      capability: "CASH_DIVIDEND_PAYOUT",
-      title: "Cash dividend payouts sent to wallet (USDC/USD)",
-      desc: "Direct cash dividend distributions deposited into your personal Solana wallet."
+      capability: "WEEKEND_TRADING",
+      title: "Trade on weekends",
+      desc: "Ability to swap on Solana DEX pools on weekends. Subject to liquidity, solver availability, and off-hours market spreads; distinct from wallet transferability."
+    },
+    {
+      capability: "WALLET_TRANSFERABILITY",
+      title: "Move token between my own wallets",
+      desc: "Direct peer-to-peer wallet transferability across Solana without broker gatekeeping."
+    },
+    {
+      capability: "ONCHAIN_SECONDARY_TRADING",
+      title: "Trade on Solana DEXes",
+      desc: "Execute secondary swaps on decentralized exchange liquidity pools on Solana."
     },
     {
       capability: "DIRECT_ISSUER_REDEMPTION",
-      title: "Direct redemption option with issuer",
-      desc: "Right to redeem tokens directly with the issuer for underlying collateral or cash."
+      title: "Direct primary redemption option with issuer",
+      desc: "Right to redeem tokens directly with the issuer for underlying collateral or settlement cash."
     },
     {
       capability: "IN_KIND_SHARE_REDEMPTION",
-      title: "Redeem for actual company shares",
+      title: "Convert token into actual company shares",
       desc: "Contractual right to redeem tokens directly with the issuer for real physical/brokerage shares."
     },
     {
-      capability: "NO_KYC_REDEMPTION",
+      capability: "REDEMPTION_WITHOUT_KYC",
       title: "Redeem without identity verification",
-      desc: "Right to redeem directly with the issuer without KYC/AML identity verification."
-    },
-    {
-      capability: "UNDERLYING_BANKRUPTCY_CLAIM",
-      title: "Direct claim on underlying company",
-      desc: "Direct priority creditor/shareholder claim if the underlying operating company fails."
-    },
-    {
-      capability: "REPRESENTATION_FREEZE_RESISTANCE",
-      title: "Tokens cannot be frozen by issuer",
-      desc: "Token smart contract guarantees assets cannot be frozen or blacklisted by the issuer."
-    },
-    {
-      capability: "TOKEN_TO_STOCK_SPLIT_ADJUSTMENT",
-      title: "Automatic stock split adjustment",
-      desc: "Smart contract multiplier automatically adjusts token supply on corporate stock splits."
+      desc: "Right to redeem directly with the issuer without completing KYC/AML identity verification."
     }
   ]
 };
@@ -311,10 +306,15 @@ export const appState = {
   selectedUnderlying: "AAPL",
   expectations: {}, // capability -> 'MUST_HAVE' | 'NICE_TO_HAVE'
   productPreflightResult: null,
-  selectedRepresentation: "AAPLx",
+  selectedRepresentation: null,
+  executionHandoff: null,
   searchQuery: "",
   categoryFilter: "ALL"
 };
+
+if (typeof window !== "undefined") {
+  window.appState = appState;
+}
 
 let currentSolPrice = null; // Authoritative live price from /api/v1/prices
 let solPriceTimestamp = null;
@@ -600,6 +600,11 @@ export class ActiveTradeRouteScheduler {
 export const activeRouteScheduler = new ActiveTradeRouteScheduler();
 export const marketStreamManager = new MarketStreamManager();
 
+if (typeof window !== "undefined") {
+  window.activeRouteScheduler = activeRouteScheduler;
+  window.marketStreamManager = marketStreamManager;
+}
+
 export async function fetchAuthoritativeSolPrice() {
   try {
     const res = await fetch("/api/v1/prices/sol");
@@ -817,6 +822,11 @@ export function goToStep(step) {
   if (step < 1 || step > 4) return;
   appState.currentStep = step;
 
+  // Stop background execution route polling when not in Step 4
+  if (step !== 4) {
+    activeRouteScheduler.stop();
+  }
+
   // Update Tracker Items
   for (let i = 1; i <= 4; i++) {
     const item = document.getElementById(`tracker-step-${i}`);
@@ -889,13 +899,11 @@ export function renderUnderlyingGrid() {
 export function selectUnderlying(canonical) {
   if (!UNDERLYING_CATALOG[canonical]) return;
 
-  // State isolation: changing company resets old product results & handoff
-  if (appState.selectedUnderlying !== canonical) {
-    appState.productPreflightResult = null;
-    appState.selectedRepresentation = `${canonical}x`;
-  }
-
+  // State isolation: changing company resets old product results, representation selection & handoff
   appState.selectedUnderlying = canonical;
+  appState.productPreflightResult = null;
+  appState.selectedRepresentation = null;
+  appState.executionHandoff = null;
 
   // Highlight selected card
   document.querySelectorAll(".underlying-company-card").forEach(c => {
@@ -1034,21 +1042,6 @@ function updateExpectationsGuidance() {
 // Step 2 -> 3: Submit Product Preflight Check
 let productPreflightAbortController = null;
 
-const CAPABILITY_TO_SCHEMA_KEY = {
-  HOLD_IN_OWN_WALLET: "SELF_CUSTODY",
-  ECONOMIC_DIVIDEND_BENEFIT: "ECONOMIC_DIVIDEND_BENEFIT",
-  DIRECT_SHARE_OWNERSHIP: "DIRECT_SHARE_OWNERSHIP",
-  SHAREHOLDER_VOTING: "ORDINARY_VOTING_RIGHTS",
-  WEEKEND_TRADING: "WEEKEND_TRADING",
-  CASH_DIVIDEND_PAYOUT: "CASH_DIVIDEND_PAYOUT",
-  DIRECT_ISSUER_REDEMPTION: "DIRECT_ISSUER_REDEMPTION",
-  IN_KIND_SHARE_REDEMPTION: "IN_KIND_SHARE_REDEMPTION",
-  NO_KYC_REDEMPTION: "REDEMPTION_WITHOUT_KYC",
-  UNDERLYING_BANKRUPTCY_CLAIM: "COLLATERAL_PROTECTION_STRUCTURE",
-  REPRESENTATION_FREEZE_RESISTANCE: "WALLET_TRANSFERABILITY",
-  TOKEN_TO_STOCK_SPLIT_ADJUSTMENT: "TOKEN_2022_MULTIPLIER_ACCRETION"
-};
-
 const PRIORITY_MAP = {
   MUST_HAVE: "REQUIRED",
   NICE_TO_HAVE: "OPTIONAL"
@@ -1066,8 +1059,12 @@ export async function submitProductPreflight() {
   }
   productPreflightAbortController = new AbortController();
 
+  // Reset representation selection and handoff until user explicitly selects
+  appState.selectedRepresentation = null;
+  appState.executionHandoff = null;
+
   let expectationsPayload = Object.entries(appState.expectations).map(([capability, priority]) => ({
-    key: CAPABILITY_TO_SCHEMA_KEY[capability] || capability,
+    key: capability,
     priority: PRIORITY_MAP[priority] || "REQUIRED"
   }));
 
@@ -1088,16 +1085,18 @@ export async function submitProductPreflight() {
     });
 
     const data = await res.json();
-    if (data.request_status === "COMPLETED" || data.overall_result) {
+    if (res.ok && (data.request_status === "COMPLETED" || data.overall_result)) {
       appState.productPreflightResult = data;
       renderProductPreflightResults(data);
       goToStep(3);
     } else {
-      alert(data.message || data.error || "Product preflight check failed. Please retry.");
+      renderProductPreflightError(data.message || data.error || "Unable to inspect product representations at this time.");
+      goToStep(3);
     }
   } catch (err) {
     if (err.name !== "AbortError") {
-      alert("Network error while inspecting product representations.");
+      renderProductPreflightError("There was an issue verifying on-chain product representations. Please try again.");
+      goToStep(3);
     }
   } finally {
     if (submitBtn) {
@@ -1111,6 +1110,31 @@ export async function submitProductPreflight() {
       `;
     }
   }
+}
+
+export function renderProductPreflightError(errorMsg) {
+  const banner = document.getElementById("product-result-banner");
+  const bannerIconBox = document.getElementById("result-banner-icon-box");
+  const bannerTitle = document.getElementById("result-banner-title");
+  const bannerSubtitle = document.getElementById("result-banner-subtitle");
+  const repsContainer = document.getElementById("representation-cards-container");
+
+  if (banner) {
+    banner.className = "product-result-banner status-error";
+    if (bannerIconBox) {
+      bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+    }
+    if (bannerTitle) bannerTitle.textContent = "We couldn't check this right now";
+    if (bannerSubtitle) {
+      bannerSubtitle.innerHTML = `<span>${errorMsg || "There was an issue verifying on-chain product representations. Please try again."}</span> <button type="button" class="btn btn-primary btn-sm retry-preflight-btn" id="btn-retry-preflight" style="margin-left: 12px; vertical-align: middle;">Try Again</button>`;
+      const retryBtn = bannerSubtitle.querySelector("#btn-retry-preflight");
+      if (retryBtn) {
+        retryBtn.addEventListener("click", () => submitProductPreflight());
+      }
+    }
+  }
+
+  if (repsContainer) repsContainer.innerHTML = "";
 }
 
 // Step 3: Render Product Preflight Results
@@ -1129,6 +1153,12 @@ export function renderProductPreflightResults(data) {
   const mustHavesCount = Object.values(appState.expectations).filter(p => p === "MUST_HAVE").length;
   if (step3MustHaves) {
     step3MustHaves.textContent = `${mustHavesCount} Must-Have${mustHavesCount === 1 ? '' : 's'} Checked`;
+  }
+
+  // Update Bounded Dividend Fact Callout
+  const dividendSafetyText = document.getElementById("dividend-safety-text");
+  if (dividendSafetyText) {
+    dividendSafetyText.textContent = `Neither currently verified ${meta.name} representation pays ordinary cash dividends directly into your wallet. The documented dividend mechanism for this representation does not require a separate wallet claim transaction.`;
   }
 
   // Result Banner
@@ -1209,9 +1239,9 @@ export function renderProductPreflightResults(data) {
           note: "No voting rights passed to token holders"
         },
         {
-          label: "24/7 & Weekend DEX Trading",
+          label: "Weekend DEX Trading",
           status: "MATCH",
-          note: "Trades on Solana DEX pools 24/7"
+          note: "Secondary DEX liquidity pools trade on weekends"
         },
         {
           label: "Direct Issuer Redemption",
@@ -1248,6 +1278,18 @@ export function renderProductPreflightResults(data) {
         `;
       }).join("");
 
+      // Specific expectation explanations
+      let detailedExplText = "";
+      if (rep.evaluation?.required && rep.evaluation.required.length > 0) {
+        const expls = rep.evaluation.required.map(r => r.explanation).filter(Boolean);
+        if (expls.length > 0) {
+          detailedExplText = expls.join(" ");
+        }
+      }
+      if (!detailedExplText) {
+        detailedExplText = rep.evaluation?.summary || (isMatch ? 'Verified Token-2022 representation satisfies all required expectations.' : 'Check capability notes above for full details.');
+      }
+
       card.innerHTML = `
         <div class="rep-card-header">
           <div class="rep-brand-group">
@@ -1264,7 +1306,7 @@ export function renderProductPreflightResults(data) {
         </ul>
 
         <div class="rep-explanation-box">
-          <p>${rep.evaluation?.summary || (isMatch ? 'Verified Token-2022 representation satisfies all required expectations.' : 'Check capability notes above for full details.')}</p>
+          <p>${detailedExplText}</p>
         </div>
 
         <!-- Verified on Solana Drawer -->
@@ -1307,9 +1349,9 @@ export function renderProductPreflightResults(data) {
             </button>
           ` : `
             <button type="button" class="btn btn-secondary btn-md btn-rep-unsupported" disabled>
-              <span>Trade check not yet available</span>
+              <span>Trade Check is not yet available for this representation</span>
             </button>
-            <p class="unsupported-note">JustFair execution engine currently monitors xStocks liquidity pools on Solana. Ondo GM trading pool integration in progress.</p>
+            <p class="unsupported-note">Product verification is complete. JustFair's Execution Preflight currently supports xStocks representations only.</p>
           `}
         </div>
       `;
@@ -1341,10 +1383,19 @@ export function renderProductPreflightResults(data) {
         });
       }
 
+      // Attach Card selection / inspection
+      card.addEventListener("click", (e) => {
+        if (e.target.closest(".mint-copy-btn") || e.target.closest(".rep-solana-toggle") || e.target.closest(".btn-check-trade")) return;
+        appState.selectedRepresentation = rep.symbol;
+        document.querySelectorAll(".representation-card").forEach(c => c.classList.remove("is-selected-rep"));
+        card.classList.add("is-selected-rep");
+      });
+
       // Attach Trade Handoff button
       const tradeBtn = card.querySelector(".btn-check-trade");
       if (tradeBtn) {
-        tradeBtn.addEventListener("click", () => {
+        tradeBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
           handoffToExecutionPreflight(rep.symbol);
         });
       }
@@ -1416,19 +1467,19 @@ export function renderScenariosAccordion(data) {
   const scenarios = [
     {
       title: "What happens if the company pays a dividend?",
-      desc: "Tokenized stock products pass economic dividend value via token price adjustment or pool appreciation. No tokenized stock on Solana currently sends automatic cash USDC dividend drops into personal wallets."
+      desc: "Tokenized stock products pass economic dividend value via token price adjustment or pool appreciation. The documented dividend mechanism does not require a separate wallet claim transaction."
     },
     {
       title: "What happens if the company splits its stock?",
       desc: "Smart contracts adjust the share multiplier or token supply on-chain according to corporate actions. JustFair tracks and verifies multiplier transitions in real time."
     },
     {
-      title: "What happens if the token issuer becomes insolvent?",
-      desc: "Both xStocks (Jersey SPV) and Ondo (BVI SPV) utilize bankruptcy-remote special purpose vehicles where collateral shares are segregated from the issuer's operating balance sheet."
+      title: "Can I redeem this token directly with the issuer for cash or shares?",
+      desc: "Direct primary redemption is subject to issuer KYC and minimums ($5,000 for xStocks; Regulation S institutional onboarding for Ondo). Secondary onchain trading may be available independently of direct issuer redemption, subject to venue availability and liquidity."
     },
     {
-      title: "What happens if the underlying company goes bankrupt?",
-      desc: "Tokenized stock holders possess a claim against the bankruptcy-remote SPV holding the underlying equity, but do NOT hold a direct preferred creditor claim on the operating company."
+      title: "What happens if the token issuer becomes insolvent?",
+      desc: "Both xStocks (Jersey SPV) and Ondo (BVI SPV) utilize bankruptcy-remote special purpose vehicles where collateral shares are segregated from the issuer's operating balance sheet."
     }
   ];
 
@@ -1461,6 +1512,13 @@ export function renderScenariosAccordion(data) {
 export function handoffToExecutionPreflight(symbol) {
   appState.selectedRepresentation = symbol;
 
+  const repMeta = STOCK_META[symbol] || { name: symbol, canonical: symbol };
+  appState.executionHandoff = {
+    representation: symbol,
+    canonical: repMeta.canonical || appState.selectedUnderlying,
+    timestamp: new Date().toISOString()
+  };
+
   const handoffTitle = document.getElementById("handoff-title");
   const handoffSub = document.getElementById("handoff-sub");
 
@@ -1472,8 +1530,8 @@ export function handoffToExecutionPreflight(symbol) {
       : `Ondo Global Markets (BVI) Limited · Token-2022 Verified on Solana`;
   }
 
-  // Activate the execution card for symbol in Step 4
-  renderAllStockCards(symbol);
+  // Activate single execution card for symbol in Step 4 with empty amount input
+  renderSingleStockCard(symbol);
   goToStep(4);
 }
 
@@ -1490,10 +1548,24 @@ export function initStepNavigation() {
 
   // Step 2 buttons
   const changeCompBtn = document.getElementById("btn-change-company");
-  if (changeCompBtn) changeCompBtn.addEventListener("click", () => goToStep(1));
+  if (changeCompBtn) {
+    changeCompBtn.addEventListener("click", () => {
+      appState.selectedRepresentation = null;
+      appState.executionHandoff = null;
+      appState.productPreflightResult = null;
+      goToStep(1);
+    });
+  }
 
   const backToStep1Btn = document.getElementById("btn-back-to-step1");
-  if (backToStep1Btn) backToStep1Btn.addEventListener("click", () => goToStep(1));
+  if (backToStep1Btn) {
+    backToStep1Btn.addEventListener("click", () => {
+      appState.selectedRepresentation = null;
+      appState.executionHandoff = null;
+      appState.productPreflightResult = null;
+      goToStep(1);
+    });
+  }
 
   const submitExpBtn = document.getElementById("btn-submit-expectations");
   if (submitExpBtn) submitExpBtn.addEventListener("click", () => submitProductPreflight());
@@ -1510,10 +1582,22 @@ export function initStepNavigation() {
 
   // Step 3 buttons
   const editExpBtn = document.getElementById("btn-edit-expectations");
-  if (editExpBtn) editExpBtn.addEventListener("click", () => goToStep(2));
+  if (editExpBtn) {
+    editExpBtn.addEventListener("click", () => {
+      appState.selectedRepresentation = null;
+      appState.executionHandoff = null;
+      goToStep(2);
+    });
+  }
 
   const backToStep2Btn = document.getElementById("btn-back-to-step2");
-  if (backToStep2Btn) backToStep2Btn.addEventListener("click", () => goToStep(2));
+  if (backToStep2Btn) {
+    backToStep2Btn.addEventListener("click", () => {
+      appState.selectedRepresentation = null;
+      appState.executionHandoff = null;
+      goToStep(2);
+    });
+  }
 
   // Step 4 buttons
   const backToStep3Btn = document.getElementById("btn-back-to-step3");
@@ -1653,6 +1737,61 @@ function renderAllStockCards(initiallyExpandedSymbol = "AAPLx") {
   });
 }
 
+export function renderSingleStockCard(symbol) {
+  if (!stockCardsContainer) return;
+  stockCardsContainer.innerHTML = "";
+
+  const meta = STOCK_META[symbol] || {
+    symbol,
+    name: symbol,
+    canonical: symbol,
+    fullName: symbol,
+    mint: "",
+    logo: "/assets/stocks/apple.svg",
+    category: "Tokenized Equity",
+    desc: `Tokenized ${symbol} on Solana`
+  };
+
+  const cardEl = document.createElement("div");
+  cardEl.className = "stock-card-standalone is-expanded";
+  cardEl.id = `stock-card-${symbol}`;
+  cardEl.setAttribute("data-symbol", symbol);
+  cardEl.setAttribute("data-category", meta.category);
+  cardEl.setAttribute("data-keywords", `${meta.name} ${meta.canonical} ${meta.fullName} ${symbol}`.toLowerCase());
+
+  cardEl.innerHTML = `
+    <!-- Card Header / Collapsed Summary -->
+    <div class="stock-card-header" role="button" tabindex="0" aria-expanded="true" aria-controls="stock-body-${symbol}">
+      <div class="stock-card-brand">
+        <div class="stock-logo-wrap">
+          <img src="${meta.logo}" alt="${meta.name} logo" class="stock-logo-img" loading="lazy">
+        </div>
+        <div class="stock-brand-info">
+          <div class="stock-title-row">
+            <h3 class="stock-name">${meta.name}</h3>
+            <span class="stock-ticker-badge">${meta.symbol}</span>
+            <span class="stock-canonical-pill">${meta.canonical}</span>
+          </div>
+          <p class="stock-desc">${meta.desc}</p>
+        </div>
+      </div>
+      <div class="stock-header-action">
+        <span class="badge-active-rep" style="background: rgba(5,150,105,0.12); color: #059669; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 9999px; border: 1px solid rgba(5,150,105,0.25);">
+          Selected Product
+        </span>
+      </div>
+    </div>
+
+    <!-- Card Body (Active Trade Interface) -->
+    <div class="stock-card-body" id="stock-body-${symbol}">
+      ${renderCardBodyMarkup(symbol)}
+    </div>
+  `;
+
+  stockCardsContainer.appendChild(cardEl);
+  setupCardInteractivity(cardEl, symbol);
+}
+
 function renderCardBodyMarkup(symbol) {
   const stock = STOCK_META[symbol] || { name: symbol, canonical: symbol, mint: "", fullName: symbol };
   return `
@@ -1688,15 +1827,15 @@ function renderCardBodyMarkup(symbol) {
         <div class="form-col">
           <div class="form-label-row">
             <label class="form-label">Amount to Spend</label>
-            <span class="label-sub amount-usd-equivalent">$500.00 USD</span>
+            <span class="label-sub amount-usd-equivalent">$0.00 USD</span>
           </div>
           <div class="input-wrapper">
             <span class="input-prefix amount-prefix">$</span>
-            <input type="number" name="amount" class="form-input amount-input" value="500" min="1" max="1000000" step="any" required>
+            <input type="number" name="amount" class="form-input amount-input" value="" placeholder="0.00" min="1" max="1000000" step="any" required>
           </div>
           <div class="amount-presets">
             <button type="button" class="preset-btn" data-val="100">$100</button>
-            <button type="button" class="preset-btn active" data-val="500">$500</button>
+            <button type="button" class="preset-btn" data-val="500">$500</button>
             <button type="button" class="preset-btn" data-val="1000">$1,000</button>
             <button type="button" class="preset-btn" data-val="2500">$2,500</button>
           </div>
@@ -1744,15 +1883,15 @@ function renderCardBodyMarkup(symbol) {
       <div class="live-preview-grid">
         <div class="live-preview-item">
           <span class="live-preview-label">Live Spend</span>
-          <span class="live-preview-value live-spend-val">$500.00 USD</span>
+          <span class="live-preview-value live-spend-val">$0.00 USD</span>
         </div>
         <div class="live-preview-item">
           <span class="live-preview-label">Indicative Shares</span>
-          <span class="live-preview-value live-shares-val">Fetching live route...</span>
+          <span class="live-preview-value live-shares-val">Enter amount to view route...</span>
         </div>
         <div class="live-preview-item">
           <span class="live-preview-label">Route Freshness</span>
-          <span class="live-preview-value live-freshness-val">Initializing...</span>
+          <span class="live-preview-value live-freshness-val">Standby</span>
         </div>
       </div>
       <p class="live-preview-hint">Live indicative DEX preview. Click <strong>CHECK TRADE</strong> above to freeze an immutable preflight snapshot.</p>
