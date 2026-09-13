@@ -88,6 +88,12 @@ export function extractObservedTokenState(accountValue) {
   const metaPointerExt = rawExtensions.find(e => e.extension === "metadataPointer");
   const tokenMetadataExt = rawExtensions.find(e => e.extension === "tokenMetadata");
 
+  const metadataSymbol = tokenMetadataExt?.state?.symbol ?? null;
+  const metadataName = tokenMetadataExt?.state?.name ?? null;
+  const metadataUri = tokenMetadataExt?.state?.uri ?? null;
+  const metadataPointer = metaPointerExt?.state?.metadataAddress ?? null;
+  const metadataUpdateAuthority = tokenMetadataExt?.state?.updateAuthority ?? null;
+
   return {
     exists: true,
     isParsed: true,
@@ -98,9 +104,40 @@ export function extractObservedTokenState(accountValue) {
     freezeAuthority,
     extensions,
     multiplierState,
-    metadataPointer: metaPointerExt?.state,
-    tokenMetadata: tokenMetadataExt?.state
+    metadataPointer,
+    tokenMetadata: tokenMetadataExt?.state ?? null,
+    metadataSymbol,
+    metadataName,
+    metadataUri,
+    metadataUpdateAuthority
   };
+}
+
+const UNDERLYING_NAME_ALIASES = {
+  AAPL: ["apple", "aapl"],
+  NVDA: ["nvidia", "nvda"],
+  SPY: ["s&p", "sp500", "sp 500", "spy", "spdr"],
+  TSLA: ["tesla", "tsla"],
+  MSFT: ["microsoft", "msft"],
+  AMZN: ["amazon", "amzn"],
+  GOOGL: ["alphabet", "google", "googl", "goog"],
+  META: ["meta", "facebook"],
+  COIN: ["coinbase", "coin"],
+  AMD: ["amd", "advanced micro"],
+  MSTR: ["microstrategy", "mstr"],
+  QQQ: ["invesco", "qqq", "nasdaq"]
+};
+
+/**
+ * Validates issuer-specific metadata name identity without over-requiring stylistic formatting
+ */
+export function validateMetadataNameIdentity(expected, observedName) {
+  if (!observedName || typeof observedName !== "string") return false;
+  const normObs = observedName.trim().toLowerCase();
+  const underlying = (expected.underlyingSymbol || "").toUpperCase();
+  const aliases = UNDERLYING_NAME_ALIASES[underlying] || [(expected.underlyingSymbol || "").toLowerCase(), (expected.ticker || "").toLowerCase()];
+
+  return aliases.some(alias => normObs.includes(alias.toLowerCase()));
 }
 
 /**
@@ -145,6 +182,25 @@ export function compareExpectedVsObserved(expected, observed) {
     }
   }
 
+  // 5. Metadata Identity Check (Independently Observed)
+  if (observed.metadataSymbol !== null && observed.metadataSymbol !== undefined) {
+    if (observed.metadataSymbol.trim().toUpperCase() !== (expected.metadataSymbol || expected.ticker || "").trim().toUpperCase()) {
+      reasonCodes.push(VERIFICATION_REASON_CODES.METADATA_SYMBOL_MISMATCH);
+    }
+  }
+
+  if (observed.metadataName !== null && observed.metadataName !== undefined) {
+    const isNameValid = validateMetadataNameIdentity(expected, observed.metadataName);
+    if (!isNameValid) {
+      reasonCodes.push(VERIFICATION_REASON_CODES.METADATA_NAME_MISMATCH);
+    }
+  }
+
+  // Check if tokenMetadata extension was explicitly required but missing
+  if (expected.requireMetadata && (!observed.metadataSymbol || !observed.metadataName)) {
+    reasonCodes.push(VERIFICATION_REASON_CODES.METADATA_UNAVAILABLE);
+  }
+
   if (reasonCodes.length > 0) {
     return {
       status: VERIFICATION_STATUS.MISMATCH,
@@ -178,6 +234,7 @@ export async function verifyProductOnchain(productId, options = {}) {
   const expected = {
     productId: product.productId,
     ticker: product.representationTicker,
+    underlyingSymbol: product.underlyingSymbol,
     issuerId: product.issuerProfile.issuerId,
     issuerName: product.issuerProfile.issuerName,
     mint: product.mint,
@@ -185,7 +242,8 @@ export async function verifyProductOnchain(productId, options = {}) {
     tokenProgram: product.tokenProgram,
     expectedExtensions: product.expectedExtensions,
     metadataSymbol: product.metadataSymbol,
-    metadataName: product.metadataName
+    metadataName: product.metadataName,
+    requireMetadata: options.requireMetadata ?? false
   };
 
   const rpcUrl = options.rpcUrl || DEFAULT_RPC_URL;
@@ -231,9 +289,15 @@ export async function verifyProductOnchain(productId, options = {}) {
       mintAuthority: observed.mintAuthority,
       freezeAuthority: observed.freezeAuthority,
       multiplierState: observed.multiplierState,
-      effectiveMultiplier
+      effectiveMultiplier,
+      metadataSymbol: observed.metadataSymbol,
+      metadataName: observed.metadataName,
+      metadataUri: observed.metadataUri,
+      metadataPointer: observed.metadataPointer,
+      metadataUpdateAuthority: observed.metadataUpdateAuthority
     },
     checkedAt: new Date().toISOString()
   };
 }
+
 

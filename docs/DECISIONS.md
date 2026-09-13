@@ -88,4 +88,16 @@
   * **Weekend Trading Semantics:** Modeled as `CONDITIONAL`, explicitly distinguishing on-chain technical transferability (24/7), venue availability, real liquidity presence, and off-hours market spreads/risk controls.
   * **API Route Disambiguation:** `/api/v1/products/compare/:symbol` is processed prior to generic `:productId` matches, preventing route collision. Product IDs containing colons (both raw `xstocks:aaplx:solana` and URL-encoded `xstocks%3Aaaplx%3Asolana`) decode and resolve deterministically.
 
+## Decision 012: On-Chain Metadata Evidence Integrity & Independent Decoding (Phase 12 / Order 011.3)
+* **Context:** Director Order 011.3 identified that previous machine-generated revalidation artifacts used `rep.metadataSymbol` and `rep.metadataName` to populate observed fields rather than independently decoding on-chain Token-2022 extensions.
+* **Decision:**
+  * **Strict Expected vs. Observed Separation:**
+    * **SUPERSEDED:** Observed metadata fields populated from registry expected values.
+    * **REPLACED BY:** Observed metadata (`observed_metadata_symbol`, `observed_metadata_name`, `observed_metadata_uri`, `observed_metadata_pointer`) is independently decoded directly from live SPL Token-2022 `tokenMetadata` (type 19) and `metadataPointer` (type 18) account extensions via RPC, or explicitly set to `null` / marked `METADATA_UNAVAILABLE`.
+  * **Metadata Reason Codes Added:**
+    * `METADATA_UNAVAILABLE`, `METADATA_DECODE_FAILURE`, `METADATA_POINTER_UNAVAILABLE`.
+  * **Issuer-Specific Name Identity Validation:** `validateMetadataNameIdentity` ensures on-chain names match expected underlying security aliases without rejecting legitimate issuer-specific branding (e.g. `"Apple xStock"` for `AAPLx` or `"Apple (Ondo Tokenized)"` for `AAPLon`).
+  * **Reproducible Revalidation Pipeline:** Created [`scripts/revalidate-product-registry.js`](file:///c:/Users/HomePC/desktop/JustFair/scripts/revalidate-product-registry.js) generating deterministic evidence at [`scratch/product_registry_revalidation.json`](file:///c:/Users/HomePC/desktop/JustFair/scratch/product_registry_revalidation.json) with 24/24 observable matches and 0 mismatches.
+
+
 

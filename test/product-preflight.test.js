@@ -38,6 +38,7 @@ import {
 import {
   extractObservedTokenState,
   compareExpectedVsObserved,
+  validateMetadataNameIdentity,
   verifyProductOnchain
 } from "../src/product/verifier.js";
 
@@ -512,4 +513,120 @@ test("29. Suspicious & Hallucinated Address Rejection Gate", () => {
     );
   }
 });
+
+test("30. Metadata Independence Gate: Expected registry cannot populate observed fields", () => {
+  const dummyAccount = {
+    owner: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    data: {
+      parsed: {
+        info: {
+          decimals: 8,
+          supply: "1000000",
+          extensions: [
+            {
+              extension: "scaledUiAmountConfig",
+              state: { multiplier: "1.002", newMultiplier: null, newMultiplierEffectiveTimestamp: 0 }
+            }
+          ]
+        }
+      }
+    }
+  };
+
+  const observed = extractObservedTokenState(dummyAccount);
+  assert.equal(observed.metadataSymbol, null, "Observed metadataSymbol must be null if not in onchain account");
+  assert.equal(observed.metadataName, null, "Observed metadataName must be null if not in onchain account");
+  assert.equal(observed.metadataUri, null, "Observed metadataUri must be null if not in onchain account");
+  assert.equal(observed.metadataPointer, null, "Observed metadataPointer must be null if not in onchain account");
+});
+
+test("31. Metadata Negative Testing Gate: Symbol and Name Mismatches", () => {
+  const expected = {
+    productId: "xstocks:aaplx:solana",
+    ticker: "AAPLx",
+    underlyingSymbol: "AAPL",
+    issuerId: "BACKED_ASSETS_JE",
+    issuerName: "Backed Assets (JE) Limited",
+    mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+    decimals: 8,
+    tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    expectedExtensions: ["scaledUiAmountConfig"],
+    metadataSymbol: "AAPLx",
+    metadataName: "Apple Inc. (Tokenized)"
+  };
+
+  // Case A: Wrong Symbol onchain (e.g. MSFTx on an AAPLx mint)
+  const observedWrongSymbol = {
+    exists: true,
+    owner: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    decimals: 8,
+    extensions: ["scaledUiAmountConfig"],
+    multiplierState: { multiplier: "1.0" },
+    metadataSymbol: "MSFTx",
+    metadataName: "Apple xStock"
+  };
+  const compSymbol = compareExpectedVsObserved(expected, observedWrongSymbol);
+  assert.equal(compSymbol.status, VERIFICATION_STATUS.MISMATCH);
+  assert.ok(compSymbol.reasonCodes.includes(VERIFICATION_REASON_CODES.METADATA_SYMBOL_MISMATCH));
+
+  // Case B: Wrong Name onchain (e.g. "Bitcoin Tracker" on an AAPLx mint)
+  const observedWrongName = {
+    exists: true,
+    owner: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    decimals: 8,
+    extensions: ["scaledUiAmountConfig"],
+    multiplierState: { multiplier: "1.0" },
+    metadataSymbol: "AAPLx",
+    metadataName: "Bitcoin Tracker Meme Token"
+  };
+  const compName = compareExpectedVsObserved(expected, observedWrongName);
+  assert.equal(compName.status, VERIFICATION_STATUS.MISMATCH);
+  assert.ok(compName.reasonCodes.includes(VERIFICATION_REASON_CODES.METADATA_NAME_MISMATCH));
+
+  // Case C: Missing required metadata when requireMetadata is true
+  const expectedStrict = { ...expected, requireMetadata: true };
+  const observedNoMeta = {
+    exists: true,
+    owner: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    decimals: 8,
+    extensions: ["scaledUiAmountConfig"],
+    multiplierState: { multiplier: "1.0" },
+    metadataSymbol: null,
+    metadataName: null
+  };
+  const compMissing = compareExpectedVsObserved(expectedStrict, observedNoMeta);
+  assert.equal(compMissing.status, VERIFICATION_STATUS.MISMATCH);
+  assert.ok(compMissing.reasonCodes.includes(VERIFICATION_REASON_CODES.METADATA_UNAVAILABLE));
+});
+
+test("32. Malformed Metadata & Issuer-Specific Name Validation", () => {
+  const xstocksExpected = {
+    issuerId: "BACKED_ASSETS_JE",
+    underlyingSymbol: "AAPL",
+    ticker: "AAPLx"
+  };
+  const ondoExpected = {
+    issuerId: "ONDO_GLOBAL_MARKETS",
+    underlyingSymbol: "NVDA",
+    ticker: "NVDAon"
+  };
+
+  // Malformed non-string inputs return false safely without throwing
+  assert.equal(validateMetadataNameIdentity(xstocksExpected, null), false);
+  assert.equal(validateMetadataNameIdentity(xstocksExpected, undefined), false);
+  assert.equal(validateMetadataNameIdentity(xstocksExpected, 12345), false);
+  assert.equal(validateMetadataNameIdentity(xstocksExpected, {}), false);
+
+  // xStocks legitimate name patterns
+  assert.equal(validateMetadataNameIdentity(xstocksExpected, "Apple xStock"), true);
+  assert.equal(validateMetadataNameIdentity(xstocksExpected, "Apple Inc. (Tokenized)"), true);
+  assert.equal(validateMetadataNameIdentity(xstocksExpected, "AAPL xStock"), true);
+  assert.equal(validateMetadataNameIdentity(xstocksExpected, "Tesla xStock"), false);
+
+  // Ondo legitimate name patterns
+  assert.equal(validateMetadataNameIdentity(ondoExpected, "NVIDIA (Ondo Tokenized)"), true);
+  assert.equal(validateMetadataNameIdentity(ondoExpected, "NVDAon"), true);
+  assert.equal(validateMetadataNameIdentity(ondoExpected, "Apple (Ondo Tokenized)"), false);
+});
+
 
