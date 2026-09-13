@@ -1,5 +1,5 @@
 // JustFair — Issuer-Level & Product-Family Facts (FinePrint)
-// Phase 12 — Splits Issuer-Level Facts from Asset-Level Facts with First-Class Provenance
+// Phase 12 Final Truth Correction — Backed Assets (JE) Limited & Distinct Issuer Redemption Models
 
 import {
   FACT_AUTHORITY_CLASS,
@@ -12,15 +12,17 @@ import {
  */
 export const ISSUER_PROFILES = {
   BACKED_ASSETS: {
-    issuerId: "BACKED_ASSETS",
+    issuerId: "BACKED_ASSETS_JE",
     productFamily: "xStocks",
-    issuerName: "Backed Assets GmbH",
-    issuerJurisdiction: "Switzerland / Liechtenstein (EU Prospectus Regulation / Swiss DLT Framework)",
+    issuerName: "Backed Assets (JE) Limited",
+    issuerLegalRole: "Issuer / Special Purpose Vehicle (Jersey)",
+    issuerJurisdiction: "Jersey (Channel Islands)",
+    serviceProvider: "Backed Assets GmbH (Switzerland / Liechtenstein Tokenization Service Provider)",
     legalStructure: "Tracker Certificate / Structured Debt Security (Tokenized Tracker)",
     backingRatio: "1:1 Collateralized by Underlying Equity / ETF Shares",
-    custodyModel: "Regulated Swiss Custody (Segregated Collateral Pledge with Security Trustee)",
-    documentationUrl: "https://www.backedassets.fi/legal-documentation",
-    prospectusApprovedBy: "Financial Market Authority (FMA) Liechtenstein",
+    custodyModel: "Segregated Custody (Asset-by-Asset Pledge with Security Trustee)",
+    documentationUrl: "https://docs.xstocks.fi/docs/product-legal-overview",
+    faqUrl: "https://docs.xstocks.fi/docs/faq",
     primaryNetwork: "Solana",
     defaultTokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", // Token-2022
     defaultDecimals: 8,
@@ -30,6 +32,7 @@ export const ISSUER_PROFILES = {
     issuerId: "ONDO_GLOBAL_MARKETS",
     productFamily: "Ondo Stocks",
     issuerName: "Ondo Global Markets (BVI) Limited",
+    issuerLegalRole: "Issuer / Special Purpose Vehicle (BVI)",
     issuerJurisdiction: "British Virgin Islands (Regulation S Exemption under US Securities Act of 1933)",
     legalStructure: "Tokenized Securities / Equity-Backed Structured Notes (Ondo Stocks)",
     backingRatio: "1:1 Exposure to Underlying Securities held via Regulated Custodial Broker-Dealer",
@@ -49,7 +52,7 @@ export const ISSUER_PROFILES = {
  * Issuer-Family Normalized Capabilities with First-Class Provenance
  */
 export const ISSUER_CAPABILITIES = {
-  BACKED_ASSETS: {
+  BACKED_ASSETS_JE: {
     [CAPABILITY_KEYS.SELF_CUSTODY]: {
       value: true,
       evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_TRUE,
@@ -65,8 +68,8 @@ export const ISSUER_CAPABILITIES = {
       title: "Direct Equity Ownership",
       summary: "No direct equity ownership. You hold a structured debt security tracking the underlying equity price, not registered common stock in your name.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_LEGAL,
-      citation: "Backed Assets Base Prospectus Section 4: Rights Attached to Securities",
-      sourceUrl: "https://www.backedassets.fi/legal-documentation",
+      citation: "xStocks Product Legal Overview: Rights Attached to Securities",
+      sourceUrl: "https://docs.xstocks.fi/docs/product-legal-overview",
       dateChecked: "2026-09-13"
     },
     [CAPABILITY_KEYS.ORDINARY_VOTING_RIGHTS]: {
@@ -75,8 +78,8 @@ export const ISSUER_CAPABILITIES = {
       title: "Corporate Voting Rights",
       summary: "No corporate voting rights. The custodian holds the underlying shares; voting rights are not passed through to token holders.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_LEGAL,
-      citation: "Backed Assets Base Prospectus Section 4.3: Exercise of Voting Rights",
-      sourceUrl: "https://www.backedassets.fi/legal-documentation",
+      citation: "xStocks Product Legal Overview: Corporate Actions & Governance",
+      sourceUrl: "https://docs.xstocks.fi/docs/product-legal-overview",
       dateChecked: "2026-09-13"
     },
     [CAPABILITY_KEYS.ECONOMIC_DIVIDEND_BENEFIT]: {
@@ -85,8 +88,8 @@ export const ISSUER_CAPABILITIES = {
       title: "Economic Dividend Benefit (Total Return)",
       summary: "Net dividends (after applicable withholding tax) are preserved and reinvested into underlying collateral, increasing share exposure per token.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_LEGAL,
-      citation: "Backed Assets Corporate Actions Terms",
-      sourceUrl: "https://www.backedassets.fi/legal-documentation",
+      citation: "xStocks Product Legal Overview: Corporate Actions",
+      sourceUrl: "https://docs.xstocks.fi/docs/product-legal-overview",
       dateChecked: "2026-09-13"
     },
     [CAPABILITY_KEYS.CASH_DIVIDEND_PAYOUT]: {
@@ -96,8 +99,8 @@ export const ISSUER_CAPABILITIES = {
       summary: "No cash, USD, or USDC dividend is deposited directly into your wallet. Dividend value compounds automatically via on-chain Token-2022 multiplier.",
       safetyWarning: "Unsolicited tokens or messages claiming to be cash dividends or requiring a claim signature are malicious phishing scams. xStocks automatically adjust value on-chain without user action.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_LEGAL,
-      citation: "Backed Assets Base Terms & Solana ScaledUiAmount Extension Specification",
-      sourceUrl: "https://www.backedassets.fi/legal-documentation",
+      citation: "xStocks Base Terms & Solana ScaledUiAmount Extension Specification",
+      sourceUrl: "https://docs.xstocks.fi/docs/product-legal-overview",
       dateChecked: "2026-09-13"
     },
     [CAPABILITY_KEYS.WALLET_TRANSFERABILITY]: {
@@ -105,8 +108,8 @@ export const ISSUER_CAPABILITIES = {
       conditional: true,
       evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
       title: "24/7 Wallet-to-Wallet Transferability",
-      summary: "Freely transferable between Solana wallets 24/7, subject to issuer freeze and pause authority.",
-      reason: "Technically transferable on-chain at any time between un-frozen accounts, subject to compliance and regulatory freeze controls.",
+      summary: "Freely transferable between Solana wallets 24/7, subject to Backed Assets (JE) Limited freeze and pause authority.",
+      reason: "On-chain token transfers between un-frozen accounts are supported 24/7 by SPL Token-2022, subject to Backed Assets compliance and freeze controls.",
       authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
       sourceUrl: "https://solscan.io/token/XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
       dateChecked: "2026-09-13"
@@ -125,29 +128,33 @@ export const ISSUER_CAPABILITIES = {
       conditional: true,
       evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
       title: "Direct Primary Issuer Redemption",
-      summary: "Direct primary issuance and redemption for underlying shares or cash with Backed Assets is available only to Qualified / Whitelisted Investors.",
+      summary: "Direct primary issuance and redemption with Backed Assets (JE) Limited is available to eligible retail and institutional investors who complete issuer KYC onboarding and wallet whitelisting (minimum $5,000 transaction size). Everyday retail users exit directly via Solana DEX liquidity without onboarding.",
+      kycRequired: true,
+      walletWhitelistRequired: true,
+      minimumDirectRedemptionUsd: 5000,
+      qualifiedInvestorOnly: false,
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_LEGAL,
-      citation: "Backed Assets Base Prospectus Section 2: Issuance and Redemption",
-      sourceUrl: "https://www.backedassets.fi/legal-documentation",
+      citation: "xStocks Product Legal Overview & Issuer FAQ",
+      sourceUrl: "https://docs.xstocks.fi/docs/product-legal-overview",
       dateChecked: "2026-09-13"
     },
     [CAPABILITY_KEYS.REDEMPTION_WITHOUT_KYC]: {
       value: false,
       evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
       title: "Direct Primary Redemption Without KYC",
-      summary: "Direct primary redemption with the issuer requires completing full KYC verification and onboarding. Retail users exit via secondary DEX liquidity without KYC.",
+      summary: "Direct primary redemption with Backed Assets (JE) Limited strictly requires KYC/AML verification and wallet whitelisting. Retail traders exit on-chain via secondary DEX liquidity without KYC.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_LEGAL,
-      citation: "Backed Assets Base Prospectus Section 2: Investor Eligibility",
-      sourceUrl: "https://www.backedassets.fi/legal-documentation",
+      citation: "xStocks Product Legal Overview: Primary vs Secondary Market",
+      sourceUrl: "https://docs.xstocks.fi/docs/product-legal-overview",
       dateChecked: "2026-09-13"
     },
     [CAPABILITY_KEYS.WEEKEND_TRADING]: {
       value: true,
       conditional: true,
       evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
-      title: "Weekend & Off-Hours Trading",
-      summary: "On-chain DEX swaps execute 24/7, but trades during US market closures face wider bid-ask spreads and liquidity volatility because the underlying stock tape is closed.",
-      reason: "Secondary DEX liquidity pools operate 24/7, but traditional market makers widen spreads when reference stock exchanges are closed.",
+      title: "Weekend & Off-Hours Trading Availability",
+      summary: "Secondary DEX trading operates 24/7 on Solana, but off-hours and weekend execution face wider bid-ask spreads and liquidity volatility because the underlying stock tape is closed.",
+      reason: "Token is 24/7 transferable on-chain and DEX pools remain open, but real liquidity depth depends on market makers whose quotes widen when US reference stock exchanges are closed.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_PRODUCT_DOCS,
       sourceUrl: "https://docs.xstocks.fi",
       dateChecked: "2026-09-13"
@@ -161,14 +168,14 @@ export const ISSUER_CAPABILITIES = {
       sourceUrl: "https://spl.solana.com/token-2022/extensions#scaled-ui-amount",
       dateChecked: "2026-09-13"
     },
-    [CAPABILITY_KEYS.BANKRUPTCY_SEGREGATED_COLLATERAL]: {
+    [CAPABILITY_KEYS.COLLATERAL_PROTECTION_STRUCTURE]: {
       value: true,
       evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_TRUE,
-      title: "Segregated Bankruptcy Collateral",
-      summary: "Underlying shares are held in segregated custody accounts pledged to a security trustee for token holders, protecting collateral from issuer insolvency.",
+      title: "Bankruptcy-Remote Collateral Protection Structure",
+      summary: "Issued by Backed Assets (JE) Limited (a bankruptcy-remote Jersey SPV). Underlying shares are held in segregated custody pledged to a Security Trustee for tokenholders on an asset-by-asset basis.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_LEGAL,
-      citation: "Backed Assets Legal Documentation: Custody & Collateral Segregation",
-      sourceUrl: "https://www.backedassets.fi/legal-documentation",
+      citation: "xStocks Product Legal Overview: Structure and Security",
+      sourceUrl: "https://docs.xstocks.fi/docs/product-legal-overview",
       dateChecked: "2026-09-13"
     }
   },
@@ -229,8 +236,8 @@ export const ISSUER_CAPABILITIES = {
       conditional: true,
       evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
       title: "24/7 Wallet-to-Wallet Transferability",
-      summary: "24/7 on-chain wallet-to-wallet transferability on Solana, subject to issuer freeze authority and regulatory pause controls.",
-      reason: "Technically transferable on-chain at any time between un-frozen accounts, subject to compliance and regulatory freeze controls.",
+      summary: "24/7 on-chain wallet-to-wallet transferability on Solana, subject to Ondo Global Markets freeze authority and regulatory pause controls.",
+      reason: "On-chain token transfers between un-frozen accounts are supported 24/7 by SPL Token-2022, subject to Ondo compliance and pause authority.",
       authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
       citation: "Ondo Stocks Transferability & Compliance Framework",
       sourceUrl: "https://docs.ondo.finance/ondo-stocks/transferability",
@@ -251,7 +258,9 @@ export const ISSUER_CAPABILITIES = {
       conditional: true,
       evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
       title: "Direct Primary Issuer Redemption",
-      summary: "Direct primary minting and redemption for cash/USDon requires completing KYC onboarding with Ondo Global Markets (non-US persons only).",
+      summary: "Direct primary minting and redemption for cash/USDon requires completing platform KYC onboarding with Ondo Global Markets (BVI) Limited (non-US persons only under Regulation S). On-chain retail users trade via solver network and DEX routing without KYC.",
+      kycRequired: true,
+      qualifiedInvestorOnly: false,
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_PRODUCT_DOCS,
       citation: "Ondo Global Markets Onboarding and KYC Specification",
       sourceUrl: "https://docs.ondo.finance/ondo-stocks/onboarding-and-kyc",
@@ -261,7 +270,7 @@ export const ISSUER_CAPABILITIES = {
       value: false,
       evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
       title: "Direct Primary Redemption Without KYC",
-      summary: "Direct primary redemption with the issuer strictly requires KYC identity verification. Retail traders exit via secondary trading without KYC.",
+      summary: "Direct primary redemption with Ondo Global Markets strictly requires KYC identity verification. Retail traders exit via secondary market / DEX trading without KYC.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_PRODUCT_DOCS,
       citation: "Ondo Global Markets Onboarding and KYC Specification",
       sourceUrl: "https://docs.ondo.finance/ondo-stocks/onboarding-and-kyc",
@@ -271,9 +280,9 @@ export const ISSUER_CAPABILITIES = {
       value: true,
       conditional: true,
       evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
-      title: "Weekend & Off-Hours Trading",
-      summary: "Session-dependent: Pre-market, Core regular market, Post-market, and Off-Hours sessions. Off-Hours trading is subject to broker limits and corporate-action pauses.",
-      reason: "Off-Hours trading allows after-hours execution with brokerage liquidity, but is subject to wider spreads and risk controls when underlying US exchanges are closed.",
+      title: "Weekend & Off-Hours Trading Availability",
+      summary: "Session-dependent secondary execution: Pre-market, Core regular market, Post-market, and Off-Hours sessions. Off-Hours trading is subject to brokerage capacity limits, wider spreads, and corporate-action pauses.",
+      reason: "Brokerage and solver liquidity allows off-hours execution, but spreads and risk limits adjust dynamically when underlying US exchanges are closed.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_PRODUCT_DOCS,
       citation: "Ondo Stocks Market Hours and Trading Availability",
       sourceUrl: "https://docs.ondo.finance/ondo-stocks/market-hours-and-trading-availability",
@@ -288,11 +297,11 @@ export const ISSUER_CAPABILITIES = {
       sourceUrl: "https://spl.solana.com/token-2022/extensions#scaled-ui-amount",
       dateChecked: "2026-09-13"
     },
-    [CAPABILITY_KEYS.BANKRUPTCY_SEGREGATED_COLLATERAL]: {
+    [CAPABILITY_KEYS.COLLATERAL_PROTECTION_STRUCTURE]: {
       value: true,
       evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_TRUE,
-      title: "Segregated Bankruptcy Collateral",
-      summary: "Tokenholders benefit from a first-priority perfected security interest in collateral held with a regulated custodial broker-dealer.",
+      title: "Bankruptcy-Remote Collateral Protection Structure",
+      summary: "Issued by Ondo Global Markets (BVI) Limited (a bankruptcy-remote special purpose vehicle). Tokenholders benefit from a first-priority perfected security interest in collateral held with a regulated custodial broker-dealer.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_LEGAL,
       citation: "Ondo Stocks Trust and Transparency Architecture",
       sourceUrl: "https://docs.ondo.finance/ondo-stocks/trust-and-transparency",
@@ -302,10 +311,15 @@ export const ISSUER_CAPABILITIES = {
 };
 
 /**
+ * Backward compatibility alias for ISSUER_CAPABILITIES
+ */
+ISSUER_CAPABILITIES.BACKED_ASSETS = ISSUER_CAPABILITIES.BACKED_ASSETS_JE;
+
+/**
  * Structured Scenario Facts ("What Happens If")
  */
 export const SCENARIO_FACTS = {
-  BACKED_ASSETS: {
+  BACKED_ASSETS_JE: {
     DIVIDEND: {
       scenarioId: "DIVIDEND",
       title: "What happens when the underlying stock pays a dividend?",
@@ -313,8 +327,8 @@ export const SCENARIO_FACTS = {
       mechanism: "Token-2022 scaledUiAmountConfig multiplier accretion (Total Return)",
       userActionRequired: "None. Balance display updates automatically on Solana.",
       commonMisconception: "Expecting cash or USDC to arrive directly in your wallet on dividend payment date.",
-      productSpecificCaveat: "Gross dividends are subject to standard Swiss/foreign withholding taxes before reinvestment.",
-      primarySource: "https://www.backedassets.fi/legal-documentation"
+      productSpecificCaveat: "Gross dividends are subject to foreign withholding taxes before reinvestment.",
+      primarySource: "https://docs.xstocks.fi/docs/product-legal-overview"
     },
     STOCK_SPLIT: {
       scenarioId: "STOCK_SPLIT",
@@ -329,12 +343,12 @@ export const SCENARIO_FACTS = {
     REDEMPTION: {
       scenarioId: "REDEMPTION",
       title: "How do you redeem or exit your tokenized stock position?",
-      plainLanguageExplanation: "Everyday retail users exit by swapping their tokens back to USDC or SOL on Solana decentralized exchanges (Jupiter, Raydium, Meteora). Direct primary redemption for physical stock or fiat with Backed Assets is reserved for onboarded KYC-verified Qualified Investors.",
-      mechanism: "Secondary DEX liquidity pools (Retail) / Primary Issuer Settlement (Qualified Investors)",
-      userActionRequired: "Swap on Solana DEX or apply for institutional KYC onboarding.",
+      plainLanguageExplanation: "Everyday retail users exit by swapping their tokens back to USDC or SOL on Solana decentralized exchanges (Jupiter, Raydium, Meteora). Direct primary redemption with Backed Assets (JE) Limited is available to eligible retail and institutional investors who complete issuer KYC onboarding and meet the $5,000 minimum transaction threshold.",
+      mechanism: "Secondary DEX liquidity pools (Retail) / Primary Issuer Settlement (Onboarded KYC Participants)",
+      userActionRequired: "Swap on Solana DEX or apply for direct issuer KYC onboarding.",
       commonMisconception: "Believing you can walk into a brokerage and deposit the token into a traditional NYSE account directly.",
-      productSpecificCaveat: "Direct issuer redemption is subject to minimum volume thresholds and redemption fees.",
-      primarySource: "https://www.backedassets.fi/legal-documentation"
+      productSpecificCaveat: "Direct issuer redemption is subject to the $5,000 minimum transaction size and processing fees.",
+      primarySource: "https://docs.xstocks.fi/docs/product-legal-overview"
     }
   },
 
@@ -372,6 +386,8 @@ export const SCENARIO_FACTS = {
   }
 };
 
+SCENARIO_FACTS.BACKED_ASSETS = SCENARIO_FACTS.BACKED_ASSETS_JE;
+
 /**
  * Reusable Safety Fact: Dividend Claim Transactions
  */
@@ -379,7 +395,7 @@ export const DIVIDEND_CLAIM_SAFETY_FACT = {
   factKey: "DOCUMENTED_DIVIDEND_CLAIM_TX_REQUIRED",
   status: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
   userFacingStatement: "This product's documented dividend mechanism does not require you to sign a separate dividend-claim transaction.",
-  explanation: "Both Backed Assets (xStocks) and Ondo Stocks compound net dividends directly into token exposure on-chain via SPL Token-2022 Scaled UI multipliers. Any third-party website, airdrop, or token requesting a wallet signature to 'claim dividends' is a malicious phishing attempt.",
+  explanation: "Both Backed Assets (JE) Limited (xStocks) and Ondo Global Markets compound net dividends directly into token exposure on-chain via SPL Token-2022 Scaled UI multipliers. Any third-party website, airdrop, or token requesting a wallet signature to 'claim dividends' is a malicious phishing attempt.",
   authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
   dateChecked: "2026-09-13"
 };

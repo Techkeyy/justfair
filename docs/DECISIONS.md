@@ -72,12 +72,20 @@
     * `trading_availability`: Session-dependent execution (Core Session 09:30-16:00 ET, Extended Sessions, with weekend / off-hours trading subject to broker limits and dynamic spreads).
   * **Execution Preflight Boundary:** `AAPLx` is supported by existing Swap V2 route engine; `AAPLon` is clearly labeled `EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION`.
 
-## Decision 010: Primary-Source Product Registry & Exact-Asset Verification Pipeline (Phase 12 / Order 011)
-* **Context:** Director Order 011 required establishing a production-grade, deterministic, provenance-backed catalog mapping 12 underlying securities to 24 representations (12 xStocks by Backed Assets, 12 Ondo Stocks by Ondo Global Markets), splitting issuer-level facts from asset-level facts, implementing an on-chain exact-asset verifier, and creating a deterministic cross-issuer difference engine.
+## Decision 011: xStocks Issuer Truth, Distinct Redemption Models, & API Routing Integrity (Phase 12 / Order 011.1)
+* **Context:** Director Order 011.1 corrected the current xStocks legal issuer identity, refined the redemption semantics to avoid over-generalizing xStocks eligibility, isolated Ondo redemption from xStocks, and verified server URL routing for colon-bearing product IDs.
 * **Decision:**
-  * **Registry Architecture:** Organized strictly around `UNDERLYING -> REPRESENTATIONS` with stable product IDs (`xstocks:<ticker>:solana`, `ondo:<ticker>:solana`).
-  * **Issuer Fact Composition:** Split general legal structure, voting rights, redemption framework, and Total-Return dividend mechanics into `src/product/issuerFacts.js`, composed dynamically with asset-specific on-chain state (decimals, mint, authorities, extensions, dynamic multipliers).
-  * **Exact-Asset Verifier:** Implemented `src/product/verifier.js` comparing `EXPECTED` configuration against live `OBSERVED` SPL Token-2022 account data on Solana Mainnet RPC without silent mutation. Returns structured reason codes (`MINT_NOT_FOUND`, `TOKEN_PROGRAM_MISMATCH`, `DECIMALS_MISMATCH`, `EXPECTED_EXTENSION_MISSING`, `MULTIPLIER_PARSE_FAILURE`, `RPC_UNAVAILABLE`).
-  * **Deterministic Difference Engine:** Implemented `src/product/comparator.js` extracting only meaningful factual differences (issuer, legal structure, custody, decimals, redemption, trading availability, execution support) and key shared realities without subjective ranking or scores.
-  * **Product Preflight REST API:** Expose `GET /api/v1/products`, `GET /api/v1/products/:productId`, `GET /api/v1/products/:productId/verify`, and `GET /api/v1/products/compare/:symbol`.
+  * **Current xStocks Issuer Identity:** Sourced from official [xStocks Product Legal Overview](https://docs.xstocks.fi/docs/product-legal-overview). Current legal issuer is **Backed Assets (JE) Limited** (a Jersey-based special purpose vehicle). Backed Assets GmbH in Switzerland / Liechtenstein operates as the Tokenization Service Provider.
+    * **SUPERSEDED:** Current xStocks issuer represented as Backed Assets GmbH.
+    * **REPLACED BY:** Backed Assets (JE) Limited (Jersey SPV) per current official Product Legal Overview.
+  * **xStocks Redemption Semantics:** Direct primary issuance and redemption with Backed Assets (JE) Limited is available to eligible retail and institutional investors who complete issuer KYC onboarding and wallet whitelisting, with a \$5,000 minimum transaction size. Everyday retail traders exit on-chain via Solana DEX liquidity without KYC onboarding.
+    * **SUPERSEDED:** Direct issuer redemption generalized as "Qualified/KYC investors only".
+    * **REPLACED BY:** Issuer-specific redemption conditions (KYC required, wallet whitelisting required, \$5,000 minimum, retail eligible).
+  * **Ondo Redemption Semantics:** Independently sourced from [Ondo Global Markets Documentation](https://docs.ondo.finance/ondo-stocks/onboarding-and-kyc). Direct primary redemption for cash/USDon requires platform KYC onboarding under Regulation S (strictly non-US persons). Everyday retail users exit via secondary solver and DEX routing without KYC.
+  * **Collateral Protection Structure:** Modeled as `COLLATERAL_PROTECTION_STRUCTURE` preserving distinct legal realities:
+    * *xStocks:* Bankruptcy-remote Jersey SPV (`Backed Assets (JE) Limited`) with asset-by-asset segregated custody pledged to a Security Trustee.
+    * *Ondo:* Bankruptcy-remote BVI SPV (`Ondo Global Markets (BVI) Limited`) with collateral held at regulated custodial broker-dealer under a first-priority perfected security interest.
+  * **Weekend Trading Semantics:** Modeled as `CONDITIONAL`, explicitly distinguishing on-chain technical transferability (24/7), venue availability, real liquidity presence, and off-hours market spreads/risk controls.
+  * **API Route Disambiguation:** `/api/v1/products/compare/:symbol` is processed prior to generic `:productId` matches, preventing route collision. Product IDs containing colons (both raw `xstocks:aaplx:solana` and URL-encoded `xstocks%3Aaaplx%3Asolana`) decode and resolve deterministically.
+
 

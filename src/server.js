@@ -446,7 +446,8 @@ export async function handleRequest(req, res) {
     if (pathname.endsWith("/verify")) {
       const parts = pathname.split("/").filter(Boolean);
       // e.g. api, v1, products, xstocks:aaplx:solana, verify
-      const productId = parts[3];
+      const rawProductId = parts[3];
+      const productId = rawProductId ? decodeURIComponent(rawProductId) : null;
       if (!productId) {
         return sendJson(res, 400, { status: "ERROR", reason: "Product ID parameter is required" });
       }
@@ -467,7 +468,8 @@ export async function handleRequest(req, res) {
     // 6c. Specific Product Card: GET /api/v1/products/:productId
     const parts = pathname.split("/").filter(Boolean);
     if (parts.length >= 4) {
-      const productId = parts[3];
+      const rawProductId = parts[3];
+      const productId = rawProductId ? decodeURIComponent(rawProductId) : null;
       const productCaps = getProductCapabilities(productId);
       if (!productCaps) {
         return sendJson(res, 404, {

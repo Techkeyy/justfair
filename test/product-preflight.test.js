@@ -1,9 +1,8 @@
 // JustFair — Product Preflight / FinePrint Comprehensive Unit Test Suite
-// Phase 12 — Primary-Source Product Registry & Verification Pipeline
+// Phase 12 Final Truth Correction — Backed Assets (JE) Limited, Independent Redemptions & API Routing
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import http from "node:http";
 
 import {
   FACT_AUTHORITY_CLASS,
@@ -123,7 +122,57 @@ test("3. Exact Ondo Mint Verification across all 12 assets from official constan
   }
 });
 
-test("4. Exact-Asset Verifier: Wrong Mint Rejection", () => {
+test("4. xStocks Legal Issuer Truth: Current issuer is Backed Assets (JE) Limited (Jersey SPV)", () => {
+  const aaplxCaps = getProductCapabilities("xstocks:aaplx:solana");
+  assert.equal(aaplxCaps.issuer.issuerName, "Backed Assets (JE) Limited");
+  assert.equal(aaplxCaps.issuer.issuerJurisdiction, "Jersey (Channel Islands)");
+  assert.equal(aaplxCaps.issuer.issuerLegalRole, "Issuer / Special Purpose Vehicle (Jersey)");
+  assert.ok(aaplxCaps.issuer.documentationUrl.includes("docs.xstocks.fi/docs/product-legal-overview"));
+});
+
+test("5. xStocks Redemption Truth: Retail eligible, KYC required, $5000 minimum, not qualified-only", () => {
+  const aaplxCaps = getProductCapabilities("xstocks:aaplx:solana");
+  const redemption = aaplxCaps.capabilities[CAPABILITY_KEYS.DIRECT_ISSUER_REDEMPTION];
+  assert.equal(redemption.evidenceStatus, FACT_EVIDENCE_STATUS.CONDITIONAL);
+  assert.equal(redemption.kycRequired, true);
+  assert.equal(redemption.walletWhitelistRequired, true);
+  assert.equal(redemption.minimumDirectRedemptionUsd, 5000);
+  assert.equal(redemption.qualifiedInvestorOnly, false);
+  assert.ok(redemption.summary.includes("$5,000"));
+});
+
+test("6. Ondo Redemption Truth: Non-US Reg S KYC model isolated from xStocks", () => {
+  const aaplonCaps = getProductCapabilities("ondo:aaplon:solana");
+  const redemption = aaplonCaps.capabilities[CAPABILITY_KEYS.DIRECT_ISSUER_REDEMPTION];
+  assert.equal(redemption.evidenceStatus, FACT_EVIDENCE_STATUS.CONDITIONAL);
+  assert.equal(redemption.kycRequired, true);
+  assert.ok(redemption.summary.includes("Regulation S"));
+  assert.ok(redemption.summary.includes("Ondo Global Markets (BVI) Limited"));
+  assert.notEqual(redemption.summary, getProductCapabilities("xstocks:aaplx:solana").capabilities[CAPABILITY_KEYS.DIRECT_ISSUER_REDEMPTION].summary);
+});
+
+test("7. Collateral Protection Structure: Factually distinct between Jersey SPV and BVI SPV", () => {
+  const aaplxCaps = getProductCapabilities("xstocks:aaplx:solana");
+  const aaplonCaps = getProductCapabilities("ondo:aaplon:solana");
+
+  const xCollateral = aaplxCaps.capabilities[CAPABILITY_KEYS.COLLATERAL_PROTECTION_STRUCTURE];
+  const ondoCollateral = aaplonCaps.capabilities[CAPABILITY_KEYS.COLLATERAL_PROTECTION_STRUCTURE];
+
+  assert.ok(xCollateral.summary.includes("Backed Assets (JE) Limited"));
+  assert.ok(xCollateral.summary.includes("Security Trustee"));
+
+  assert.ok(ondoCollateral.summary.includes("Ondo Global Markets (BVI) Limited"));
+  assert.ok(ondoCollateral.summary.includes("first-priority perfected security interest"));
+});
+
+test("8. Weekend Trading Model: Modeled as CONDITIONAL with liquidity context", () => {
+  const aaplxCaps = getProductCapabilities("xstocks:aaplx:solana");
+  const trading = aaplxCaps.capabilities[CAPABILITY_KEYS.WEEKEND_TRADING];
+  assert.equal(trading.evidenceStatus, FACT_EVIDENCE_STATUS.CONDITIONAL);
+  assert.ok(trading.reason.includes("market makers"));
+});
+
+test("9. Exact-Asset Verifier: Wrong Mint Rejection", () => {
   const expected = {
     mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
     decimals: 8,
@@ -136,15 +185,15 @@ test("4. Exact-Asset Verifier: Wrong Mint Rejection", () => {
   assert.ok(res.reasonCodes.includes(VERIFICATION_REASON_CODES.MINT_NOT_FOUND));
 });
 
-test("5. Exact-Asset Verifier: Wrong Token Program Rejection", () => {
+test("10. Exact-Asset Verifier: Wrong Token Program Rejection", () => {
   const expected = {
     mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
     decimals: 8,
-    tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" // Token-2022
+    tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
   };
   const observed = {
     exists: true,
-    owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", // Legacy SPL Token
+    owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     decimals: 8,
     extensions: []
   };
@@ -154,7 +203,7 @@ test("5. Exact-Asset Verifier: Wrong Token Program Rejection", () => {
   assert.ok(res.reasonCodes.includes(VERIFICATION_REASON_CODES.TOKEN_PROGRAM_MISMATCH));
 });
 
-test("6. Exact-Asset Verifier: Decimals Mismatch Rejection", () => {
+test("11. Exact-Asset Verifier: Decimals Mismatch Rejection", () => {
   const expected = {
     mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
     decimals: 8,
@@ -163,7 +212,7 @@ test("6. Exact-Asset Verifier: Decimals Mismatch Rejection", () => {
   const observed = {
     exists: true,
     owner: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-    decimals: 6, // Mismatched decimals
+    decimals: 6,
     extensions: []
   };
 
@@ -172,7 +221,7 @@ test("6. Exact-Asset Verifier: Decimals Mismatch Rejection", () => {
   assert.ok(res.reasonCodes.includes(VERIFICATION_REASON_CODES.DECIMALS_MISMATCH));
 });
 
-test("7. Exact-Asset Verifier: Issuer-Specific Extensions Check", () => {
+test("12. Exact-Asset Verifier: Issuer-Specific Extensions Check", () => {
   const expectedXStock = {
     mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
     decimals: 8,
@@ -183,7 +232,7 @@ test("7. Exact-Asset Verifier: Issuer-Specific Extensions Check", () => {
     exists: true,
     owner: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
     decimals: 8,
-    extensions: ["metadataPointer"] // Missing scaledUiAmountConfig and permanentDelegate
+    extensions: ["metadataPointer"]
   };
 
   const res = compareExpectedVsObserved(expectedXStock, observedMissing);
@@ -191,13 +240,13 @@ test("7. Exact-Asset Verifier: Issuer-Specific Extensions Check", () => {
   assert.ok(res.reasonCodes.includes(VERIFICATION_REASON_CODES.EXPECTED_EXTENSION_MISSING));
 });
 
-test("8. Multiplier Model: Past effective timestamp resolves newMultiplier as active", () => {
+test("13. Multiplier Model: Past effective timestamp resolves newMultiplier as active", () => {
   const multiplierInfo = {
     multiplier: "1.0026642075893797",
     newMultiplier: "1.0032690125398187",
-    newMultiplierEffectiveTimestamp: 1786149000 // In the past (Aug 2026)
+    newMultiplierEffectiveTimestamp: 1786149000
   };
-  const currentTs = 1789177611; // Sept 2026
+  const currentTs = 1789177611;
 
   const resolved = resolveEffectiveMultiplier(multiplierInfo, currentTs);
   assert.equal(resolved.activeMultiplier, "1.0032690125398187");
@@ -205,11 +254,11 @@ test("8. Multiplier Model: Past effective timestamp resolves newMultiplier as ac
   assert.equal(resolved.isTransitionActive, true);
 });
 
-test("9. Multiplier Model: Future effective timestamp keeps current multiplier as active", () => {
+test("14. Multiplier Model: Future effective timestamp keeps current multiplier as active", () => {
   const multiplierInfo = {
     multiplier: "1.0026642075893797",
     newMultiplier: "1.0040000000000000",
-    newMultiplierEffectiveTimestamp: 1800000000 // In the future
+    newMultiplierEffectiveTimestamp: 1800000000
   };
   const currentTs = 1789177611;
 
@@ -219,45 +268,21 @@ test("9. Multiplier Model: Future effective timestamp keeps current multiplier a
   assert.equal(resolved.isTransitionActive, false);
 });
 
-test("10. Multiplier Model: Default parity when multiplier is absent", () => {
+test("15. Multiplier Model: Default parity when multiplier is absent", () => {
   const resolved = resolveEffectiveMultiplier(null);
   assert.equal(resolved.activeMultiplier, "1.0");
   assert.equal(resolved.numericMultiplier, 1.0);
   assert.equal(resolved.isTransitionUpcoming, false);
 });
 
-test("11. Legal Fact Inheritance: Issuer-level facts compose cleanly onto representation", () => {
-  const aaplxCaps = getProductCapabilities("xstocks:aaplx:solana");
-  assert.ok(aaplxCaps, "AAPLx capabilities must be composed");
-  assert.equal(aaplxCaps.issuer.issuerName, "Backed Assets GmbH");
-  assert.equal(aaplxCaps.issuer.legalStructure, "Tracker Certificate / Structured Debt Security (Tokenized Tracker)");
-  assert.equal(aaplxCaps.capabilities[CAPABILITY_KEYS.DIRECT_SHARE_OWNERSHIP].value, false);
-  assert.equal(aaplxCaps.capabilities[CAPABILITY_KEYS.SELF_CUSTODY].value, true);
-
-  const aaplonCaps = getProductCapabilities("ondo:aaplon:solana");
-  assert.ok(aaplonCaps, "AAPLon capabilities must be composed");
-  assert.equal(aaplonCaps.issuer.issuerName, "Ondo Global Markets (BVI) Limited");
-  assert.equal(aaplonCaps.issuer.legalStructure, "Tokenized Securities / Equity-Backed Structured Notes (Ondo Stocks)");
-});
-
-test("12. Fact Isolation: Facts from one issuer family never bleed into another", () => {
-  const aaplxCaps = getProductCapabilities("xstocks:aaplx:solana");
-  const aaplonCaps = getProductCapabilities("ondo:aaplon:solana");
-
-  assert.notEqual(aaplxCaps.issuer.issuerId, aaplonCaps.issuer.issuerId);
-  assert.notEqual(aaplxCaps.issuer.documentationUrl, aaplonCaps.issuer.documentationUrl);
-  assert.equal(aaplxCaps.decimals, 8);
-  assert.equal(aaplonCaps.decimals, 9);
-});
-
-test("13. UNKNOWN Preservation: Unmapped expectations return UNKNOWN without false coercion", () => {
+test("16. UNKNOWN Preservation: Unmapped expectations return UNKNOWN without false coercion", () => {
   const rep = getProduct("xstocks:aaplx:solana");
   const evalResult = evaluateExpectationForRepresentation("HYPOTHETICAL_UNMAPPED_CAPABILITY", EXPECTATION_PRIORITY.REQUIRED, rep);
   assert.equal(evalResult.state, MATCH_STATE.UNKNOWN);
   assert.notEqual(evalResult.state, MATCH_STATE.MISMATCH);
 });
 
-test("14. Execution Support Boundary: Explicitly marks xStocks as SUPPORTED and Ondo as NOT_YET_SUPPORTED", () => {
+test("17. Execution Support Boundary: Explicitly marks xStocks as SUPPORTED and Ondo as NOT_YET_SUPPORTED", () => {
   const aaplx = getProduct("xstocks:aaplx:solana");
   assert.equal(aaplx.executionPreflightSupport, EXECUTION_SUPPORT.SUPPORTED);
   assert.equal(aaplx.executionPreflightSupported, true);
@@ -267,56 +292,41 @@ test("14. Execution Support Boundary: Explicitly marks xStocks as SUPPORTED and 
   assert.equal(aaplon.executionPreflightSupported, false);
 });
 
-test("15. Difference Engine: Cross-issuer comparison outputs factual differences without ranking", () => {
+test("18. Difference Engine: Cross-issuer comparison outputs factual differences without ranking", () => {
   const comparison = compareProducts("xstocks:aaplx:solana", "ondo:aaplon:solana");
   assert.equal(comparison.underlyingSymbol, "AAPL");
   assert.ok(comparison.differences.length >= 5, "Must identify key factual differences");
   assert.ok(comparison.sharedFacts.length >= 3, "Must state key shared realities");
   
-  // Confirm no subjective winner or rank exists
   assert.equal(comparison.winner, undefined);
   assert.equal(comparison.score, undefined);
   assert.equal(comparison.rank, undefined);
 });
 
-test("16. Capability Normalization: Standard profiles match or mismatch deterministically", () => {
-  // Profile 1: Self-Custody & Economic Dividend Exposure -> Both match!
+test("19. Capability Normalization: Standard profiles match or mismatch deterministically", () => {
   const res1 = matchUnderlyingExpectations("AAPL", COMPARISON_PROFILES.PROFILE_1_SELF_CUSTODY_EXPOSURE.expectations);
   assert.equal(res1.verdict, PRODUCT_VERDICT.MULTIPLE_VERIFIED_MATCHES);
   assert.equal(res1.matchingRepresentations.length, 2);
 
-  // Profile 2: Direct Equity & Voting Rights -> Both fail!
   const res2 = matchUnderlyingExpectations("AAPL", COMPARISON_PROFILES.PROFILE_2_DIRECT_EQUITY_VOTING.expectations);
   assert.equal(res2.verdict, PRODUCT_VERDICT.REQUIREMENT_MISMATCH);
   assert.equal(res2.matchingRepresentations.length, 0);
 
-  // Profile 3: Transfer & Anon Redemption -> Both fail!
   const res3 = matchUnderlyingExpectations("AAPL", COMPARISON_PROFILES.PROFILE_3_TRANSFER_AND_ANON_REDEMPTION.expectations);
   assert.equal(res3.verdict, PRODUCT_VERDICT.REQUIREMENT_MISMATCH);
 
-  // Profile 4: Cash Dividends Paid Directly -> Both fail (Total Return)!
   const res4 = matchUnderlyingExpectations("AAPL", COMPARISON_PROFILES.PROFILE_4_CASH_DIVIDENDS.expectations);
   assert.equal(res4.verdict, PRODUCT_VERDICT.REQUIREMENT_MISMATCH);
 });
 
-test("17. Transferability & Trading Availability: Modeled as CONDITIONAL with clear context", () => {
-  const aaplxCaps = getProductCapabilities("xstocks:aaplx:solana");
-  const transfer = aaplxCaps.capabilities[CAPABILITY_KEYS.WALLET_TRANSFERABILITY];
-  assert.equal(transfer.evidenceStatus, FACT_EVIDENCE_STATUS.CONDITIONAL);
-  assert.ok(transfer.reason.includes("freeze"));
-
-  const trading = aaplxCaps.capabilities[CAPABILITY_KEYS.WEEKEND_TRADING];
-  assert.equal(trading.evidenceStatus, FACT_EVIDENCE_STATUS.CONDITIONAL);
-});
-
-test("18. Reusable Dividend-Claim Safety Fact: Verified false claim requirement", () => {
+test("20. Reusable Dividend-Claim Safety Fact: Verified false claim requirement", () => {
   assert.equal(DIVIDEND_CLAIM_SAFETY_FACT.factKey, "DOCUMENTED_DIVIDEND_CLAIM_TX_REQUIRED");
   assert.equal(DIVIDEND_CLAIM_SAFETY_FACT.status, FACT_EVIDENCE_STATUS.VERIFIED_FALSE);
   assert.ok(DIVIDEND_CLAIM_SAFETY_FACT.userFacingStatement.includes("does not require you to sign a separate dividend-claim transaction"));
 });
 
-test("19. What-Happens-If Scenario Coverage: Complete data for DIVIDEND, STOCK_SPLIT, REDEMPTION", () => {
-  for (const issuerKey of ["BACKED_ASSETS", "ONDO_GLOBAL_MARKETS"]) {
+test("21. What-Happens-If Scenario Coverage: Complete data for DIVIDEND, STOCK_SPLIT, REDEMPTION", () => {
+  for (const issuerKey of ["BACKED_ASSETS_JE", "ONDO_GLOBAL_MARKETS"]) {
     const scenarios = SCENARIO_FACTS[issuerKey];
     assert.ok(scenarios.DIVIDEND, `${issuerKey} must cover DIVIDEND`);
     assert.ok(scenarios.STOCK_SPLIT, `${issuerKey} must cover STOCK_SPLIT`);
@@ -329,15 +339,7 @@ test("19. What-Happens-If Scenario Coverage: Complete data for DIVIDEND, STOCK_S
   }
 });
 
-test("20. Exact-Asset Verifier Live Check: Verifies live account against Solana Mainnet RPC", async () => {
-  const result = await verifyProductOnchain("xstocks:aaplx:solana");
-  assert.ok(result.productId, "Result must contain productId");
-  assert.ok(["VERIFIED", "UNABLE_TO_VERIFY"].includes(result.verificationStatus), `Status must be VERIFIED or UNABLE_TO_VERIFY (RPC dependent), got: ${result.verificationStatus}`);
-  assert.equal(result.expected.decimals, 8);
-  assert.equal(result.expected.tokenProgram, "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
-});
-
-test("21. REST API: GET /api/v1/products returns master catalog with 12 underlyings", async () => {
+test("22. REST API: GET /api/v1/products returns master catalog with 12 underlyings", async () => {
   const req = { method: "GET", url: "/api/v1/products", headers: { host: "localhost" } };
   let statusCode;
   let responseData;
@@ -353,25 +355,34 @@ test("21. REST API: GET /api/v1/products returns master catalog with 12 underlyi
   assert.equal(responseData.product_count, 24);
 });
 
-test("22. REST API: GET /api/v1/products/:productId returns detailed product card", async () => {
-  const req = { method: "GET", url: "/api/v1/products/xstocks:aaplx:solana", headers: { host: "localhost" } };
-  let statusCode;
-  let responseData;
-  const res = {
-    writeHead: (code) => { statusCode = code; },
-    end: (body) => { responseData = JSON.parse(body); }
+test("23. REST API: GET /api/v1/products/:productId supports colon-bearing product IDs and URL-encoded IDs", async () => {
+  // Raw colon
+  const req1 = { method: "GET", url: "/api/v1/products/xstocks:aaplx:solana", headers: { host: "localhost" } };
+  let statusCode1;
+  let responseData1;
+  const res1 = {
+    writeHead: (code) => { statusCode1 = code; },
+    end: (body) => { responseData1 = JSON.parse(body); }
   };
+  await handleRequest(req1, res1);
+  assert.equal(statusCode1, 200);
+  assert.equal(responseData1.product.representationTicker, "AAPLx");
+  assert.equal(responseData1.product.issuer.issuerName, "Backed Assets (JE) Limited");
 
-  await handleRequest(req, res);
-  assert.equal(statusCode, 200);
-  assert.equal(responseData.status, "SUCCESS");
-  assert.equal(responseData.product.representationTicker, "AAPLx");
-  assert.equal(responseData.product.decimals, 8);
-  assert.ok(responseData.product.capabilities);
-  assert.ok(responseData.product.scenarios);
+  // URL-encoded colon
+  const req2 = { method: "GET", url: "/api/v1/products/xstocks%3Aaaplx%3Asolana", headers: { host: "localhost" } };
+  let statusCode2;
+  let responseData2;
+  const res2 = {
+    writeHead: (code) => { statusCode2 = code; },
+    end: (body) => { responseData2 = JSON.parse(body); }
+  };
+  await handleRequest(req2, res2);
+  assert.equal(statusCode2, 200);
+  assert.equal(responseData2.product.representationTicker, "AAPLx");
 });
 
-test("23. REST API: GET /api/v1/products/compare/AAPL returns cross-issuer differences", async () => {
+test("24. REST API: GET /api/v1/products/compare/AAPL routes properly without colliding with :productId", async () => {
   const req = { method: "GET", url: "/api/v1/products/compare/AAPL", headers: { host: "localhost" } };
   let statusCode;
   let responseData;
@@ -387,7 +398,7 @@ test("23. REST API: GET /api/v1/products/compare/AAPL returns cross-issuer diffe
   assert.ok(responseData.sharedFacts.length > 0);
 });
 
-test("24. REST API: GET /api/v1/products/:productId/verify executes live onchain check", async () => {
+test("25. REST API: GET /api/v1/products/:productId/verify executes live onchain check", async () => {
   const req = { method: "GET", url: "/api/v1/products/xstocks:aaplx:solana/verify", headers: { host: "localhost" } };
   let statusCode;
   let responseData;

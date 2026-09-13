@@ -236,3 +236,4 @@ export async function verifyProductOnchain(productId, options = {}) {
     checkedAt: new Date().toISOString()
   };
 }
+

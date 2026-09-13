@@ -167,3 +167,4 @@ export function compareUnderlyingRepresentations(underlyingSymbol) {
 
   return compareProducts(reps[0].productId, reps[1].productId);
 }
+
