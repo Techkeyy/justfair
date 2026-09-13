@@ -1,296 +1,905 @@
 // JustFair — Product Preflight Fact Registry
 // Primary-Source Catalog for Tokenized Stocks on Solana
-// Phase 11 Final Truth Correction — AAPLon Exact Mint & Semantic Dividend/Trading Models
+// Phase 12 — Full Multi-Issuer Underlying Catalog (12 Underlyings, 24 Representations)
 
-import { FACT_AUTHORITY, FACT_EVIDENCE_STATUS, EXPECTATION_KEYS } from "./schema.js";
+import {
+  FACT_AUTHORITY_CLASS,
+  FACT_EVIDENCE_STATUS,
+  VERIFICATION_STATUS,
+  EXECUTION_SUPPORT,
+  CAPABILITY_KEYS
+} from "./schema.js";
+import {
+  ISSUER_PROFILES,
+  ISSUER_CAPABILITIES,
+  SCENARIO_FACTS,
+  DIVIDEND_CLAIM_SAFETY_FACT
+} from "./issuerFacts.js";
 
-export const ISSUER_FACTS = {
-  BACKED_ASSETS: {
-    issuerId: "BACKED_ASSETS",
-    issuerName: "Backed Assets GmbH",
-    issuerJurisdiction: "Switzerland / Liechtenstein (EU Prospectus Regulation Framework)",
-    legalStructure: "Tracker Certificate / Structured Debt Security (Tokenized Tracker)",
-    backingRatio: "1:1 Collateralized by Underlying Equity / ETF Shares",
-    custodyModel: "Regulated Swiss Custody (Segregated Collateral Pledge)",
-    documentationUrl: "https://www.backedassets.fi/legal-documentation",
-    prospectusApprovedBy: "Financial Market Authority (FMA) Liechtenstein",
-    termsUrl: "https://xstocks-metadata.backed.fi/tokens/Solana/AAPLx/metadata.json"
-  },
-  ONDO_FINANCE: {
-    issuerId: "ONDO_GLOBAL_MARKETS",
-    issuerName: "Ondo Global Markets (BVI) Limited",
-    issuerJurisdiction: "British Virgin Islands (Regulation S Exemption under US Securities Act of 1933)",
-    legalStructure: "Tokenized Securities / Equity-Backed Structured Notes (Ondo Stocks)",
-    backingRatio: "1:1 Exposure to Underlying Securities held via Regulated Custodial Broker-Dealer",
-    custodyModel: "Regulated Custodial Broker-Dealer (First-Priority Perfected Security Interest)",
-    documentationUrl: "https://docs.ondo.finance/ondo-stocks/overview",
-    legalDisclaimersUrl: "https://docs.ondo.finance/legal/disclaimers",
-    onchainProgramId: "XzTT4XB8m7sLD2xi6snefSasaswsKCxx5Tifjondogm",
-    ownershipStructure: "90.01% Flux Finance Inc. (Ondo Foundation subsidiary), 9.99% Ondo Finance Inc."
+/**
+ * Resolves the active multiplier according to Solana Token-2022 scaledUiAmountConfig semantics
+ */
+export function resolveEffectiveMultiplier(multiplierInfo, currentUnixTimestamp = Math.floor(Date.now() / 1000)) {
+  if (!multiplierInfo) {
+    return {
+      activeMultiplier: "1.0",
+      numericMultiplier: 1.0,
+      isTransitionUpcoming: false,
+      isTransitionActive: false,
+      multiplierSource: "DEFAULT_PARITY"
+    };
   }
-};
 
-export const COMMON_XSTOCKS_HOLDER_RIGHTS = {
-  directShareholderOwnership: {
-    value: false,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
-    summary: "No direct equity ownership. You hold a structured debt security tracking the underlying equity price, not registered common stock.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "Backed Assets Base Prospectus Section 4: Rights Attached to Securities",
-    dateChecked: "2026-09-13"
-  },
-  votingRights: {
-    value: false,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
-    summary: "No corporate voting rights. The custodian holds the shares; voting rights are not passed through to token holders.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "Backed Assets Base Prospectus Section 4.3: Exercise of Voting Rights",
-    dateChecked: "2026-09-13"
-  },
-  economicDividendBenefit: {
-    value: true,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_TRUE,
-    summary: "Net dividends (after applicable withholding tax) are preserved and reinvested into underlying collateral.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "Backed Assets Corporate Actions Terms",
-    dateChecked: "2026-09-13"
-  },
-  cashDividendPaidToHolder: {
-    value: false,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
-    summary: "No cash or USDC dividend is deposited into your wallet. Dividend value compounds automatically via on-chain token multiplier.",
-    scamWarning: "Unsolicited tokens or messages sent to your wallet claiming to be cash dividends or requiring a claim signature are malicious phishing scams. xStocks automatically adjust value on-chain without user action.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "Backed Assets Base Terms & Solana ScaledUiAmount Extension Specification",
-    dateChecked: "2026-09-13"
-  },
-  selfCustody: {
-    value: true,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_TRUE,
-    summary: "Held directly in your self-custody Solana wallet.",
-    authority: FACT_AUTHORITY.SOLANA_ONCHAIN_RPC,
-    dateChecked: "2026-09-13"
-  },
-  walletTransferability: {
-    value: true,
-    conditional: true,
-    evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
-    summary: "Freely transferable between Solana wallets 24/7, subject to issuer freeze and pause authority.",
-    authority: FACT_AUTHORITY.SOLANA_ONCHAIN_RPC,
-    dateChecked: "2026-09-13"
-  },
-  tradingAvailability: {
-    issuerPlatform: "DEX liquidity pool dependent; underlying market sessions dictate pricing efficiency.",
-    offHoursNotes: "During market closures/weekends, secondary DEX trading remains active on-chain, but wider bid-ask spreads and liquidity premiums may occur due to traditional tape closure.",
-    authority: FACT_AUTHORITY.REGULATORY_FRAMEWORK,
-    dateChecked: "2026-09-13"
-  },
-  primaryRedemption: {
-    permissionless: false,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
-    summary: "Direct primary redemption for underlying shares or fiat with the issuer is restricted to KYC-verified Qualified / Whitelisted Investors. Everyday retail traders exit via Solana DEX liquidity.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "Backed Assets Base Prospectus Section 2: Issuance and Redemption",
-    dateChecked: "2026-09-13"
-  },
-  bankruptcyCustody: {
-    summary: "Underlying shares are held in segregated custody accounts pledged to a security trustee for token holders, protecting collateral from issuer insolvency.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "Backed Assets Legal Documentation: Custody & Collateral Segregation",
-    dateChecked: "2026-09-13"
+  const { multiplier, newMultiplier, newMultiplierEffectiveTimestamp } = multiplierInfo;
+  const currentNum = parseFloat(multiplier || "1.0");
+  const newNum = newMultiplier ? parseFloat(newMultiplier) : currentNum;
+  const effTs = parseInt(newMultiplierEffectiveTimestamp || "0", 10);
+
+  if (effTs > 0 && currentUnixTimestamp >= effTs) {
+    // Effective timestamp has passed -> newMultiplier is the active multiplier
+    return {
+      activeMultiplier: newMultiplier || multiplier,
+      numericMultiplier: newNum,
+      storedMultiplier: multiplier,
+      newMultiplier,
+      effectiveTimestamp: effTs,
+      isTransitionUpcoming: false,
+      isTransitionActive: true,
+      resolutionRule: "CURRENT_TIME_GTE_EFFECTIVE_TIMESTAMP",
+      multiplierSource: "SOLANA_TOKEN_2022_SCALED_UI"
+    };
+  } else if (effTs > 0 && currentUnixTimestamp < effTs) {
+    // Transition is in the future
+    return {
+      activeMultiplier: multiplier,
+      numericMultiplier: currentNum,
+      storedMultiplier: multiplier,
+      newMultiplier,
+      effectiveTimestamp: effTs,
+      isTransitionUpcoming: true,
+      isTransitionActive: false,
+      resolutionRule: "CURRENT_TIME_LT_EFFECTIVE_TIMESTAMP",
+      multiplierSource: "SOLANA_TOKEN_2022_SCALED_UI"
+    };
   }
-};
 
-export const COMMON_ONDO_HOLDER_RIGHTS = {
-  directShareholderOwnership: {
-    value: false,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
-    summary: "No direct equity ownership. Assets are held in the name of/for the benefit of the Issuer via a regulated custodial broker-dealer.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "https://docs.ondo.finance/ondo-stocks/legal-and-regulatory",
-    dateChecked: "2026-09-13"
-  },
-  votingRights: {
-    value: false,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
-    summary: "No shareholder voting rights or shareholder communications passed through from the underlying company.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "https://docs.ondo.finance/ondo-stocks/legal-and-regulatory",
-    dateChecked: "2026-09-13"
-  },
-  economicDividendBenefit: {
-    value: true,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_TRUE,
-    summary: "Net dividends are automatically reinvested into the referenced stock / total return pool, reflected in displayed token balance via Scaled UI multiplier.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "https://docs.ondo.finance/ondo-stocks/corporate-actions",
-    dateChecked: "2026-09-13"
-  },
-  cashDividendPaidToHolder: {
-    value: false,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
-    summary: "No cash dividend is paid directly to wallet. Dividend economics are captured through automatic reinvestment / Scaled UI multiplier accretion.",
-    scamWarning: "Unsolicited tokens or messages sent to your wallet claiming to be cash dividends are malicious phishing scams. Ondo Stocks reflect dividend economics via on-chain total-return adjustments.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "https://docs.ondo.finance/ondo-stocks/corporate-actions",
-    dateChecked: "2026-09-13"
-  },
-  selfCustody: {
-    value: true,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_TRUE,
-    summary: "Tokens are standard SPL Token-2022 tokens held directly in self-custodial Solana wallets.",
-    authority: FACT_AUTHORITY.SOLANA_ONCHAIN_RPC,
-    dateChecked: "2026-09-13"
-  },
-  walletTransferability: {
-    value: true,
-    conditional: true,
-    evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
-    summary: "24/7 on-chain wallet-to-wallet transferability on Solana, subject to issuer freeze authority and regulatory pause controls.",
-    authority: FACT_AUTHORITY.SOLANA_ONCHAIN_RPC,
-    citation: "https://docs.ondo.finance/ondo-stocks/transferability",
-    dateChecked: "2026-09-13"
-  },
-  tradingAvailability: {
-    issuerPlatform: "Session-dependent: Pre-market, Core regular market, Post-market, and Overnight/Off-Hours sessions with dynamic capacity limits and corporate-action pauses.",
-    offHoursNotes: "Off-Hours trading allows after-hours execution with brokerage liquidity, but is subject to wider spreads and risk controls when underlying US exchanges are closed.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "https://docs.ondo.finance/ondo-stocks/market-hours-and-trading-availability",
-    dateChecked: "2026-09-13"
-  },
-  primaryRedemption: {
-    permissionless: false,
-    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
-    summary: "Direct primary minting and redemption for cash/USDon requires completing KYC onboarding with Ondo Global Markets (non-US persons only).",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "https://docs.ondo.finance/ondo-stocks/onboarding-and-kyc",
-    dateChecked: "2026-09-13"
-  },
-  bankruptcyCustody: {
-    summary: "Tokenholders benefit from a first-priority perfected security interest in collateral held with a regulated custodial broker-dealer.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "https://docs.ondo.finance/ondo-stocks/trust-and-transparency",
-    dateChecked: "2026-09-13"
-  }
-};
+  return {
+    activeMultiplier: multiplier || "1.0",
+    numericMultiplier: currentNum,
+    storedMultiplier: multiplier,
+    newMultiplier: null,
+    effectiveTimestamp: null,
+    isTransitionUpcoming: false,
+    isTransitionActive: false,
+    resolutionRule: "NO_SCHEDULED_TRANSITION",
+    multiplierSource: "SOLANA_TOKEN_2022_SCALED_UI"
+  };
+}
 
-// Underlying Security Catalog mapping to Multiple Representations
+/**
+ * Master Registry: 12 Underlyings with 24 Representations
+ */
 export const UNDERLYING_SECURITY_CATALOG = {
   AAPL: {
     symbol: "AAPL",
     companyName: "Apple Inc.",
     assetClass: "stocks",
+    category: "Mega-Cap Tech",
     representations: [
       {
+        productId: "xstocks:aaplx:solana",
         representationTicker: "AAPLx",
-        issuer: ISSUER_FACTS.BACKED_ASSETS,
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
         mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
         decimals: 8,
         tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-        holderRights: COMMON_XSTOCKS_HOLDER_RIGHTS,
-        mintVerificationStatus: "VERIFIED_ONCHAIN",
-        executionPreflightSupported: true,
+        metadataName: "Apple Inc. (Tokenized)",
+        metadataSymbol: "AAPLx",
         metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/AAPLx/metadata.json",
-        onchainState: {
-          currentMultiplier: "1.0032690125398187",
-          pendingMultiplier: "1.0032690125398187",
-          effectiveTimestamp: 1786149000,
-          freezeAuthority: "JDq14BWvqCRFNu1krb12bcRpbGtJZ1FLEakMw6FdxJNs",
-          mintAuthority: "7pt9tkctJPK7PPNQJ77GKg8ZffSF6QxoMiCFYHxrtaCj"
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.0026642075893797",
+          newMultiplier: "1.0032690125398187",
+          newMultiplierEffectiveTimestamp: 1786149000
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/AAPLx",
+          dateChecked: "2026-09-13"
         }
       },
       {
+        productId: "ondo:aaplon:solana",
         representationTicker: "AAPLon",
-        issuer: ISSUER_FACTS.ONDO_FINANCE,
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
         mint: "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
         decimals: 9,
         tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-        holderRights: COMMON_ONDO_HOLDER_RIGHTS,
-        mintVerificationStatus: "VERIFIED_ONCHAIN",
-        officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
-        dateChecked: "2026-09-13",
+        metadataName: "Apple (Ondo Tokenized)",
+        metadataSymbol: "AAPLon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/AAPLon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
         executionPreflightSupported: false,
         executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
-        metadataUri: "https://app.ondo.finance/api/v2/assets/AAPLon/sol_metadata.json",
-        onchainState: {
-          currentMultiplier: "1.003376073740221",
-          pendingMultiplier: "1.003376073740221",
-          effectiveTimestamp: 1788344044,
-          freezeAuthority: "51QVCuHfL1FeNjd8BDeffCKhCcAYoULnVB3yjNhShiuK",
-          mintAuthority: "9foMHsSDq7nMg4WPusSz9eY7tyxyukqborA8GyU5cUxD"
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.003376073740221",
+          newMultiplier: "1.003376073740221",
+          newMultiplierEffectiveTimestamp: 1788344044
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
         }
       }
     ]
   },
+
   NVDA: {
     symbol: "NVDA",
     companyName: "NVIDIA Corporation",
     assetClass: "stocks",
+    category: "Crypto & AI",
     representations: [
       {
+        productId: "xstocks:nvdax:solana",
         representationTicker: "NVDAx",
-        issuer: ISSUER_FACTS.BACKED_ASSETS,
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
         mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
         decimals: 8,
         tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-        holderRights: COMMON_XSTOCKS_HOLDER_RIGHTS,
-        mintVerificationStatus: "VERIFIED_ONCHAIN",
+        metadataName: "NVIDIA Corporation (Tokenized)",
+        metadataSymbol: "NVDAx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/NVDAx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
         executionPreflightSupported: true,
-        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/NVDAx/metadata.json"
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.0009180758490996",
+          newMultiplier: "1.001701196801074",
+          newMultiplierEffectiveTimestamp: 1789000200
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/NVDAx",
+          dateChecked: "2026-09-13"
+        }
       },
       {
+        productId: "ondo:nvdaon:solana",
         representationTicker: "NVDAon",
-        issuer: ISSUER_FACTS.ONDO_FINANCE,
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
         mint: "gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo",
         decimals: 9,
         tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-        holderRights: COMMON_ONDO_HOLDER_RIGHTS,
-        mintVerificationStatus: "VERIFIED_ONCHAIN",
-        officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
-        dateChecked: "2026-09-13",
+        metadataName: "NVIDIA (Ondo Tokenized)",
+        metadataSymbol: "NVDAon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/NVDAon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
         executionPreflightSupported: false,
         executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
-        metadataUri: "https://app.ondo.finance/api/v2/assets/NVDAon/sol_metadata.json"
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0017152487959897",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
+      }
+    ]
+  },
+
+  SPY: {
+    symbol: "SPY",
+    companyName: "SPDR S&P 500 ETF Trust",
+    assetClass: "etf",
+    category: "Index ETFs",
+    representations: [
+      {
+        productId: "xstocks:spyx:solana",
+        representationTicker: "SPYx",
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
+        mint: "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+        decimals: 8,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "SPDR S&P 500 ETF Trust (Tokenized)",
+        metadataSymbol: "SPYx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/SPYx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.003909240011759",
+          newMultiplier: "1.005714560286254",
+          newMultiplierEffectiveTimestamp: 1781755200
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/SPYx",
+          dateChecked: "2026-09-13"
+        }
+      },
+      {
+        productId: "ondo:spyon:solana",
+        representationTicker: "SPYon",
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
+        mint: "k18WJUULWheRkSpSquYGdNNmtuE2Vbw1hpuUi92ondo",
+        decimals: 9,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "SPDR S&P 500 (Ondo Tokenized)",
+        metadataSymbol: "SPYon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/SPYon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
+        executionPreflightSupported: false,
+        executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0077209101501272",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
+      }
+    ]
+  },
+
+  TSLA: {
+    symbol: "TSLA",
+    companyName: "Tesla, Inc.",
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    representations: [
+      {
+        productId: "xstocks:tslax:solana",
+        representationTicker: "TSLAx",
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
+        mint: "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+        decimals: 8,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Tesla Inc. (Tokenized)",
+        metadataSymbol: "TSLAx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/TSLAx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.0",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/TSLAx",
+          dateChecked: "2026-09-13"
+        }
+      },
+      {
+        productId: "ondo:tslaon:solana",
+        representationTicker: "TSLAon",
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
+        mint: "KeGv7bsfR4MheC1CkmnAVceoApjrkvBhHYjWb67ondo",
+        decimals: 9,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Tesla (Ondo Tokenized)",
+        metadataSymbol: "TSLAon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/TSLAon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
+        executionPreflightSupported: false,
+        executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
+      }
+    ]
+  },
+
+  MSFT: {
+    symbol: "MSFT",
+    companyName: "Microsoft Corporation",
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    representations: [
+      {
+        productId: "xstocks:msftx:solana",
+        representationTicker: "MSFTx",
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
+        mint: "XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX",
+        decimals: 8,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Microsoft Corporation (Tokenized)",
+        metadataSymbol: "MSFTx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/MSFTx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.0045820905025638",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/MSFTx",
+          dateChecked: "2026-09-13"
+        }
+      },
+      {
+        productId: "ondo:msfton:solana",
+        representationTicker: "MSFTon",
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
+        mint: "FRmH6iRkMr33DLG6zVLR7EM4LojBFAuq6NtFzG6ondo",
+        decimals: 9,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Microsoft (Ondo Tokenized)",
+        metadataSymbol: "MSFTon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/MSFTon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
+        executionPreflightSupported: false,
+        executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0057308568927839",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
+      }
+    ]
+  },
+
+  AMZN: {
+    symbol: "AMZN",
+    companyName: "Amazon.com, Inc.",
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    representations: [
+      {
+        productId: "xstocks:amznx:solana",
+        representationTicker: "AMZNx",
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
+        mint: "Xs3eBt7uRfJX8QUs4suhyU8p2M6DoUDrJyWBa8LLZsg",
+        decimals: 8,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Amazon.com Inc. (Tokenized)",
+        metadataSymbol: "AMZNx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/AMZNx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.0",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/AMZNx",
+          dateChecked: "2026-09-13"
+        }
+      },
+      {
+        productId: "ondo:amznon:solana",
+        representationTicker: "AMZNon",
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
+        mint: "14Tqdo8V1FhzKsE3W2pFsZCzYPQxxupXRcqw9jv6ondo",
+        decimals: 9,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Amazon (Ondo Tokenized)",
+        metadataSymbol: "AMZNon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/AMZNon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
+        executionPreflightSupported: false,
+        executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
+      }
+    ]
+  },
+
+  GOOGL: {
+    symbol: "GOOGL",
+    companyName: "Alphabet Inc. (Google)",
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    representations: [
+      {
+        productId: "xstocks:googlx:solana",
+        representationTicker: "GOOGLx",
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
+        mint: "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN",
+        decimals: 8,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Alphabet Inc. (Tokenized)",
+        metadataSymbol: "GOOGLx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/GOOGLx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.001926722393864",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/GOOGLx",
+          dateChecked: "2026-09-13"
+        }
+      },
+      {
+        productId: "ondo:googlon:solana",
+        representationTicker: "GOOGLon",
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
+        mint: "bbahNA5vT9WJeYft8tALrH1LXWffjwqVoUbqYa1ondo",
+        decimals: 9,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Alphabet (Ondo Tokenized)",
+        metadataSymbol: "GOOGLon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/GOOGLon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
+        executionPreflightSupported: false,
+        executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0024603266374352",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
+      }
+    ]
+  },
+
+  META: {
+    symbol: "META",
+    companyName: "Meta Platforms, Inc.",
+    assetClass: "stocks",
+    category: "Mega-Cap Tech",
+    representations: [
+      {
+        productId: "xstocks:metax:solana",
+        representationTicker: "METAx",
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
+        mint: "Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu",
+        decimals: 8,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Meta Platforms Inc. (Tokenized)",
+        metadataSymbol: "METAx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/METAx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.0016490257902244",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/METAx",
+          dateChecked: "2026-09-13"
+        }
+      },
+      {
+        productId: "ondo:metaon:solana",
+        representationTicker: "METAon",
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
+        mint: "fDxs5y12E7x7jBwCKBXGqt71uJmCWsAQ3Srkte6ondo",
+        decimals: 9,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Meta (Ondo Tokenized)",
+        metadataSymbol: "METAon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/METAon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
+        executionPreflightSupported: false,
+        executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0022791066933001",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
+      }
+    ]
+  },
+
+  COIN: {
+    symbol: "COIN",
+    companyName: "Coinbase Global, Inc.",
+    assetClass: "stocks",
+    category: "Crypto & AI",
+    representations: [
+      {
+        productId: "xstocks:coinx:solana",
+        representationTicker: "COINx",
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
+        mint: "Xs7ZdzSHLU9ftNJsii5fCeJhoRWSC32SQGzGQtePxNu",
+        decimals: 8,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Coinbase Global Inc. (Tokenized)",
+        metadataSymbol: "COINx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/COINx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.0",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/COINx",
+          dateChecked: "2026-09-13"
+        }
+      },
+      {
+        productId: "ondo:coinon:solana",
+        representationTicker: "COINon",
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
+        mint: "5u6KDiNJXxX4rGMfYT4BApZQC5CuDNrG6MHkwp1ondo",
+        decimals: 9,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Coinbase (Ondo Tokenized)",
+        metadataSymbol: "COINon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/COINon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
+        executionPreflightSupported: false,
+        executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
+      }
+    ]
+  },
+
+  AMD: {
+    symbol: "AMD",
+    companyName: "Advanced Micro Devices, Inc.",
+    assetClass: "stocks",
+    category: "Crypto & AI",
+    representations: [
+      {
+        productId: "xstocks:amdx:solana",
+        representationTicker: "AMDx",
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
+        mint: "XsXcJ6GZ9kVnjqGsjBnktRcuwMBmvKWh8S93RefZ1rF",
+        decimals: 8,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Advanced Micro Devices Inc. (Tokenized)",
+        metadataSymbol: "AMDx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/AMDx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.0",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/AMDx",
+          dateChecked: "2026-09-13"
+        }
+      },
+      {
+        productId: "ondo:amdon:solana",
+        representationTicker: "AMDon",
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
+        mint: "14diAn5z8kjrKwSC8WLqvBqqe5YmihJhjxRxd8Z6ondo",
+        decimals: 9,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "AMD (Ondo Tokenized)",
+        metadataSymbol: "AMDon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/AMDon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
+        executionPreflightSupported: false,
+        executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
+      }
+    ]
+  },
+
+  MSTR: {
+    symbol: "MSTR",
+    companyName: "MicroStrategy Incorporated",
+    assetClass: "stocks",
+    category: "Crypto & AI",
+    representations: [
+      {
+        productId: "xstocks:mstrx:solana",
+        representationTicker: "MSTRx",
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
+        mint: "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ",
+        decimals: 8,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "MicroStrategy Incorporated (Tokenized)",
+        metadataSymbol: "MSTRx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/MSTRx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.0",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/MSTRx",
+          dateChecked: "2026-09-13"
+        }
+      },
+      {
+        productId: "ondo:mstron:solana",
+        representationTicker: "MSTRon",
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
+        mint: "FSz4ouiqXpHuGPcpacZfTzbMjScoj5FfzHkiyu2ondo",
+        decimals: 9,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "MicroStrategy (Ondo Tokenized)",
+        metadataSymbol: "MSTRon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/MSTRon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
+        executionPreflightSupported: false,
+        executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
+      }
+    ]
+  },
+
+  QQQ: {
+    symbol: "QQQ",
+    companyName: "Invesco QQQ Trust Series 1",
+    assetClass: "etf",
+    category: "Index ETFs",
+    representations: [
+      {
+        productId: "xstocks:qqqx:solana",
+        representationTicker: "QQQx",
+        issuerProfile: ISSUER_PROFILES.BACKED_ASSETS,
+        mint: "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ",
+        decimals: 8,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Invesco QQQ Trust Series 1 (Tokenized)",
+        metadataSymbol: "QQQx",
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/QQQx/metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.SUPPORTED,
+        executionPreflightSupported: true,
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "permanentDelegate", "defaultAccountState", "pausableConfig"],
+        observedMultiplier: {
+          multiplier: "1.0019546533977475",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.SOLANA_MAINNET,
+          officialMappingSource: "https://xstocks.fi/assets/QQQx",
+          dateChecked: "2026-09-13"
+        }
+      },
+      {
+        productId: "ondo:qqqon:solana",
+        representationTicker: "QQQon",
+        issuerProfile: ISSUER_PROFILES.ONDO_GLOBAL_MARKETS,
+        mint: "HrYNm6jTQ71LoFphjVKBTdAE4uja7WsmLG8VxB8ondo",
+        decimals: 9,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        metadataName: "Invesco QQQ (Ondo Tokenized)",
+        metadataSymbol: "QQQon",
+        metadataUri: "https://app.ondo.finance/api/v2/assets/QQQon/sol_metadata.json",
+        executionPreflightSupport: EXECUTION_SUPPORT.NOT_YET_SUPPORTED,
+        executionPreflightSupported: false,
+        executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
+        mintVerificationStatus: VERIFICATION_STATUS.VERIFIED,
+        expectedExtensions: ["scaledUiAmountConfig", "metadataPointer", "pausableConfig", "defaultAccountState", "transferHook"],
+        observedMultiplier: {
+          multiplier: "1.0033528541550838",
+          newMultiplier: null,
+          newMultiplierEffectiveTimestamp: null
+        },
+        provenance: {
+          authorityClass: FACT_AUTHORITY_CLASS.OFFICIAL_SOURCE_CODE,
+          officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+          dateChecked: "2026-09-13"
+        }
       }
     ]
   }
 };
 
-// Second-Issuer Kill Gate Status
-export const SECOND_ISSUER_STATUS = {
-  gate: "PASS",
-  statusReason: "Ondo Finance (Ondo Stocks) officially launched on Solana with 565 factory slots, 38+ live Token-2022 mints under program XzTT4XB8m7sLD2xi6snefSasaswsKCxx5Tifjondogm, and exact AAPLon mint 123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo verified on Mainnet.",
-  supportedIssuers: [
-    "Backed Assets GmbH (xStocks)",
-    "Ondo Global Markets (BVI) Limited (Ondo Stocks)"
-  ],
-  supersededFindings: [
-    {
-      id: "AAPLON_MINT_STATUS",
-      prior: "AAPLon exact mint unresolved due to primary access",
-      status: "SUPERSEDED",
-      correction: "Resolved to 123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo via official ondoprotocol/gm-solana-simulator and verified on Solana Mainnet RPC."
-    },
-    {
-      id: "DIVIDEND_PAYOUT_MECHANISM",
-      prior: "AAPLon cash dividend in USDon supported",
-      status: "SUPERSEDED",
-      correction: "Ondo official Corporate Actions documentation confirms automatic dividend reinvestment / total-return multiplier accretion; no cash dividends are deposited into user wallets."
-    },
-    {
-      id: "TRADING_AVAILABILITY_SEMANTICS",
-      prior: "Secondary trading summarized as unconditional 24/7",
-      status: "SUPERSEDED",
-      correction: "Separated 24/7 wallet transferability from session-dependent issuer/broker trading availability and off-hours market spreads."
-    }
-  ]
-};
+/**
+ * Public Internal Registry Query Functions
+ */
 
 export function getUnderlyingSecurity(canonicalSymbol) {
+  if (!canonicalSymbol) return null;
   const norm = canonicalSymbol.toUpperCase();
   return UNDERLYING_SECURITY_CATALOG[norm] || null;
 }
 
 export function getAllUnderlyings() {
   return Object.values(UNDERLYING_SECURITY_CATALOG);
+}
+
+export function getRepresentations(underlyingOrRepresentationSymbol) {
+  if (!underlyingOrRepresentationSymbol) return [];
+  let canonicalSymbol = underlyingOrRepresentationSymbol.toUpperCase();
+  if (canonicalSymbol.endsWith("X") && canonicalSymbol.length > 2) {
+    canonicalSymbol = canonicalSymbol.slice(0, -1);
+  } else if (canonicalSymbol.endsWith("ON") && canonicalSymbol.length > 3) {
+    canonicalSymbol = canonicalSymbol.slice(0, -2);
+  }
+  const underlying = getUnderlyingSecurity(canonicalSymbol);
+  return underlying ? underlying.representations : [];
+}
+
+export function getProduct(productId) {
+  if (!productId) return null;
+  const normId = productId.toLowerCase();
+  for (const underlying of Object.values(UNDERLYING_SECURITY_CATALOG)) {
+    for (const rep of underlying.representations) {
+      if (rep.productId.toLowerCase() === normId || rep.representationTicker.toLowerCase() === normId || rep.mint.toLowerCase() === normId) {
+        return {
+          ...rep,
+          underlyingSymbol: underlying.symbol,
+          companyName: underlying.companyName,
+          assetClass: underlying.assetClass
+        };
+      }
+    }
+  }
+  return null;
+}
+
+export function getAllProducts() {
+  const products = [];
+  for (const underlying of Object.values(UNDERLYING_SECURITY_CATALOG)) {
+    for (const rep of underlying.representations) {
+      products.push({
+        ...rep,
+        underlyingSymbol: underlying.symbol,
+        companyName: underlying.companyName,
+        assetClass: underlying.assetClass
+      });
+    }
+  }
+  return products;
+}
+
+/**
+ * Composes Issuer-Level Facts + Asset-Level Facts for a Product
+ */
+export function getProductCapabilities(productId) {
+  const product = getProduct(productId);
+  if (!product) return null;
+
+  const issuerId = product.issuerProfile.issuerId;
+  const baseCaps = ISSUER_CAPABILITIES[issuerId] || {};
+  const scenarios = SCENARIO_FACTS[issuerId] || {};
+
+  // Clone capabilities and attach product-specific details
+  const composedCapabilities = {};
+  for (const [capKey, capData] of Object.entries(baseCaps)) {
+    composedCapabilities[capKey] = {
+      ...capData,
+      productId: product.productId,
+      ticker: product.representationTicker,
+      mint: product.mint
+    };
+  }
+
+  return {
+    productId: product.productId,
+    representationTicker: product.representationTicker,
+    underlyingSymbol: product.underlyingSymbol,
+    companyName: product.companyName,
+    issuer: product.issuerProfile,
+    mint: product.mint,
+    decimals: product.decimals,
+    tokenProgram: product.tokenProgram,
+    executionPreflightSupport: product.executionPreflightSupport,
+    effectiveMultiplier: resolveEffectiveMultiplier(product.observedMultiplier),
+    capabilities: composedCapabilities,
+    scenarios,
+    safetyFact: DIVIDEND_CLAIM_SAFETY_FACT
+  };
+}
+
+// Backward compatibility alias for matcher.js
+export function getUnderlying(symbol) {
+  return getUnderlyingSecurity(symbol);
 }

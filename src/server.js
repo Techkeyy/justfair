@@ -6,6 +6,9 @@ import { fileURLToPath } from "node:url";
 import { runPreflight, fetchCryptoSpotPrice } from "./preflight.js";
 import { PYTH_FEEDS_REGISTRY, isPythAuthAvailable } from "./engine/benchmark.js";
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, SERVER_CONFIG } from "./config.js";
+import { getAllUnderlyings, getAllProducts, getProduct, getProductCapabilities } from "./product/registry.js";
+import { verifyProductOnchain } from "./product/verifier.js";
+import { compareProducts, compareUnderlyingRepresentations } from "./product/comparator.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -412,7 +415,98 @@ export async function handleRequest(req, res) {
     return;
   }
 
-  // 6. Primary Preflight Endpoint: POST /api/v1/preflight
+  // 6. Product Preflight Catalog & Verification Endpoints (FinePrint - Layer 1)
+  if (req.method === "GET" && pathname.startsWith("/api/v1/products")) {
+    // 6a. Comparison route: GET /api/v1/products/compare?a=...&b=... or /api/v1/products/compare/:symbol
+    if (pathname === "/api/v1/products/compare" || pathname.startsWith("/api/v1/products/compare/")) {
+      const parts = pathname.split("/").filter(Boolean);
+      const symbolParam = parts[4]; // e.g. /api/v1/products/compare/AAPL -> parts[4] = "AAPL"
+      const prodA = url.searchParams.get("a");
+      const prodB = url.searchParams.get("b");
+
+      if (symbolParam) {
+        const comparison = compareUnderlyingRepresentations(symbolParam);
+        const status = comparison.error ? 404 : 200;
+        return sendJson(res, status, comparison);
+      }
+
+      if (prodA && prodB) {
+        const comparison = compareProducts(prodA, prodB);
+        const status = comparison.error ? 404 : 200;
+        return sendJson(res, status, comparison);
+      }
+
+      return sendJson(res, 400, {
+        status: "ERROR",
+        reason: "Comparison requires ?a=prodA&b=prodB query parameters or /api/v1/products/compare/:underlyingSymbol"
+      });
+    }
+
+    // 6b. Verification route: GET /api/v1/products/:productId/verify
+    if (pathname.endsWith("/verify")) {
+      const parts = pathname.split("/").filter(Boolean);
+      // e.g. api, v1, products, xstocks:aaplx:solana, verify
+      const productId = parts[3];
+      if (!productId) {
+        return sendJson(res, 400, { status: "ERROR", reason: "Product ID parameter is required" });
+      }
+
+      try {
+        const verifyResult = await verifyProductOnchain(productId);
+        const httpStatus = verifyResult.verificationStatus === "VERIFIED" ? 200 : (verifyResult.verificationStatus === "UNABLE_TO_VERIFY" ? 503 : 400);
+        return sendJson(res, httpStatus, verifyResult);
+      } catch (err) {
+        return sendJson(res, 500, {
+          status: "ERROR",
+          reason: `Verification failed for product '${productId}'`,
+          error: err.message
+        });
+      }
+    }
+
+    // 6c. Specific Product Card: GET /api/v1/products/:productId
+    const parts = pathname.split("/").filter(Boolean);
+    if (parts.length >= 4) {
+      const productId = parts[3];
+      const productCaps = getProductCapabilities(productId);
+      if (!productCaps) {
+        return sendJson(res, 404, {
+          status: "ERROR",
+          reason: `Product ID '${productId}' not found in canonical catalog.`
+        });
+      }
+      return sendJson(res, 200, {
+        status: "SUCCESS",
+        product: productCaps
+      });
+    }
+
+    // 6d. Master Product Catalog: GET /api/v1/products
+    const underlyings = getAllUnderlyings();
+    const allProducts = getAllProducts();
+    return sendJson(res, 200, {
+      status: "SUCCESS",
+      underlying_count: underlyings.length,
+      product_count: allProducts.length,
+      underlyings: underlyings.map(u => ({
+        symbol: u.symbol,
+        companyName: u.companyName,
+        assetClass: u.assetClass,
+        category: u.category,
+        representations_count: u.representations.length,
+        representations: u.representations.map(r => ({
+          productId: r.productId,
+          ticker: r.representationTicker,
+          issuer: r.issuerProfile.issuerName,
+          mint: r.mint,
+          decimals: r.decimals,
+          executionPreflightSupport: r.executionPreflightSupport
+        }))
+      }))
+    });
+  }
+
+  // 7. Primary Preflight Endpoint: POST /api/v1/preflight
   if (req.method === "POST" && (pathname === "/api/v1/preflight" || pathname.endsWith("/preflight"))) {
     try {
       const payload = await getRequestBody(req, SERVER_CONFIG.MAX_PAYLOAD_BYTES || 1048576);

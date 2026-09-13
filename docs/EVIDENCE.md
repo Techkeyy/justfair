@@ -177,14 +177,63 @@ This document contains live, unedited verification evidence from Solana Mainnet,
 * **Extensions:** `scaledUiAmountConfig`, `permanentDelegate`, `pausableConfig`, `defaultAccountState: initialized`, `metadataPointer`, `tokenMetadata` (`https://xstocks-metadata.backed.fi/tokens/Solana/AAPLx/metadata.json`).
 
 ### 8.5 Product Preflight Multi-Issuer Test Suite (`test/product-preflight.test.js`)
-* **Test Results:** 9/9 PASS (0 Failures)
+* **Test Results:** 24/24 PASS (0 Failures)
 * **Verified Test Cases:**
-  1. `✔ Registry: Underlying Catalog structures multiple representations under same security`
-  2. `✔ Second-Issuer Kill Gate: Verified PASS with Ondo Stocks on Solana`
-  3. `✔ Fact Isolation: Issuer-specific legal facts and programs do not leak across representations`
-  4. `✔ Profile 1 (Self-Custody & Exposure): Returns MULTIPLE_VERIFIED_MATCHES for both AAPLx and AAPLon`
-  5. `✔ Profile 2 (Direct Shareholder & Voting): Returns REQUIREMENT_MISMATCH for all representations`
-  6. `✔ Profile 3 (Transferability & Anon Redemption): Returns REQUIREMENT_MISMATCH due to KYC requirement`
-  7. `✔ Profile 4 (Cash Dividend Payouts): Emits REQUIREMENT_MISMATCH because both products use Total Return reinvestment`
-  8. `✔ Execution Preflight Boundary: Flag truthfully reflects current engine support (AAPLx=true, AAPLon=false)`
-  9. `✔ Unknown Underlying Security: Returns NO_VERIFIED_PRODUCT_MATCH`
+  1. `✔ 1. Registry: Underlying -> Multiple Representations for all 12 securities`
+  2. `✔ 2. Exact xStocks Mint Verification across all 12 assets`
+  3. `✔ 3. Exact Ondo Mint Verification across all 12 assets from official constants.rs`
+  4. `✔ 4. Exact-Asset Verifier: Wrong Mint Rejection`
+  5. `✔ 5. Exact-Asset Verifier: Wrong Token Program Rejection`
+  6. `✔ 6. Exact-Asset Verifier: Decimals Mismatch Rejection`
+  7. `✔ 7. Exact-Asset Verifier: Issuer-Specific Extensions Check`
+  8. `✔ 8. Multiplier Model: Past effective timestamp resolves newMultiplier as active`
+  9. `✔ 9. Multiplier Model: Future effective timestamp keeps current multiplier as active`
+  10. `✔ 10. Multiplier Model: Default parity when multiplier is absent`
+  11. `✔ 11. Legal Fact Inheritance: Issuer-level facts compose cleanly onto representation`
+  12. `✔ 12. Fact Isolation: Facts from one issuer family never bleed into another`
+  13. `✔ 13. UNKNOWN Preservation: Unmapped expectations return UNKNOWN without false coercion`
+  14. `✔ 14. Execution Support Boundary: Explicitly marks xStocks as SUPPORTED and Ondo as NOT_YET_SUPPORTED`
+  15. `✔ 15. Difference Engine: Cross-issuer comparison outputs factual differences without ranking`
+  16. `✔ 16. Capability Normalization: Standard profiles match or mismatch deterministically`
+  17. `✔ 17. Transferability & Trading Availability: Modeled as CONDITIONAL with clear context`
+  18. `✔ 18. Reusable Dividend-Claim Safety Fact: Verified false claim requirement`
+  19. `✔ 19. What-Happens-If Scenario Coverage: Complete data for DIVIDEND, STOCK_SPLIT, REDEMPTION`
+  20. `✔ 20. Exact-Asset Verifier Live Check: Verifies live account against Solana Mainnet RPC`
+  21. `✔ 21. REST API: GET /api/v1/products returns master catalog with 12 underlyings`
+  22. `✔ 22. REST API: GET /api/v1/products/:productId returns detailed product card`
+  23. `✔ 23. REST API: GET /api/v1/products/compare/AAPL returns cross-issuer differences`
+  24. `✔ 24. REST API: GET /api/v1/products/:productId/verify executes live onchain check`
+
+---
+
+## 9. Phase 12 Live Solana Mainnet Verification Evidence (12 Underlyings, 24 Assets)
+
+### 9.1 Live Mainnet Proof Matrix
+All 24 token representations verified directly against Solana Mainnet Beta via RPC `getAccountInfo` (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`):
+
+| Underlying | Asset | Solana Mainnet Mint | Decimals | Active Multiplier | Program Owner | On-Chain Verification |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **AAPL** | `AAPLx` | `XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp` | 8 | `1.0032690125` | Token-2022 | `VERIFIED` |
+| **AAPL** | `AAPLon` | `123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo` | 9 | `1.0033760737` | Token-2022 | `VERIFIED` |
+| **NVDA** | `NVDAx` | `Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh` | 8 | `1.0009180758` | Token-2022 | `VERIFIED` |
+| **NVDA** | `NVDAon` | `gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo` | 9 | `1.0017152488` | Token-2022 | `VERIFIED` |
+| **SPY** | `SPYx` | `XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W` | 8 | `1.0039092400` | Token-2022 | `VERIFIED` |
+| **SPY** | `SPYon` | `k18WJUULWheRkSpSquYGdNNmtuE2Vbw1hpuUi92ondo` | 9 | `1.0077209102` | Token-2022 | `VERIFIED` |
+| **TSLA** | `TSLAx` | `XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB` | 8 | `1.0000000000` | Token-2022 | `VERIFIED` |
+| **TSLA** | `TSLAon` | `KeGv7bsfR4MheC1CkmnAVceoApjrkvBhHYjWb67ondo` | 9 | `1.0000000000` | Token-2022 | `VERIFIED` |
+| **MSFT** | `MSFTx` | `XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX` | 8 | `1.0045820905` | Token-2022 | `VERIFIED` |
+| **MSFT** | `MSFTon` | `FRmH6iRkMr33DLG6zVLR7EM4LojBFAuq6NtFzG6ondo` | 9 | `1.0057308569` | Token-2022 | `VERIFIED` |
+| **AMZN** | `AMZNx` | `Xs3eBt7uRfJX8QUs4suhyU8p2M6DoUDrJyWBa8LLZsg` | 8 | `1.0000000000` | Token-2022 | `VERIFIED` |
+| **AMZN** | `AMZNon` | `14Tqdo8V1FhzKsE3W2pFsZCzYPQxxupXRcqw9jv6ondo` | 9 | `1.0000000000` | Token-2022 | `VERIFIED` |
+| **GOOGL** | `GOOGLx` | `XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN` | 8 | `1.0019267224` | Token-2022 | `VERIFIED` |
+| **GOOGL** | `GOOGLon` | `bbahNA5vT9WJeYft8tALrH1LXWffjwqVoUbqYa1ondo` | 9 | `1.0024603266` | Token-2022 | `VERIFIED` |
+| **META** | `METAx` | `Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu` | 8 | `1.0016490258` | Token-2022 | `VERIFIED` |
+| **META** | `METAon` | `fDxs5y12E7x7jBwCKBXGqt71uJmCWsAQ3Srkte6ondo` | 9 | `1.0022791067` | Token-2022 | `VERIFIED` |
+| **COIN** | `COINx` | `Xs7ZdzSHLU9ftNJsii5fCeJhoRWSC32SQGzGQtePxNu` | 8 | `1.0000000000` | Token-2022 | `VERIFIED` |
+| **COIN** | `COINon` | `5u6KDiNJXxX4rGMfYT4BApZQC5CuDNrG6MHkwp1ondo` | 9 | `1.0000000000` | Token-2022 | `VERIFIED` |
+| **AMD** | `AMDx` | `XsXcJ6GZ9kVnjqGsjBnktRcuwMBmvKWh8S93RefZ1rF` | 8 | `1.0000000000` | Token-2022 | `VERIFIED` |
+| **AMD** | `AMDon` | `14diAn5z8kjrKwSC8WLqvBqqe5YmihJhjxRxd8Z6ondo` | 9 | `1.0000000000` | Token-2022 | `VERIFIED` |
+| **MSTR** | `MSTRx` | `XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ` | 8 | `1.0000000000` | Token-2022 | `VERIFIED` |
+| **MSTR** | `MSTRon` | `FSz4ouiqXpHuGPcpacZfTzbMjScoj5FfzHkiyu2ondo` | 9 | `1.0000000000` | Token-2022 | `VERIFIED` |
+| **QQQ** | `QQQx` | `Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ` | 8 | `1.0019546534` | Token-2022 | `VERIFIED` |
+| **QQQ** | `QQQon` | `HrYNm6jTQ71LoFphjVKBTdAE4uja7WsmLG8VxB8ondo` | 9 | `1.0033528542` | Token-2022 | `VERIFIED` |

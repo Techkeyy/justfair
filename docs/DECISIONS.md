@@ -72,3 +72,12 @@
     * `trading_availability`: Session-dependent execution (Core Session 09:30-16:00 ET, Extended Sessions, with weekend / off-hours trading subject to broker limits and dynamic spreads).
   * **Execution Preflight Boundary:** `AAPLx` is supported by existing Swap V2 route engine; `AAPLon` is clearly labeled `EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION`.
 
+## Decision 010: Primary-Source Product Registry & Exact-Asset Verification Pipeline (Phase 12 / Order 011)
+* **Context:** Director Order 011 required establishing a production-grade, deterministic, provenance-backed catalog mapping 12 underlying securities to 24 representations (12 xStocks by Backed Assets, 12 Ondo Stocks by Ondo Global Markets), splitting issuer-level facts from asset-level facts, implementing an on-chain exact-asset verifier, and creating a deterministic cross-issuer difference engine.
+* **Decision:**
+  * **Registry Architecture:** Organized strictly around `UNDERLYING -> REPRESENTATIONS` with stable product IDs (`xstocks:<ticker>:solana`, `ondo:<ticker>:solana`).
+  * **Issuer Fact Composition:** Split general legal structure, voting rights, redemption framework, and Total-Return dividend mechanics into `src/product/issuerFacts.js`, composed dynamically with asset-specific on-chain state (decimals, mint, authorities, extensions, dynamic multipliers).
+  * **Exact-Asset Verifier:** Implemented `src/product/verifier.js` comparing `EXPECTED` configuration against live `OBSERVED` SPL Token-2022 account data on Solana Mainnet RPC without silent mutation. Returns structured reason codes (`MINT_NOT_FOUND`, `TOKEN_PROGRAM_MISMATCH`, `DECIMALS_MISMATCH`, `EXPECTED_EXTENSION_MISSING`, `MULTIPLIER_PARSE_FAILURE`, `RPC_UNAVAILABLE`).
+  * **Deterministic Difference Engine:** Implemented `src/product/comparator.js` extracting only meaningful factual differences (issuer, legal structure, custody, decimals, redemption, trading availability, execution support) and key shared realities without subjective ranking or scores.
+  * **Product Preflight REST API:** Expose `GET /api/v1/products`, `GET /api/v1/products/:productId`, `GET /api/v1/products/:productId/verify`, and `GET /api/v1/products/compare/:symbol`.
+

@@ -1,16 +1,17 @@
 // JustFair — Product Preflight Multi-Issuer Expectation Matcher
-// Phase 11 Final Truth Correction — Evaluates user expectations across all verified representations
+// Phase 12 — Evaluates user expectations across all verified representations using composed capability registry
 
 import {
   EXPECTATION_PRIORITY,
   MATCH_STATE,
   PRODUCT_VERDICT,
+  CAPABILITY_KEYS,
   EXPECTATION_KEYS
 } from "./schema.js";
-import { getUnderlyingSecurity, UNDERLYING_SECURITY_CATALOG } from "./registry.js";
+import { getUnderlyingSecurity, getProductCapabilities } from "./registry.js";
 
 /**
- * Standard Director Order 010.2 Evaluation Profiles
+ * Standard Director Order Evaluation Profiles
  */
 export const COMPARISON_PROFILES = {
   // Profile 1: Self-custody & 1:1 economic dividend exposure
@@ -23,7 +24,7 @@ export const COMPARISON_PROFILES = {
     }
   },
 
-  // Profile 2: Direct ownership of Apple common stock & voting rights
+  // Profile 2: Direct ownership of common stock & voting rights
   PROFILE_2_DIRECT_EQUITY_VOTING: {
     name: "Profile 2: Direct Shareholder Ownership & Voting Rights",
     expectations: {
@@ -59,150 +60,77 @@ export const COMPARISON_PROFILES = {
 };
 
 /**
- * Evaluates a single expectation against a specific representation's facts
+ * Maps capability key aliases to normalized keys
+ */
+function normalizeKey(key) {
+  return EXPECTATION_KEYS[key] || key;
+}
+
+/**
+ * Evaluates a single expectation against a specific representation's composed facts
  */
 export function evaluateExpectationForRepresentation(key, priority, rep) {
+  const normKey = normalizeKey(key);
+
   if (priority === EXPECTATION_PRIORITY.NOT_IMPORTANT) {
     return {
-      key,
+      key: normKey,
       priority,
       state: MATCH_STATE.NOT_APPLICABLE,
-      title: getExpectationTitle(key),
+      title: getExpectationTitle(normKey),
       explanation: "Not marked as important by your preference profile."
     };
   }
 
-  const { holderRights, issuer } = rep;
+  const productCaps = getProductCapabilities(rep.productId);
+  const capability = productCaps?.capabilities?.[normKey];
 
-  switch (key) {
-    case EXPECTATION_KEYS.DIRECT_SHAREHOLDER_OWNERSHIP:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.MISMATCH,
-        title: "Direct Shareholder Ownership",
-        explanation: holderRights.directShareholderOwnership.summary,
-        citation: holderRights.directShareholderOwnership.citation,
-        authority: holderRights.directShareholderOwnership.authority
-      };
-
-    case EXPECTATION_KEYS.SHAREHOLDER_VOTING_RIGHTS:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.MISMATCH,
-        title: "Corporate Voting Rights",
-        explanation: holderRights.votingRights.summary,
-        citation: holderRights.votingRights.citation,
-        authority: holderRights.votingRights.authority
-      };
-
-    case EXPECTATION_KEYS.ECONOMIC_DIVIDEND_BENEFIT:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.MATCH,
-        title: "Economic Dividend Benefit",
-        explanation: holderRights.economicDividendBenefit.summary,
-        citation: holderRights.economicDividendBenefit.citation,
-        authority: holderRights.economicDividendBenefit.authority
-      };
-
-    case EXPECTATION_KEYS.CASH_DIVIDEND_PAYOUTS:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.MISMATCH,
-        title: "Cash Dividend Paid Directly into Wallet",
-        explanation: "Neither currently verified Apple representation pays ordinary Apple cash dividends directly into your wallet. Both preserve dividend economics through their respective total-return / multiplier mechanisms.",
-        scamWarning: holderRights.cashDividendPaidToHolder.scamWarning,
-        citation: holderRights.cashDividendPaidToHolder.citation,
-        authority: holderRights.cashDividendPaidToHolder.authority
-      };
-
-    case EXPECTATION_KEYS.SYNTHETIC_PRICE_EXPOSURE:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.MATCH,
-        title: "1:1 Equity Price Exposure",
-        explanation: `Product provides 1:1 tracked price exposure on Solana backed by ${issuer.backingRatio}.`,
-        citation: issuer.documentationUrl,
-        authority: holderRights.directShareholderOwnership.authority
-      };
-
-    case EXPECTATION_KEYS.SELF_CUSTODY_WALLET:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.MATCH,
-        title: "Self-Custodial Wallet Storage",
-        explanation: holderRights.selfCustody.summary,
-        authority: holderRights.selfCustody.authority
-      };
-
-    case EXPECTATION_KEYS.WALLET_TRANSFERABILITY:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.CONDITIONAL,
-        title: "24/7 Wallet-to-Wallet Transferability",
-        explanation: holderRights.walletTransferability.summary,
-        authority: holderRights.walletTransferability.authority
-      };
-
-    case EXPECTATION_KEYS.WEEKEND_OR_OFF_HOURS_TRADING:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.CONDITIONAL,
-        title: "Weekend & Off-Hours Trading Availability",
-        explanation: holderRights.tradingAvailability.offHoursNotes,
-        citation: holderRights.tradingAvailability.citation,
-        authority: holderRights.tradingAvailability.authority
-      };
-
-    case EXPECTATION_KEYS.PRIMARY_REDEMPTION_WITHOUT_KYC:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.MISMATCH,
-        title: "Direct Primary Redemption Without KYC",
-        explanation: holderRights.primaryRedemption.summary,
-        citation: holderRights.primaryRedemption.citation,
-        authority: holderRights.primaryRedemption.authority
-      };
-
-    case EXPECTATION_KEYS.BANKRUPTCY_SEGREGATED_COLLATERAL:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.MATCH,
-        title: "Segregated Bankruptcy Collateral",
-        explanation: holderRights.bankruptcyCustody.summary,
-        citation: holderRights.bankruptcyCustody.citation,
-        authority: holderRights.bankruptcyCustody.authority
-      };
-
-    case EXPECTATION_KEYS.TOKEN_2022_MULTIPLIER_ACCRETION:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.MATCH,
-        title: "Token-2022 Scaled UI Multiplier",
-        explanation: "Product uses SPL Token-2022 scaledUiAmountConfig extension to reflect dynamic equity exposure without mutating raw balances.",
-        authority: FACT_AUTHORITY.SOLANA_ONCHAIN_RPC
-      };
-
-    default:
-      return {
-        key,
-        priority,
-        state: MATCH_STATE.UNKNOWN,
-        title: "Custom Expectation",
-        explanation: "This expectation is not currently modeled in the verified fact registry."
-      };
+  if (normKey === "SYNTHETIC_PRICE_EXPOSURE") {
+    return {
+      key: normKey,
+      priority,
+      state: MATCH_STATE.MATCH,
+      title: "1:1 Equity Price Exposure",
+      explanation: `Product provides 1:1 tracked price exposure on Solana backed by ${productCaps?.issuer?.backingRatio || "underlying collateral"}.`,
+      citation: productCaps?.issuer?.documentationUrl,
+      authorityClass: productCaps?.issuer?.authorityClass || "ISSUER_LEGAL"
+    };
   }
+
+  if (!capability) {
+    return {
+      key: normKey,
+      priority,
+      state: MATCH_STATE.UNKNOWN,
+      title: getExpectationTitle(normKey),
+      explanation: "This expectation is not currently modeled in the verified fact registry."
+    };
+  }
+
+  let matchState;
+  if (capability.evidenceStatus === "SOURCE_CONFLICT") {
+    matchState = MATCH_STATE.SOURCE_CONFLICT;
+  } else if (capability.conditional) {
+    matchState = MATCH_STATE.CONDITIONAL;
+  } else if (capability.value === true) {
+    matchState = MATCH_STATE.MATCH;
+  } else {
+    matchState = MATCH_STATE.MISMATCH;
+  }
+
+  return {
+    key: normKey,
+    priority,
+    state: matchState,
+    title: capability.title,
+    explanation: capability.summary,
+    reason: capability.reason,
+    citation: capability.citation,
+    safetyWarning: capability.safetyWarning,
+    authorityClass: capability.authorityClass,
+    sourceUrl: capability.sourceUrl,
+    dateChecked: capability.dateChecked
+  };
 }
 
 /**
@@ -248,10 +176,12 @@ export function matchUnderlyingExpectations(underlyingOrRepresentationSymbol, us
     }
 
     representationEvaluations.push({
+      productId: rep.productId,
       representationTicker: rep.representationTicker,
-      issuerName: rep.issuer.issuerName,
+      issuerName: rep.issuerProfile?.issuerName,
       mint: rep.mint,
       mintVerificationStatus: rep.mintVerificationStatus,
+      executionPreflightSupport: rep.executionPreflightSupport,
       executionPreflightSupported: rep.executionPreflightSupported,
       executionPreflightStatus: rep.executionPreflightStatus || "READY",
       isMatch,

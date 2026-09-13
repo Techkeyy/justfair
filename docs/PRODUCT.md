@@ -97,6 +97,28 @@ Users evaluate products against a deterministic expectation profile:
 
 ---
 
-## 7. Execution Preflight Boundary Lock
-* **xStocks (`AAPLx`, `NVDAx`, etc.):** Execution Preflight fully supported via live Jupiter Swap V2 + Solana RPC simulation + Nasdaq / Pyth benchmarks.
-* **Ondo Stocks (`AAPLon`, `NVDAon`, etc.):** Product Preflight verified; Execution Preflight currently flagged as `EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION` pending dedicated RFQ/JIT routing in Phase 12/17.
+## 8. Master Product Registry & Representations Matrix (Phase 12)
+JustFair maintains a deterministic, provenance-backed catalog mapping 12 underlying securities to 24 live verified representations on Solana Mainnet:
+
+| Underlying | Asset Class | xStocks Representation (`xstocks:<ticker>:solana`) | Ondo Representation (`ondo:<ticker>:solana`) | Execution Preflight Support |
+| :--- | :--- | :--- | :--- | :--- |
+| **AAPL** (Apple Inc.) | Equity | `AAPLx` (`XsbEhL...zJp`, Dec: 8) | `AAPLon` (`123mYE...ndo`, Dec: 9) | `AAPLx`: SUPPORTED · `AAPLon`: NOT_YET_SUPPORTED |
+| **NVDA** (NVIDIA Corp.) | Equity | `NVDAx` (`Xsc9qv...qEh`, Dec: 8) | `NVDAon` (`gEGtLT...ndo`, Dec: 9) | `NVDAx`: SUPPORTED · `NVDAon`: NOT_YET_SUPPORTED |
+| **SPY** (SPDR S&P 500) | ETF | `SPYx` (`XsoCS1...F2W`, Dec: 8) | `SPYon` (`k18WJU...ndo`, Dec: 9) | `SPYx`: SUPPORTED · `SPYon`: NOT_YET_SUPPORTED |
+| **TSLA** (Tesla Inc.) | Equity | `TSLAx` (`XsDoVf...zoB`, Dec: 8) | `TSLAon` (`KeGv7b...ndo`, Dec: 9) | `TSLAx`: SUPPORTED · `TSLAon`: NOT_YET_SUPPORTED |
+| **MSFT** (Microsoft Corp.) | Equity | `MSFTx` (`XspzcW...RMX`, Dec: 8) | `MSFTon` (`FRmH6i...ndo`, Dec: 9) | `MSFTx`: SUPPORTED · `MSFTon`: NOT_YET_SUPPORTED |
+| **AMZN** (Amazon.com Inc.) | Equity | `AMZNx` (`Xs3eBt...Zsg`, Dec: 8) | `AMZNon` (`14Tqdo...ndo`, Dec: 9) | `AMZNx`: SUPPORTED · `AMZNon`: NOT_YET_SUPPORTED |
+| **GOOGL** (Alphabet Inc.) | Equity | `GOOGLx` (`XsCPL9...6aN`, Dec: 8) | `GOOGLon` (`bbahNA...ndo`, Dec: 9) | `GOOGLx`: SUPPORTED · `GOOGLon`: NOT_YET_SUPPORTED |
+| **META** (Meta Platforms) | Equity | `METAx` (`Xsa62P...5Zu`, Dec: 8) | `METAon` (`fDxs5y...ndo`, Dec: 9) | `METAx`: SUPPORTED · `METAon`: NOT_YET_SUPPORTED |
+| **COIN** (Coinbase Global) | Equity | `COINx` (`Xs7Zdz...xNu`, Dec: 8) | `COINon` (`5u6KDi...ndo`, Dec: 9) | `COINx`: SUPPORTED · `COINon`: NOT_YET_SUPPORTED |
+| **AMD** (Advanced Micro Devices) | Equity | `AMDx` (`XsXcJ6...1rF`, Dec: 8) | `AMDon` (`14diAn...ndo`, Dec: 9) | `AMDx`: SUPPORTED · `AMDon`: NOT_YET_SUPPORTED |
+| **MSTR** (MicroStrategy) | Equity | `MSTRx` (`XsP7xz...xyZ`, Dec: 8) | `MSTRon` (`FSz4ou...ndo`, Dec: 9) | `MSTRx`: SUPPORTED · `MSTRon`: NOT_YET_SUPPORTED |
+| **QQQ** (Invesco QQQ Trust) | ETF | `QQQx` (`Xs8S1u...WHZ`, Dec: 8) | `QQQon` (`HrYNm6...ndo`, Dec: 9) | `QQQx`: SUPPORTED · `QQQon`: NOT_YET_SUPPORTED |
+
+---
+
+## 9. Product Preflight REST API Surface
+* `GET /api/v1/products`: Returns the complete master catalog with 12 underlying securities and 24 representations.
+* `GET /api/v1/products/:productId`: Returns full composed capabilities, scenarios ("What happens if"), and safety facts for a specific representation.
+* `GET /api/v1/products/:productId/verify`: Executes a live Solana Mainnet RPC verification of expected vs observed Token-2022 account parameters.
+* `GET /api/v1/products/compare/:symbol`: Computes a deterministic cross-issuer factual difference matrix between representations without subjective ranking.
