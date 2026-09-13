@@ -45,7 +45,7 @@ JustFair enforces strict separation between legal holder rights and on-chain tec
 ## 4. Second-Issuer Reality Check & Kill Gate
 * **Evaluation:** `PASS` (Multiple verified active tokenized equity issuers on Solana Mainnet).
 * **Supported Issuers:**
-  1. **Backed Assets GmbH:** Issues xStocks (e.g. `AAPLx`: `XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp`, `NVDAx`, `SPYx`, `TSLAx`, `MSFTx`, `AMZNx`, `GOOGLx`, `METAx`, `COINx`, `AMDx`, `MSTRx`, `QQQx`) using SPL Token-2022 dynamic multipliers.
+  1. **Backed Assets (JE) Limited:** Issues xStocks (Jersey SPV; Backed Assets GmbH tokenization service provider) (e.g. `AAPLx`: `XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp`, `NVDAx`, `SPYx`, `TSLAx`, `MSFTx`, `AMZNx`, `GOOGLx`, `METAx`, `COINx`, `AMDx`, `MSTRx`, `QQQx`) using SPL Token-2022 dynamic multipliers.
   2. **Ondo Global Markets (BVI) Limited:** Officially expanded Ondo Stocks to Solana in January 2026 under Program ID `XzTT4XB8m7sLD2xi6snefSasaswsKCxx5Tifjondogm` with exact verified mints on Solana Mainnet (e.g. `AAPLon`: `123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo`, `NVDAon`: `gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo`).
 * **Correction Note:** Historical preliminary finding of single issuer status is formally **SUPERSEDED** by primary evidence from Ondo Finance and live Solana Mainnet RPC account dumps.
 

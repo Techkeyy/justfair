@@ -412,3 +412,104 @@ test("25. REST API: GET /api/v1/products/:productId/verify executes live onchain
   assert.equal(responseData.productId, "xstocks:aaplx:solana");
   assert.ok(["VERIFIED", "UNABLE_TO_VERIFY"].includes(responseData.verificationStatus));
 });
+
+test("26. Canonical 12 Underlyings Integrity Gate: MSTR present, PLTR absent", () => {
+  const CANONICAL_12 = ["AAPL", "NVDA", "SPY", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "COIN", "AMD", "MSTR", "QQQ"];
+  const allUnderlyings = getAllUnderlyings();
+  assert.equal(allUnderlyings.length, 12, "Must contain exactly 12 canonical underlying securities");
+  
+  const underlyingSymbols = allUnderlyings.map(u => u.symbol);
+  assert.deepEqual(underlyingSymbols, CANONICAL_12, "Canonical underlying symbols must match exact locked list");
+  
+  // Explicit MSTR presence check
+  assert.ok(underlyingSymbols.includes("MSTR"), "MSTR must be present in canonical underlyings");
+  const mstrSecurity = getUnderlyingSecurity("MSTR");
+  assert.ok(mstrSecurity, "MSTR security must exist");
+  assert.equal(mstrSecurity.representations.length, 2, "MSTR must have both xStocks and Ondo representations");
+  assert.ok(getProduct("xstocks:mstrx:solana"), "xstocks:mstrx:solana must exist");
+  assert.ok(getProduct("ondo:mstron:solana"), "ondo:mstron:solana must exist");
+  
+  // Explicit PLTR exclusion check
+  assert.equal(underlyingSymbols.includes("PLTR"), false, "PLTR must NOT be in canonical scope");
+  assert.equal(getUnderlyingSecurity("PLTR"), null, "PLTR must return null from getUnderlyingSecurity");
+  assert.equal(getProduct("xstocks:pltrx:solana"), null, "PLTR xstock must return null");
+  assert.equal(getProduct("ondo:pltron:solana"), null, "PLTR Ondo token must return null");
+});
+
+test("27. Address Integrity & Uniqueness: 24 valid 32-byte Base58 mints with zero duplicates", () => {
+  const allProducts = getAllProducts();
+  assert.equal(allProducts.length, 24, "Master catalog must contain exactly 24 representations");
+  
+  const seenMints = new Set();
+  const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+  
+  for (const prod of allProducts) {
+    assert.ok(prod.mint, `Product ${prod.productId} must have a mint address`);
+    assert.ok(base58Regex.test(prod.mint), `Mint ${prod.mint} for ${prod.productId} must be valid base58`);
+    assert.ok(!seenMints.has(prod.mint), `Duplicate mint detected across representations: ${prod.mint}`);
+    seenMints.add(prod.mint);
+    
+    // Check official symbol matches product registry symbol
+    assert.ok(prod.representationTicker, `Product ${prod.productId} must have representationTicker`);
+    assert.ok(prod.metadataSymbol, `Product ${prod.productId} must have metadataSymbol`);
+    assert.equal(prod.metadataSymbol, prod.representationTicker, `metadataSymbol ${prod.metadataSymbol} must match representationTicker ${prod.representationTicker}`);
+  }
+  
+  assert.equal(seenMints.size, 24, "Must have 24 unique mint addresses");
+});
+
+test("28. Source Provenance Integrity: All 24 representations back to official primary sources", () => {
+  const allProducts = getAllProducts();
+  
+  for (const prod of allProducts) {
+    assert.ok(prod.provenance, `Product ${prod.productId} must have provenance object`);
+    assert.ok(prod.provenance.officialMappingSource, `Product ${prod.productId} must have officialMappingSource`);
+    assert.ok(prod.provenance.authorityClass, `Product ${prod.productId} must have authorityClass`);
+    assert.ok(prod.provenance.dateChecked, `Product ${prod.productId} must have dateChecked`);
+    
+    if (prod.productId.startsWith("xstocks:")) {
+      assert.ok(
+        prod.provenance.officialMappingSource.startsWith("https://xstocks.fi/assets/"),
+        `xStocks product ${prod.productId} mapping source must be official xStocks asset endpoint`
+      );
+    } else if (prod.productId.startsWith("ondo:")) {
+      assert.ok(
+        prod.provenance.officialMappingSource.includes("ondoprotocol/gm-solana-simulator") ||
+        prod.provenance.officialMappingSource.includes("ondo.finance"),
+        `Ondo product ${prod.productId} mapping source must be official Ondo repository or docs`
+      );
+    }
+  }
+});
+
+test("29. Suspicious & Hallucinated Address Rejection Gate", () => {
+  const suspiciousAddresses = [
+    "XsP7bQK5qdensityptth5sLdSC5Vn8kFm3c2b814s",
+    "XsGoogLptth5sLdSC5Vn8kFm3c2b814spk7k1B3PkW",
+    "GooGL7M3rZ4G7D5nE3aYnK5Gj6m7hP8rZ7D4sMondo",
+    "XsMetaptth5sLdSC5Vn8kFm3c2b814spk7k1B3PkW5s",
+    "MEtA4G7D5nE3aYnK5Gj6m7hP8rZ7D4sM6tL3kFondo",
+    "XsAMDptth5sLdSC5Vn8kFm3c2b814spk7k1B3PkW5sM",
+    "AMd5nE3aYnK5Gj6m7hP8rZ7D4sM6tL3kF9PnG5ondo",
+    "XsCoinptth5sLdSC5Vn8kFm3c2b814spk7k1B3PkW5s",
+    "CoInE3aYnK5Gj6m7hP8rZ7D4sM6tL3kF9PnG5vondo",
+    "XsSPYptth5sLdSC5Vn8kFm3c2b814spk7k1B3PkW5sM",
+    "SPyYnK5Gj6m7hP8rZ7D4sM6tL3kF9PnG5vR8sBondo",
+    "XsQQQptth5sLdSC5Vn8kFm3c2b814spk7k1B3PkW5sM",
+    "QQqK5Gj6m7hP8rZ7D4sM6tL3kF9PnG5vR8sBoondo",
+    "XsPLTRtth5sLdSC5Vn8kFm3c2b814spk7k1B3PkW5s",
+    "PLtrGj6m7hP8rZ7D4sM6tL3kF9PnG5vR8sBondo"
+  ];
+  
+  const allProducts = getAllProducts();
+  const registeredMints = new Set(allProducts.map(p => p.mint));
+  
+  for (const suspicious of suspiciousAddresses) {
+    assert.equal(
+      registeredMints.has(suspicious),
+      false,
+      `Suspicious/synthetic address '${suspicious}' must NEVER exist in the actual registry`
+    );
+  }
+});
+
