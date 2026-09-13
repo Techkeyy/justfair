@@ -61,3 +61,14 @@
     * If exactly one satisfies requirements, emit `MATCHES_REQUIRED_EXPECTATIONS`.
     * If none satisfy requirements, emit `REQUIREMENT_MISMATCH`.
   * Execution Preflight Boundary: xStocks representations are immediately executable in JustFair's Swap V2 pipeline; Ondo Stocks representations are clearly marked `EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION` until dedicated DEX routing is integrated in Phase 12/17.
+
+## Decision 009: AAPLon Exact Mint Resolution, Total Return Dividend Reality, & Trading Availability Model (Order 010.2)
+* **Context:** Primary source resolution from Ondo's official repository (`ondoprotocol/gm-solana-simulator`) confirmed the exact mainnet mint for `AAPLon`. Further analysis of Ondo's documentation and on-chain Token-2022 configuration clarified the dividend mechanics and separated wallet transferability from trading session availability.
+* **Decision:**
+  * **AAPLon Exact Mint:** Sourced from official `constants.rs` (`https://github.com/ondoprotocol/gm-solana-simulator`). Exact Solana Mainnet Mint: `123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo`. Verified live on Solana Mainnet RPC (Decimals: 9, Owner: SPL Token-2022, Active Multiplier: `1.003376073740221`).
+  * **Dividend Truth Model:** Net dividends for both xStocks (`AAPLx`) and Ondo Stocks (`AAPLon`) are automatically reinvested into the underlying collateral / token economics (Total Return) via SPL Token-2022 `scaledUiAmountConfig` multipliers. Neither tokenized stock product pays cash/stablecoins directly into user wallets. If a user requires cash dividend payouts (`CASH_DIVIDEND_PAYOUTS: true`), Product Preflight truthfully emits `REQUIREMENT_MISMATCH` for both representations.
+  * **Trading Availability vs. Wallet Transferability:**
+    * `wallet_transferability`: 24/7 on-chain transfers between un-paused / un-frozen Solana wallets.
+    * `trading_availability`: Session-dependent execution (Core Session 09:30-16:00 ET, Extended Sessions, with weekend / off-hours trading subject to broker limits and dynamic spreads).
+  * **Execution Preflight Boundary:** `AAPLx` is supported by existing Swap V2 route engine; `AAPLon` is clearly labeled `EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION`.
+

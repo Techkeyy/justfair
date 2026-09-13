@@ -1,9 +1,8 @@
 // JustFair — Product Preflight Fact Registry
 // Primary-Source Catalog for Tokenized Stocks on Solana
-// Phase 11 Correction — Multi-Issuer Architecture (Underlying -> Representations)
+// Phase 11 Final Truth Correction — AAPLon Exact Mint & Semantic Dividend/Trading Models
 
 import { FACT_AUTHORITY, FACT_EVIDENCE_STATUS, EXPECTATION_KEYS } from "./schema.js";
-import { SUPPORTED_STOCKS } from "../config.js";
 
 export const ISSUER_FACTS = {
   BACKED_ASSETS: {
@@ -21,7 +20,7 @@ export const ISSUER_FACTS = {
     issuerId: "ONDO_GLOBAL_MARKETS",
     issuerName: "Ondo Global Markets (BVI) Limited",
     issuerJurisdiction: "British Virgin Islands (Regulation S Exemption under US Securities Act of 1933)",
-    legalStructure: "Tokenized Securities / Equity-Backed Tokens (Ondo Stocks)",
+    legalStructure: "Tokenized Securities / Equity-Backed Structured Notes (Ondo Stocks)",
     backingRatio: "1:1 Exposure to Underlying Securities held via Regulated Custodial Broker-Dealer",
     custodyModel: "Regulated Custodial Broker-Dealer (First-Priority Perfected Security Interest)",
     documentationUrl: "https://docs.ondo.finance/ondo-stocks/overview",
@@ -48,13 +47,21 @@ export const COMMON_XSTOCKS_HOLDER_RIGHTS = {
     citation: "Backed Assets Base Prospectus Section 4.3: Exercise of Voting Rights",
     dateChecked: "2026-09-13"
   },
-  dividendHandling: {
-    mechanism: "TOKEN_2022_MULTIPLIER_ACCRETION",
+  economicDividendBenefit: {
+    value: true,
     evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_TRUE,
-    summary: "Net dividends (after withholding tax) are reinvested into underlying collateral, increasing the Token-2022 multiplier. No cash or USDC is airdropped.",
-    scamWarning: "Unsolicited tokens or links sent to your wallet claiming to be cash dividends or requiring a claim signature are malicious phishing scams. xStocks automatically compound value on-chain without any user action.",
+    summary: "Net dividends (after applicable withholding tax) are preserved and reinvested into underlying collateral.",
     authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "Backed Assets Corporate Actions Terms & Solana ScaledUiAmount Extension Specification",
+    citation: "Backed Assets Corporate Actions Terms",
+    dateChecked: "2026-09-13"
+  },
+  cashDividendPaidToHolder: {
+    value: false,
+    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
+    summary: "No cash or USDC dividend is deposited into your wallet. Dividend value compounds automatically via on-chain token multiplier.",
+    scamWarning: "Unsolicited tokens or messages sent to your wallet claiming to be cash dividends or requiring a claim signature are malicious phishing scams. xStocks automatically adjust value on-chain without user action.",
+    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
+    citation: "Backed Assets Base Terms & Solana ScaledUiAmount Extension Specification",
     dateChecked: "2026-09-13"
   },
   selfCustody: {
@@ -68,14 +75,14 @@ export const COMMON_XSTOCKS_HOLDER_RIGHTS = {
     value: true,
     conditional: true,
     evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
-    summary: "Freely transferable 24/7 on Solana DEXs and wallets, subject to issuer freeze and pause authority.",
+    summary: "Freely transferable between Solana wallets 24/7, subject to issuer freeze and pause authority.",
     authority: FACT_AUTHORITY.SOLANA_ONCHAIN_RPC,
     dateChecked: "2026-09-13"
   },
-  stockSplits: {
-    summary: "Corporate stock splits are mirrored by updating the token multiplier or on-chain supply configuration so your equity exposure remains unbroken.",
-    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
-    citation: "Backed Assets Terms & Conditions Section 6: Adjustments and Corporate Actions",
+  tradingAvailability: {
+    issuerPlatform: "DEX liquidity pool dependent; underlying market sessions dictate pricing efficiency.",
+    offHoursNotes: "During market closures/weekends, secondary DEX trading remains active on-chain, but wider bid-ask spreads and liquidity premiums may occur due to traditional tape closure.",
+    authority: FACT_AUTHORITY.REGULATORY_FRAMEWORK,
     dateChecked: "2026-09-13"
   },
   primaryRedemption: {
@@ -111,10 +118,19 @@ export const COMMON_ONDO_HOLDER_RIGHTS = {
     citation: "https://docs.ondo.finance/ondo-stocks/legal-and-regulatory",
     dateChecked: "2026-09-13"
   },
-  dividendHandling: {
-    mechanism: "STABLECOIN_PAYOUT_OR_MULTIPLIER",
+  economicDividendBenefit: {
+    value: true,
     evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_TRUE,
-    summary: "When an underlying security issues a cash dividend, the net payout is distributed in USDon stablecoin or adjusted via on-chain multiplier.",
+    summary: "Net dividends are automatically reinvested into the referenced stock / total return pool, reflected in displayed token balance via Scaled UI multiplier.",
+    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
+    citation: "https://docs.ondo.finance/ondo-stocks/corporate-actions",
+    dateChecked: "2026-09-13"
+  },
+  cashDividendPaidToHolder: {
+    value: false,
+    evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
+    summary: "No cash dividend is paid directly to wallet. Dividend economics are captured through automatic reinvestment / Scaled UI multiplier accretion.",
+    scamWarning: "Unsolicited tokens or messages sent to your wallet claiming to be cash dividends are malicious phishing scams. Ondo Stocks reflect dividend economics via on-chain total-return adjustments.",
     authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
     citation: "https://docs.ondo.finance/ondo-stocks/corporate-actions",
     dateChecked: "2026-09-13"
@@ -130,9 +146,16 @@ export const COMMON_ONDO_HOLDER_RIGHTS = {
     value: true,
     conditional: true,
     evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
-    summary: "24/7 on-chain transferability on Solana, subject to issuer freeze authority and regulatory compliance controls.",
+    summary: "24/7 on-chain wallet-to-wallet transferability on Solana, subject to issuer freeze authority and regulatory pause controls.",
     authority: FACT_AUTHORITY.SOLANA_ONCHAIN_RPC,
     citation: "https://docs.ondo.finance/ondo-stocks/transferability",
+    dateChecked: "2026-09-13"
+  },
+  tradingAvailability: {
+    issuerPlatform: "Session-dependent: Pre-market, Core regular market, Post-market, and Overnight/Off-Hours sessions with dynamic capacity limits and corporate-action pauses.",
+    offHoursNotes: "Off-Hours trading allows after-hours execution with brokerage liquidity, but is subject to wider spreads and risk controls when underlying US exchanges are closed.",
+    authority: FACT_AUTHORITY.ISSUER_LEGAL_DOCS,
+    citation: "https://docs.ondo.finance/ondo-stocks/market-hours-and-trading-availability",
     dateChecked: "2026-09-13"
   },
   primaryRedemption: {
@@ -167,20 +190,35 @@ export const UNDERLYING_SECURITY_CATALOG = {
         holderRights: COMMON_XSTOCKS_HOLDER_RIGHTS,
         mintVerificationStatus: "VERIFIED_ONCHAIN",
         executionPreflightSupported: true,
-        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/AAPLx/metadata.json"
+        metadataUri: "https://xstocks-metadata.backed.fi/tokens/Solana/AAPLx/metadata.json",
+        onchainState: {
+          currentMultiplier: "1.0032690125398187",
+          pendingMultiplier: "1.0032690125398187",
+          effectiveTimestamp: 1786149000,
+          freezeAuthority: "JDq14BWvqCRFNu1krb12bcRpbGtJZ1FLEakMw6FdxJNs",
+          mintAuthority: "7pt9tkctJPK7PPNQJ77GKg8ZffSF6QxoMiCFYHxrtaCj"
+        }
       },
       {
         representationTicker: "AAPLon",
         issuer: ISSUER_FACTS.ONDO_FINANCE,
-        mint: "UNRESOLVED_PRIMARY_ACCESS",
+        mint: "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
         decimals: 9,
         tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
         holderRights: COMMON_ONDO_HOLDER_RIGHTS,
-        mintVerificationStatus: "UNRESOLVED_PRIMARY_ACCESS",
-        mintResolutionReason: "Ondo official API (GET /v1/assets/AAPLon/addresses) requires authenticated x-api-key; on-chain factory deployment pending public metadata mapping.",
+        mintVerificationStatus: "VERIFIED_ONCHAIN",
+        officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+        dateChecked: "2026-09-13",
         executionPreflightSupported: false,
         executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
-        metadataUri: "https://docs.ondo.finance/api-reference/assets/get-contract-addresses-for-an-asset"
+        metadataUri: "https://app.ondo.finance/api/v2/assets/AAPLon/sol_metadata.json",
+        onchainState: {
+          currentMultiplier: "1.003376073740221",
+          pendingMultiplier: "1.003376073740221",
+          effectiveTimestamp: 1788344044,
+          freezeAuthority: "51QVCuHfL1FeNjd8BDeffCKhCcAYoULnVB3yjNhShiuK",
+          mintAuthority: "9foMHsSDq7nMg4WPusSz9eY7tyxyukqborA8GyU5cUxD"
+        }
       }
     ]
   },
@@ -208,6 +246,8 @@ export const UNDERLYING_SECURITY_CATALOG = {
         tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
         holderRights: COMMON_ONDO_HOLDER_RIGHTS,
         mintVerificationStatus: "VERIFIED_ONCHAIN",
+        officialMappingSource: "https://github.com/ondoprotocol/gm-solana-simulator/blob/main/constants.rs",
+        dateChecked: "2026-09-13",
         executionPreflightSupported: false,
         executionPreflightStatus: "EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION",
         metadataUri: "https://app.ondo.finance/api/v2/assets/NVDAon/sol_metadata.json"
@@ -219,17 +259,31 @@ export const UNDERLYING_SECURITY_CATALOG = {
 // Second-Issuer Kill Gate Status
 export const SECOND_ISSUER_STATUS = {
   gate: "PASS",
-  statusReason: "Ondo Finance (Ondo Stocks) officially launched on Solana in January 2026 with 565 factory slots and active Token-2022 mints under program XzTT4XB8m7sLD2xi6snefSasaswsKCxx5Tifjondogm.",
+  statusReason: "Ondo Finance (Ondo Stocks) officially launched on Solana with 565 factory slots, 38+ live Token-2022 mints under program XzTT4XB8m7sLD2xi6snefSasaswsKCxx5Tifjondogm, and exact AAPLon mint 123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo verified on Mainnet.",
   supportedIssuers: [
     "Backed Assets GmbH (xStocks)",
     "Ondo Global Markets (BVI) Limited (Ondo Stocks)"
   ],
-  previousRecord: {
-    finding: "Single verified issuer (Backed Assets)",
-    status: "SUPERSEDED_INCORRECT",
-    correctionDate: "2026-09-13",
-    correctionReason: "Official Ondo primary evidence confirms Ondo Stocks is live on Solana with 200+ tokenized US equities and Token-2022 architecture."
-  }
+  supersededFindings: [
+    {
+      id: "AAPLON_MINT_STATUS",
+      prior: "AAPLon exact mint unresolved due to primary access",
+      status: "SUPERSEDED",
+      correction: "Resolved to 123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo via official ondoprotocol/gm-solana-simulator and verified on Solana Mainnet RPC."
+    },
+    {
+      id: "DIVIDEND_PAYOUT_MECHANISM",
+      prior: "AAPLon cash dividend in USDon supported",
+      status: "SUPERSEDED",
+      correction: "Ondo official Corporate Actions documentation confirms automatic dividend reinvestment / total-return multiplier accretion; no cash dividends are deposited into user wallets."
+    },
+    {
+      id: "TRADING_AVAILABILITY_SEMANTICS",
+      prior: "Secondary trading summarized as unconditional 24/7",
+      status: "SUPERSEDED",
+      correction: "Separated 24/7 wallet transferability from session-dependent issuer/broker trading availability and off-hours market spreads."
+    }
+  ]
 };
 
 export function getUnderlyingSecurity(canonicalSymbol) {

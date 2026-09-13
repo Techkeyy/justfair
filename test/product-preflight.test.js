@@ -1,5 +1,5 @@
 // JustFair — Product Preflight / FinePrint Test Suite
-// Phase 11 Correction — Multi-Issuer Truth Model & Cross-Product Expectation Verification
+// Phase 11 Final Truth Correction — Exact AAPLon Mint & Corrected Semantic Models
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -22,37 +22,31 @@ import {
   evaluateExpectationForRepresentation
 } from "../src/product/matcher.js";
 
-test("Registry: Underlying Catalog structures multiple representations under same security", () => {
+test("Registry: Exact AAPLon mint is mapped to official Ondo source", () => {
   const aapl = getUnderlyingSecurity("AAPL");
   assert.ok(aapl, "AAPL underlying must exist");
-  assert.equal(aapl.symbol, "AAPL");
-  assert.equal(aapl.companyName, "Apple Inc.");
-  assert.equal(aapl.representations.length, 2, "AAPL should have 2 representations (AAPLx and AAPLon)");
 
-  const repTickers = aapl.representations.map(r => r.representationTicker);
-  assert.deepEqual(repTickers, ["AAPLx", "AAPLon"]);
+  const aaplon = aapl.representations.find(r => r.representationTicker === "AAPLon");
+  assert.ok(aaplon, "AAPLon representation must exist");
+  assert.equal(aaplon.mint, "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo", "Exact AAPLon mint address must match official Ondo source");
+  assert.equal(aaplon.decimals, 9);
+  assert.equal(aaplon.mintVerificationStatus, "VERIFIED_ONCHAIN");
+  assert.ok(aaplon.officialMappingSource.includes("gm-solana-simulator"));
 });
 
-test("Second-Issuer Kill Gate: Verified PASS with Ondo Stocks on Solana", () => {
+test("Second-Issuer Kill Gate: Verified PASS with historical superseding recorded", () => {
   assert.equal(SECOND_ISSUER_STATUS.gate, "PASS");
   assert.ok(SECOND_ISSUER_STATUS.supportedIssuers.some(i => i.includes("Ondo Global Markets")));
   assert.ok(SECOND_ISSUER_STATUS.supportedIssuers.some(i => i.includes("Backed Assets")));
-  assert.equal(SECOND_ISSUER_STATUS.previousRecord.status, "SUPERSEDED_INCORRECT");
+
+  // Verify superseded claims log
+  const supersededIds = SECOND_ISSUER_STATUS.supersededFindings.map(s => s.id);
+  assert.ok(supersededIds.includes("AAPLON_MINT_STATUS"));
+  assert.ok(supersededIds.includes("DIVIDEND_PAYOUT_MECHANISM"));
+  assert.ok(supersededIds.includes("TRADING_AVAILABILITY_SEMANTICS"));
 });
 
-test("Fact Isolation: Issuer-specific legal facts and programs do not leak across representations", () => {
-  const aapl = getUnderlyingSecurity("AAPL");
-  const aaplx = aapl.representations.find(r => r.representationTicker === "AAPLx");
-  const aaplon = aapl.representations.find(r => r.representationTicker === "AAPLon");
-
-  assert.equal(aaplx.issuer.issuerName, "Backed Assets GmbH");
-  assert.equal(aaplon.issuer.issuerName, "Ondo Global Markets (BVI) Limited");
-
-  assert.equal(aaplx.holderRights.dividendHandling.mechanism, "TOKEN_2022_MULTIPLIER_ACCRETION");
-  assert.equal(aaplon.holderRights.dividendHandling.mechanism, "STABLECOIN_PAYOUT_OR_MULTIPLIER");
-});
-
-test("Profile 1 (Self-Custody & Exposure): Returns MULTIPLE_VERIFIED_MATCHES for both AAPLx and AAPLon", () => {
+test("Profile 1 (Self-Custody & Economic Dividend Exposure): Returns MULTIPLE_VERIFIED_MATCHES", () => {
   const result = matchUnderlyingExpectations("AAPL", COMPARISON_PROFILES.PROFILE_1_SELF_CUSTODY_EXPOSURE.expectations);
 
   assert.equal(result.verdict, PRODUCT_VERDICT.MULTIPLE_VERIFIED_MATCHES);
@@ -76,12 +70,43 @@ test("Profile 3 (Transferability & Anon Redemption): Returns REQUIREMENT_MISMATC
   assert.deepEqual(result.matchingRepresentations, []);
 });
 
-test("Profile 4 (Cash Dividend Payouts): Differentiates between stablecoin payout and multiplier accretion", () => {
+test("Profile 4 (Cash Dividend Payouts): Returns REQUIREMENT_MISMATCH for both products (Total-Return Accretion)", () => {
   const result = matchUnderlyingExpectations("AAPL", COMPARISON_PROFILES.PROFILE_4_CASH_DIVIDENDS.expectations);
 
-  // AAPLon supports cash dividend in stablecoin (or multiplier); AAPLx only supports multiplier accretion
-  assert.equal(result.verdict, PRODUCT_VERDICT.MATCHES_REQUIRED_EXPECTATIONS);
-  assert.deepEqual(result.matchingRepresentations, ["AAPLon"]);
+  // Neither product pays cash dividends directly into wallet; both use multiplier accretion
+  assert.equal(result.verdict, PRODUCT_VERDICT.REQUIREMENT_MISMATCH);
+  assert.deepEqual(result.matchingRepresentations, []);
+
+  const aaplxEval = result.representationEvaluations.find(r => r.representationTicker === "AAPLx");
+  const aaplonEval = result.representationEvaluations.find(r => r.representationTicker === "AAPLon");
+
+  const aaplxCash = aaplxEval.evaluations.find(e => e.key === EXPECTATION_KEYS.CASH_DIVIDEND_PAYOUTS);
+  const aaplonCash = aaplonEval.evaluations.find(e => e.key === EXPECTATION_KEYS.CASH_DIVIDEND_PAYOUTS);
+
+  assert.equal(aaplxCash.state, MATCH_STATE.MISMATCH);
+  assert.equal(aaplonCash.state, MATCH_STATE.MISMATCH);
+  assert.ok(aaplxCash.explanation.includes("Neither currently verified Apple representation pays ordinary Apple cash dividends directly into your wallet"));
+});
+
+test("Transferability vs Trading Availability: Models wallet movement separately from market trading", () => {
+  const aapl = getUnderlyingSecurity("AAPL");
+  const aaplon = aapl.representations.find(r => r.representationTicker === "AAPLon");
+
+  const transferEval = evaluateExpectationForRepresentation(
+    EXPECTATION_KEYS.WALLET_TRANSFERABILITY,
+    EXPECTATION_PRIORITY.REQUIRED,
+    aaplon
+  );
+  assert.equal(transferEval.state, MATCH_STATE.CONDITIONAL);
+  assert.ok(transferEval.explanation.includes("24/7 on-chain wallet-to-wallet transferability"));
+
+  const tradingEval = evaluateExpectationForRepresentation(
+    EXPECTATION_KEYS.WEEKEND_OR_OFF_HOURS_TRADING,
+    EXPECTATION_PRIORITY.REQUIRED,
+    aaplon
+  );
+  assert.equal(tradingEval.state, MATCH_STATE.CONDITIONAL);
+  assert.ok(tradingEval.explanation.includes("Off-Hours trading allows after-hours execution"));
 });
 
 test("Execution Preflight Boundary: Flag truthfully reflects current engine support", () => {
@@ -95,7 +120,7 @@ test("Execution Preflight Boundary: Flag truthfully reflects current engine supp
 });
 
 test("Unknown Underlying Security: Returns NO_VERIFIED_PRODUCT_MATCH", () => {
-  const result = matchUnderlyingExpectations("NONEXISTENT_STOCK", {
+  const result = matchUnderlyingExpectations("NONEXISTENT_SECURITY", {
     [EXPECTATION_KEYS.SYNTHETIC_PRICE_EXPOSURE]: EXPECTATION_PRIORITY.REQUIRED
   });
 

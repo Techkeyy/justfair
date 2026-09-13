@@ -1,5 +1,5 @@
 // JustFair — Product Preflight Multi-Issuer Expectation Matcher
-// Phase 11 Correction — Evaluates user expectations across all verified representations
+// Phase 11 Final Truth Correction — Evaluates user expectations across all verified representations
 
 import {
   EXPECTATION_PRIORITY,
@@ -10,14 +10,15 @@ import {
 import { getUnderlyingSecurity, UNDERLYING_SECURITY_CATALOG } from "./registry.js";
 
 /**
- * Standard Director Order 010.1 Evaluation Profiles
+ * Standard Director Order 010.2 Evaluation Profiles
  */
 export const COMPARISON_PROFILES = {
-  // Profile 1: Self-custody & 1:1 economic price exposure
+  // Profile 1: Self-custody & 1:1 economic dividend exposure
   PROFILE_1_SELF_CUSTODY_EXPOSURE: {
-    name: "Profile 1: Self-Custody & Economic Price Exposure",
+    name: "Profile 1: Self-Custody & Economic Dividend Exposure",
     expectations: {
       [EXPECTATION_KEYS.SELF_CUSTODY_WALLET]: EXPECTATION_PRIORITY.REQUIRED,
+      [EXPECTATION_KEYS.ECONOMIC_DIVIDEND_BENEFIT]: EXPECTATION_PRIORITY.REQUIRED,
       [EXPECTATION_KEYS.SYNTHETIC_PRICE_EXPOSURE]: EXPECTATION_PRIORITY.REQUIRED
     }
   },
@@ -40,11 +41,19 @@ export const COMPARISON_PROFILES = {
     }
   },
 
-  // Profile 4: Cash dividend paid directly to holder wallet in stablecoin
+  // Profile 4: Cash dividend paid directly to holder wallet
   PROFILE_4_CASH_DIVIDENDS: {
-    name: "Profile 4: Cash Dividend Paid Directly to Holder",
+    name: "Profile 4: Cash Dividend Paid Directly to Holder Wallet",
     expectations: {
       [EXPECTATION_KEYS.CASH_DIVIDEND_PAYOUTS]: EXPECTATION_PRIORITY.REQUIRED
+    }
+  },
+
+  // Profile 5: Weekend / Off-Hours continuous trading guarantee
+  PROFILE_5_OFF_HOURS_TRADING: {
+    name: "Profile 5: 24/7 Weekend & Off-Hours Trading Availability",
+    expectations: {
+      [EXPECTATION_KEYS.WEEKEND_OR_OFF_HOURS_TRADING]: EXPECTATION_PRIORITY.REQUIRED
     }
   }
 };
@@ -88,29 +97,28 @@ export function evaluateExpectationForRepresentation(key, priority, rep) {
         authority: holderRights.votingRights.authority
       };
 
+    case EXPECTATION_KEYS.ECONOMIC_DIVIDEND_BENEFIT:
+      return {
+        key,
+        priority,
+        state: MATCH_STATE.MATCH,
+        title: "Economic Dividend Benefit",
+        explanation: holderRights.economicDividendBenefit.summary,
+        citation: holderRights.economicDividendBenefit.citation,
+        authority: holderRights.economicDividendBenefit.authority
+      };
+
     case EXPECTATION_KEYS.CASH_DIVIDEND_PAYOUTS:
-      if (holderRights.dividendHandling.mechanism === "STABLECOIN_PAYOUT_OR_MULTIPLIER") {
-        return {
-          key,
-          priority,
-          state: MATCH_STATE.MATCH,
-          title: "Cash Dividend Payouts in Stablecoin",
-          explanation: holderRights.dividendHandling.summary,
-          citation: holderRights.dividendHandling.citation,
-          authority: holderRights.dividendHandling.authority
-        };
-      } else {
-        return {
-          key,
-          priority,
-          state: MATCH_STATE.MISMATCH,
-          title: "Cash Dividend Payouts in Wallet",
-          explanation: holderRights.dividendHandling.summary,
-          scamWarning: holderRights.dividendHandling.scamWarning,
-          citation: holderRights.dividendHandling.citation,
-          authority: holderRights.dividendHandling.authority
-        };
-      }
+      return {
+        key,
+        priority,
+        state: MATCH_STATE.MISMATCH,
+        title: "Cash Dividend Paid Directly into Wallet",
+        explanation: "Neither currently verified Apple representation pays ordinary Apple cash dividends directly into your wallet. Both preserve dividend economics through their respective total-return / multiplier mechanisms.",
+        scamWarning: holderRights.cashDividendPaidToHolder.scamWarning,
+        citation: holderRights.cashDividendPaidToHolder.citation,
+        authority: holderRights.cashDividendPaidToHolder.authority
+      };
 
     case EXPECTATION_KEYS.SYNTHETIC_PRICE_EXPOSURE:
       return {
@@ -138,9 +146,20 @@ export function evaluateExpectationForRepresentation(key, priority, rep) {
         key,
         priority,
         state: MATCH_STATE.CONDITIONAL,
-        title: "24/7 On-Chain Transferability",
+        title: "24/7 Wallet-to-Wallet Transferability",
         explanation: holderRights.walletTransferability.summary,
         authority: holderRights.walletTransferability.authority
+      };
+
+    case EXPECTATION_KEYS.WEEKEND_OR_OFF_HOURS_TRADING:
+      return {
+        key,
+        priority,
+        state: MATCH_STATE.CONDITIONAL,
+        title: "Weekend & Off-Hours Trading Availability",
+        explanation: holderRights.tradingAvailability.offHoursNotes,
+        citation: holderRights.tradingAvailability.citation,
+        authority: holderRights.tradingAvailability.authority
       };
 
     case EXPECTATION_KEYS.PRIMARY_REDEMPTION_WITHOUT_KYC:
@@ -166,25 +185,14 @@ export function evaluateExpectationForRepresentation(key, priority, rep) {
       };
 
     case EXPECTATION_KEYS.TOKEN_2022_MULTIPLIER_ACCRETION:
-      if (holderRights.dividendHandling.mechanism === "TOKEN_2022_MULTIPLIER_ACCRETION") {
-        return {
-          key,
-          priority,
-          state: MATCH_STATE.MATCH,
-          title: "Token-2022 Multiplier Accretion",
-          explanation: holderRights.dividendHandling.summary,
-          authority: holderRights.dividendHandling.authority
-        };
-      } else {
-        return {
-          key,
-          priority,
-          state: MATCH_STATE.CONDITIONAL,
-          title: "Token-2022 Multiplier Accretion",
-          explanation: "Issuer supports both stablecoin payouts and multiplier adjustments depending on asset configuration.",
-          authority: holderRights.dividendHandling.authority
-        };
-      }
+      return {
+        key,
+        priority,
+        state: MATCH_STATE.MATCH,
+        title: "Token-2022 Scaled UI Multiplier",
+        explanation: "Product uses SPL Token-2022 scaledUiAmountConfig extension to reflect dynamic equity exposure without mutating raw balances.",
+        authority: FACT_AUTHORITY.SOLANA_ONCHAIN_RPC
+      };
 
     default:
       return {
@@ -201,7 +209,6 @@ export function evaluateExpectationForRepresentation(key, priority, rep) {
  * Runs multi-issuer product preflight expectation matching for an underlying asset.
  */
 export function matchUnderlyingExpectations(underlyingOrRepresentationSymbol, userExpectations = {}) {
-  // Normalize symbol to underlying canonical symbol (e.g. AAPL, AAPLx, AAPLon -> AAPL)
   let canonicalSymbol = underlyingOrRepresentationSymbol.toUpperCase();
   if (canonicalSymbol.endsWith("X") && canonicalSymbol.length > 2) {
     canonicalSymbol = canonicalSymbol.slice(0, -1);
@@ -263,7 +270,7 @@ export function matchUnderlyingExpectations(underlyingOrRepresentationSymbol, us
     summary = `Representation '${matchingRepresentations[0]}' satisfies all of your required expectations.`;
   } else {
     overallVerdict = PRODUCT_VERDICT.REQUIREMENT_MISMATCH;
-    summary = `None of the available tokenized representations for '${underlying.companyName}' satisfy your required expectations.`;
+    summary = `None of the available tokenized representations for '${underlying.companyName}' satisfy your required expectations. Neither product provides ordinary cash dividends directly into your wallet or unverified shareholder rights.`;
   }
 
   return {
