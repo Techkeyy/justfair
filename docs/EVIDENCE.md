@@ -256,8 +256,31 @@ All 24 token representations verified directly against Solana Mainnet Beta via R
 | **Profile D** | Self-Custody + Cash Div (Opt) | `SELF_CUSTODY` (REQ), `CASH_DIVIDEND_PAYOUT` (OPT) | `MULTIPLE_VERIFIED_MATCHES` | `AAPLx`: MATCH (Warning)<br>`AAPLon`: MATCH (Warning) | Optional preference mismatch generates clear warning without disqualifying match. |
 | **Profile E** | Direct Issuer Redemption | `DIRECT_ISSUER_REDEMPTION` (REQ) | `CONDITIONAL_MATCHES` | `AAPLx`: CONDITIONAL<br>`AAPLon`: CONDITIONAL | Direct redemption requires issuer KYC, whitelisting, and min sizes ($5,000 / Reg S). |
 | **Profile F** | Anonymous Redemption | `REDEMPTION_WITHOUT_KYC` (REQ) | `NO_VERIFIED_PRODUCT_MATCH` | `AAPLx`: MISMATCH<br>`AAPLon`: MISMATCH | Direct issuer redemption without KYC is impossible under current regulatory frameworks. |
+| **Profile G** | In-Kind Share Redemption | `IN_KIND_SHARE_REDEMPTION` (REQ) | `CONDITIONAL_MATCHES` | `AAPLx`: CONDITIONAL<br>`AAPLon`: MISMATCH | AAPLx supports in-kind share conversion via xPort/Alpaca onboarding; Ondo settles in cash/USDon under Reg S. |
 
 ### 10.3 Mode B Specific Product Check Proof
 * **Input Payload:** `mode: "SPECIFIC_PRODUCT_CHECK"`, `product_id: "xstocks:aaplx:solana"`, `expectations: [{ key: "ORDINARY_VOTING_RIGHTS", priority: "REQUIRED" }]`
 * **Result:** `overall_result: "MISMATCH"`
 * **Isolation Guarantee:** Output contains ONLY evaluation for `xstocks:aaplx:solana`, with zero cross-product comparisons or third-party product data injected.
+
+---
+
+## 11. Production Deployment & Live Verification Proofs (Order 012.1)
+
+### 11.1 Deployment Artifacts
+* **Target URL:** `https://justfair-theta.vercel.app`
+* **Deployment URL:** `https://justfair-1l6ug5exo-techkeyys-projects.vercel.app`
+* **Deployment ID:** `dpl_9zn4v81WHsha9v5DUFVbBz1jYK85`
+* **Ready State:** `READY`
+
+### 11.2 Live HTTP Smoke Test Proofs
+* `[1] GET /api/v1/health` -> HTTP 200 (`status: "HEALTHY"`)
+* `[2] POST /api/v1/product-preflight` (Profile A: AAPL) -> HTTP 200 (`MULTIPLE_VERIFIED_MATCHES`, AAPLx: MATCH, AAPLon: MATCH)
+* `[3] POST /api/v1/product-preflight` (Profile B: AAPL) -> HTTP 200 (`NO_VERIFIED_PRODUCT_MATCH`)
+* `[4] POST /api/v1/product-preflight` (Profile C: AAPL) -> HTTP 200 (`NO_VERIFIED_PRODUCT_MATCH`)
+* `[5] POST /api/v1/product-preflight` (Profile E: AAPL) -> HTTP 200 (`CONDITIONAL_MATCHES`)
+* `[6] POST /api/v1/product-preflight` (Profile G: AAPL) -> HTTP 200 (`CONDITIONAL_MATCHES`, AAPLx: CONDITIONAL_MATCH, AAPLon: MISMATCH)
+* `[7] POST /api/v1/product-preflight` (Mode B: `xstocks:aaplx:solana` with Voting) -> HTTP 200 (`MISMATCH`, Mint: `XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp`, zero cross-product injection)
+* `[8] POST /api/v1/product-preflight` (Validation Suite) -> HTTP 400 for unknown ticker, unknown product ID, unknown expectation, duplicate keys, invalid priority, and mode ambiguity.
+* `[9] Route Regression` -> `GET /api/v1/products` (12 underlyings, 24 products), `GET /api/v1/products/compare/AAPL` (HTTP 200), `POST /api/v1/preflight` (HTTP 200).
+

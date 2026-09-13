@@ -115,3 +115,19 @@
   * **Protective Consumer Guidance:** If a REQUIRED expectation mismatches, plain-language protective advice is generated (e.g., advising not to purchase if ordinary shareholder voting rights are required).
   * **Immutable Handoff Contract:** Valid matches export exact mint and metadata alongside `execution_preflight_support: "SUPPORTED"` (xStocks) or `"NOT_YET_SUPPORTED"` (Ondo).
   * **REST API:** `POST /api/v1/product-preflight` accepts both Mode A and Mode B JSON payloads with strict validation and standard error handling.
+
+## Decision 014: Redemption Concepts Split & In-Kind Delivery Verification (Phase 13 / Order 012.1)
+* **Context:** Director Order 012.1 identified that previous redemption expectations blended distinct primary concepts (direct redemption vs. in-kind share delivery vs. holding ownership).
+* **Decision:**
+  * **Concept Separation:**
+    1. `DIRECT_SHARE_OWNERSHIP`: Evaluates whether a token holder directly owns registered company common stock while holding the token (VERIFIED_FALSE for both xStocks and Ondo).
+    2. `DIRECT_ISSUER_REDEMPTION`: Evaluates whether a primary direct redemption relationship exists with the issuer (CONDITIONAL for both, subject to issuer KYC and minimums).
+    3. `IN_KIND_SHARE_REDEMPTION`: Evaluates whether the product provides a mechanism to convert tokens into actual registered underlying company shares (CONDITIONAL for xStocks via xPort/Alpaca; VERIFIED_FALSE for Ondo Global Markets where primary redemptions settle in USD/settlement assets under Regulation S).
+    4. `CASH_STABLECOIN_REDEMPTION`: Evaluates primary direct redemption returning cash or stablecoin proceeds (CONDITIONAL for both).
+  * **Profile G Acceptance Profile:** Sourced from primary issuer facts:
+    * `underlying: "AAPL"`, `expectations: [{ key: "IN_KIND_SHARE_REDEMPTION", priority: "REQUIRED" }]`
+    * `AAPLx`: `CONDITIONAL_MATCH`
+    * `AAPLon`: `MISMATCH`
+    * `overall_result`: `CONDITIONAL_MATCHES`
+  * **Production Deployment:** Deployed to Vercel production at `https://justfair-theta.vercel.app` (Deployment ID: `dpl_9zn4v81WHsha9v5DUFVbBz1jYK85`).
+

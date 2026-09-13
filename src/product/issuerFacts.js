@@ -138,6 +138,28 @@ export const ISSUER_CAPABILITIES = {
       sourceUrl: "https://docs.xstocks.fi/docs/product-legal-overview",
       dateChecked: "2026-09-13"
     },
+    [CAPABILITY_KEYS.IN_KIND_SHARE_REDEMPTION]: {
+      value: true,
+      conditional: true,
+      evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
+      title: "In-Kind Share Conversion (xPort)",
+      summary: "Direct conversion into actual underlying shares is available through xPort via Backed Assets and Alpaca Securities for eligible users who complete both issuer and Alpaca brokerage onboarding. Holding xStocks on Solana does not constitute direct share ownership.",
+      authorityClass: FACT_AUTHORITY_CLASS.ISSUER_PRODUCT_DOCS,
+      citation: "xStocks xPort & Alpaca Integration Framework",
+      sourceUrl: "https://docs.xstocks.fi",
+      dateChecked: "2026-09-13"
+    },
+    [CAPABILITY_KEYS.CASH_STABLECOIN_REDEMPTION]: {
+      value: true,
+      conditional: true,
+      evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
+      title: "Direct Cash/Stablecoin Primary Redemption",
+      summary: "Direct primary market redemption with Backed Assets (JE) Limited returns stablecoin proceeds (via broker selling underlying shares) for KYC-onboarded, whitelisted users ($5,000 minimum).",
+      authorityClass: FACT_AUTHORITY_CLASS.ISSUER_LEGAL,
+      citation: "xStocks Product Legal Overview: Market Flow",
+      sourceUrl: "https://docs.xstocks.fi/docs/product-legal-overview",
+      dateChecked: "2026-09-13"
+    },
     [CAPABILITY_KEYS.REDEMPTION_WITHOUT_KYC]: {
       value: false,
       evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
@@ -261,6 +283,27 @@ export const ISSUER_CAPABILITIES = {
       summary: "Direct primary minting and redemption for cash/USDon requires completing platform KYC onboarding with Ondo Global Markets (BVI) Limited (non-US persons only under Regulation S). On-chain retail users trade via solver network and DEX routing without KYC.",
       kycRequired: true,
       qualifiedInvestorOnly: false,
+      authorityClass: FACT_AUTHORITY_CLASS.ISSUER_PRODUCT_DOCS,
+      citation: "Ondo Global Markets Onboarding and KYC Specification",
+      sourceUrl: "https://docs.ondo.finance/ondo-stocks/onboarding-and-kyc",
+      dateChecked: "2026-09-13"
+    },
+    [CAPABILITY_KEYS.IN_KIND_SHARE_REDEMPTION]: {
+      value: false,
+      evidenceStatus: FACT_EVIDENCE_STATUS.VERIFIED_FALSE,
+      title: "In-Kind Share Conversion",
+      summary: "No in-kind delivery of underlying equity shares. Direct primary redemption settles for cash value / supported settlement assets (e.g. USDon) under Regulation S, not delivery of registered common stock to a brokerage account.",
+      authorityClass: FACT_AUTHORITY_CLASS.ISSUER_PRODUCT_DOCS,
+      citation: "Ondo Global Markets Primary Redemption and Settlement Specification",
+      sourceUrl: "https://docs.ondo.finance/ondo-stocks/onboarding-and-kyc",
+      dateChecked: "2026-09-13"
+    },
+    [CAPABILITY_KEYS.CASH_STABLECOIN_REDEMPTION]: {
+      value: true,
+      conditional: true,
+      evidenceStatus: FACT_EVIDENCE_STATUS.CONDITIONAL,
+      title: "Direct Cash/Stablecoin Primary Redemption",
+      summary: "Direct primary redemption with Ondo Global Markets (BVI) Limited settles in cash/supported settlement asset (USDon) for KYC-onboarded non-US persons under Regulation S.",
       authorityClass: FACT_AUTHORITY_CLASS.ISSUER_PRODUCT_DOCS,
       citation: "Ondo Global Markets Onboarding and KYC Specification",
       sourceUrl: "https://docs.ondo.finance/ondo-stocks/onboarding-and-kyc",

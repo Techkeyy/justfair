@@ -133,14 +133,16 @@ JustFair maintains a deterministic, provenance-backed catalog mapping 12 underly
 4. **Protective Advice:** When a `REQUIRED` expectation mismatches, plain-language consumer advice is provided.
 5. **Execution Handoff:** Successful evaluations produce an immutable handoff structure for Layer 2 Execution Preflight.
 
-### 10 Canonical Consumer Expectations
+### Canonical Consumer Expectations (Phase 13 / Order 012.1)
 1. `SELF_CUSTODY`: "I want to hold it in my own wallet."
-2. `DIRECT_SHARE_OWNERSHIP`: "I need to directly own shares of the underlying company."
+2. `DIRECT_SHARE_OWNERSHIP`: "I need to directly own shares of the underlying company." (Checks legal common share ownership while holding).
 3. `ORDINARY_VOTING_RIGHTS`: "I need normal shareholder voting rights."
 4. `ECONOMIC_DIVIDEND_BENEFIT`: "I want to benefit economically when the company pays dividends."
-5. `CASH_DIVIDEND_PAYOUT`: "I expect cash or stablecoins deposited into my wallet when dividends are paid."
+5. `CASH_DIVIDEND_PAYOUT`: "I need dividends paid directly to me as cash/stablecoins."
 6. `WALLET_TRANSFERABILITY`: "I want to move the token between my own wallets."
 7. `ONCHAIN_SECONDARY_TRADING`: "I want to buy and sell on Solana decentralized exchanges."
-8. `DIRECT_ISSUER_REDEMPTION`: "I want the right to redeem directly with the issuer for cash or underlying stock."
-9. `REDEMPTION_WITHOUT_KYC`: "I want to redeem directly with the issuer without submitting ID/KYC."
-10. `WEEKEND_TRADING`: "I need the ability to trade on weekends."
+8. `DIRECT_ISSUER_REDEMPTION`: "I need the option to redeem directly with the issuer."
+9. `IN_KIND_SHARE_REDEMPTION`: "I need the option to convert the token into actual underlying shares." (xStocks via xPort/Alpaca is CONDITIONAL; Ondo is VERIFIED_FALSE).
+10. `CASH_STABLECOIN_REDEMPTION`: "I need the option to redeem directly with the issuer for cash or stablecoin proceeds."
+11. `REDEMPTION_WITHOUT_KYC`: "I want to redeem directly with the issuer without submitting ID/KYC."
+12. `WEEKEND_TRADING`: "I need the ability to trade on weekends."

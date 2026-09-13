@@ -134,6 +134,12 @@ export const COMPARISON_PROFILES = {
     expectations: [
       { key: "REDEMPTION_WITHOUT_KYC", priority: EXPECTATION_PRIORITY.REQUIRED }
     ]
+  },
+  PROFILE_G: {
+    name: "Profile G: In-Kind Share Redemption",
+    expectations: [
+      { key: "IN_KIND_SHARE_REDEMPTION", priority: EXPECTATION_PRIORITY.REQUIRED }
+    ]
   }
 };
 
@@ -173,7 +179,7 @@ export function generateExpectationExplanation({ key, state, capability, rep, un
 
     case CAPABILITY_KEYS.DIRECT_SHARE_OWNERSHIP:
       if (state === MATCH_STATE.MISMATCH) {
-        return `${ticker} provides tokenized exposure tracking ${underlyingSymbol}, but does not grant direct legal share ownership in ${companyName}.`;
+        return `You do not directly own ${companyName} shares while holding ${ticker}. ${ticker} provides tokenized exposure tracking ${underlyingSymbol}, but does not grant direct legal share ownership in ${companyName}.`;
       }
       return `${ticker} grants direct legal common share ownership in ${companyName}.`;
 
@@ -216,6 +222,20 @@ export function generateExpectationExplanation({ key, state, capability, rep, un
         }
       }
       return `${ticker} supports direct redemption with the issuer.`;
+
+    case CAPABILITY_KEYS.IN_KIND_SHARE_REDEMPTION:
+      if (state === MATCH_STATE.CONDITIONAL || state === MATCH_STATE.MATCH) {
+        return `You do not directly own ${underlyingSymbol} shares while holding ${ticker}. However, eligible onboarded users may convert ${ticker} into actual underlying shares via the xPort / Alpaca process.`;
+      } else if (state === MATCH_STATE.MISMATCH) {
+        return `${ticker} primary redemption settles in cash or settlement assets under Regulation S. Converting ${ticker} directly into actual registered ${underlyingSymbol} equity shares is not supported.`;
+      }
+      return `${ticker} in-kind share conversion status is unconfirmed.`;
+
+    case CAPABILITY_KEYS.CASH_STABLECOIN_REDEMPTION:
+      if (state === MATCH_STATE.CONDITIONAL || state === MATCH_STATE.MATCH) {
+        return `Direct primary redemption for cash/stablecoin proceeds is available with ${issuerName} for KYC-onboarded users.`;
+      }
+      return `${ticker} does not support cash/stablecoin primary redemption.`;
 
     case CAPABILITY_KEYS.REDEMPTION_WITHOUT_KYC:
       if (state === MATCH_STATE.MISMATCH) {
@@ -320,6 +340,8 @@ export function evaluateExpectationForRepresentation(key, priority, rep) {
       protectiveAdvice = `If cash dividends paid to your wallet are essential to you, don't buy this representation expecting periodic cash deposits.`;
     } else if (normKey === CAPABILITY_KEYS.REDEMPTION_WITHOUT_KYC) {
       protectiveAdvice = `If anonymous direct issuer redemption is required, note that direct issuer redemption always requires KYC.`;
+    } else if (normKey === CAPABILITY_KEYS.IN_KIND_SHARE_REDEMPTION) {
+      protectiveAdvice = `If converting tokenized exposure into actual brokerage common shares is required, note that ${rep.representationTicker} only settles for cash/settlement assets, not physical shares.`;
     }
   }
 
@@ -498,7 +520,16 @@ export function validatePreflightRequestInput({ underlying, productId, expectati
     }
     seenKeys.add(normKey);
 
-    const normPriority = normalizePriority(exp.priority);
+    let normPriority = EXPECTATION_PRIORITY.REQUIRED;
+    if (exp.priority !== undefined && exp.priority !== null) {
+      const pUpper = String(exp.priority).trim().toUpperCase();
+      if (pUpper === EXPECTATION_PRIORITY.REQUIRED || pUpper === EXPECTATION_PRIORITY.OPTIONAL || pUpper === EXPECTATION_PRIORITY.NOT_IMPORTANT) {
+        normPriority = pUpper;
+      } else {
+        throw new Error(`INVALID_PRIORITY: Priority '${exp.priority}' is invalid. Allowed values: REQUIRED, OPTIONAL, NOT_IMPORTANT.`);
+      }
+    }
+
     normalizedExpectations.push({
       key: normKey,
       priority: normPriority

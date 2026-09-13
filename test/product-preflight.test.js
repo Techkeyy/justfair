@@ -954,7 +954,126 @@ test("45. REST API: POST /api/v1/product-preflight full HTTP request validation 
   });
   assert.equal(code5, 400);
   assert.equal(data5.request_status, "ERROR");
+
+  // F. Invalid: Both underlying and productId provided
+  const req6 = {
+    method: "POST",
+    url: "/api/v1/product-preflight",
+    headers: { host: "localhost" },
+    body: {
+      underlying: "AAPL",
+      productId: "xstocks:aaplx:solana",
+      expectations: [{ key: "SELF_CUSTODY", priority: "REQUIRED" }]
+    }
+  };
+  let code6, data6;
+  await handleRequest(req6, {
+    writeHead: (c) => { code6 = c; },
+    end: (b) => { data6 = JSON.parse(b); }
+  });
+  assert.equal(code6, 400);
+  assert.equal(data6.request_status, "ERROR");
 });
+
+test("46. Profile G Acceptance Test: In-Kind Share Redemption -> CONDITIONAL_MATCHES", async () => {
+  const result = await runProductPreflight({
+    underlying: "AAPL",
+    expectations: COMPARISON_PROFILES.PROFILE_G.expectations,
+    options: { forceFresh: false }
+  });
+
+  assert.equal(result.mode, PREFLIGHT_MODE.UNDERLYING_DISCOVERY);
+  assert.equal(result.overall_result, UNDERLYING_RESULT_STATE.CONDITIONAL_MATCHES);
+  assert.equal(result.products.length, 2);
+
+  const aaplx = result.products.find(p => p.symbol === "AAPLx");
+  const aaplon = result.products.find(p => p.symbol === "AAPLon");
+
+  assert.equal(aaplx.evaluation.status, PRODUCT_EVALUATION_STATE.CONDITIONAL_MATCH);
+  assert.equal(aaplon.evaluation.status, PRODUCT_EVALUATION_STATE.MISMATCH);
+
+  const inKindAAPLx = aaplx.evaluation.required.find(e => e.key === CAPABILITY_KEYS.IN_KIND_SHARE_REDEMPTION);
+  assert.equal(inKindAAPLx.state, MATCH_STATE.CONDITIONAL);
+  assert.ok(inKindAAPLx.explanation.includes("xPort / Alpaca process"));
+
+  const inKindAAPLon = aaplon.evaluation.required.find(e => e.key === CAPABILITY_KEYS.IN_KIND_SHARE_REDEMPTION);
+  assert.equal(inKindAAPLon.state, MATCH_STATE.MISMATCH);
+  assert.ok(inKindAAPLon.explanation.includes("settles in cash or settlement assets"));
+});
+
+test("47. Concept Separation: DIRECT_ISSUER_REDEMPTION vs IN_KIND_SHARE_REDEMPTION vs DIRECT_SHARE_OWNERSHIP", () => {
+  const aaplx = getProduct("xstocks:aaplx:solana");
+  const aaplon = getProduct("ondo:aaplon:solana");
+
+  const xDirect = evaluateExpectationForRepresentation(CAPABILITY_KEYS.DIRECT_ISSUER_REDEMPTION, EXPECTATION_PRIORITY.REQUIRED, aaplx);
+  const xInKind = evaluateExpectationForRepresentation(CAPABILITY_KEYS.IN_KIND_SHARE_REDEMPTION, EXPECTATION_PRIORITY.REQUIRED, aaplx);
+  const xOwnership = evaluateExpectationForRepresentation(CAPABILITY_KEYS.DIRECT_SHARE_OWNERSHIP, EXPECTATION_PRIORITY.REQUIRED, aaplx);
+
+  assert.equal(xDirect.state, MATCH_STATE.CONDITIONAL);
+  assert.equal(xInKind.state, MATCH_STATE.CONDITIONAL);
+  assert.equal(xOwnership.state, MATCH_STATE.MISMATCH);
+
+  const ondoDirect = evaluateExpectationForRepresentation(CAPABILITY_KEYS.DIRECT_ISSUER_REDEMPTION, EXPECTATION_PRIORITY.REQUIRED, aaplon);
+  const ondoInKind = evaluateExpectationForRepresentation(CAPABILITY_KEYS.IN_KIND_SHARE_REDEMPTION, EXPECTATION_PRIORITY.REQUIRED, aaplon);
+  const ondoOwnership = evaluateExpectationForRepresentation(CAPABILITY_KEYS.DIRECT_SHARE_OWNERSHIP, EXPECTATION_PRIORITY.REQUIRED, aaplon);
+
+  assert.equal(ondoDirect.state, MATCH_STATE.CONDITIONAL);
+  assert.equal(ondoInKind.state, MATCH_STATE.MISMATCH);
+  assert.equal(ondoOwnership.state, MATCH_STATE.MISMATCH);
+});
+
+test("48. Coexistence Gate: DIRECT_SHARE_OWNERSHIP = MISMATCH coexists with IN_KIND_SHARE_REDEMPTION = CONDITIONAL", () => {
+  const aaplx = getProduct("xstocks:aaplx:solana");
+  const evalOwnership = evaluateExpectationForRepresentation(CAPABILITY_KEYS.DIRECT_SHARE_OWNERSHIP, EXPECTATION_PRIORITY.REQUIRED, aaplx);
+  const evalInKind = evaluateExpectationForRepresentation(CAPABILITY_KEYS.IN_KIND_SHARE_REDEMPTION, EXPECTATION_PRIORITY.REQUIRED, aaplx);
+
+  assert.equal(evalOwnership.state, MATCH_STATE.MISMATCH);
+  assert.equal(evalInKind.state, MATCH_STATE.CONDITIONAL);
+
+  assert.ok(evalOwnership.explanation.includes("You do not directly own Apple Inc. shares while holding AAPLx"));
+  assert.ok(evalInKind.explanation.includes("eligible onboarded users may convert AAPLx into actual underlying shares via the xPort / Alpaca process"));
+});
+
+test("49. Ondo Reg S In-Kind Delivery Rejection: IN_KIND_SHARE_REDEMPTION is VERIFIED_FALSE", () => {
+  const aaplon = getProduct("ondo:aaplon:solana");
+  const evalInKind = evaluateExpectationForRepresentation(CAPABILITY_KEYS.IN_KIND_SHARE_REDEMPTION, EXPECTATION_PRIORITY.REQUIRED, aaplon);
+
+  assert.equal(evalInKind.state, MATCH_STATE.MISMATCH);
+  assert.ok(evalInKind.protectiveAdvice.includes("only settles for cash/settlement assets, not physical shares"));
+});
+
+test("50. Strict Request Validation Suite: Rejects all malformed inputs", async () => {
+  // Unknown underlying
+  await assert.rejects(
+    async () => runProductPreflight({ underlying: "UNKNOWN_TICKER_XYZ", expectations: [{ key: "SELF_CUSTODY" }] }),
+    /UNKNOWN_UNDERLYING/
+  );
+
+  // Unknown product ID
+  await assert.rejects(
+    async () => runProductPreflight({ productId: "xstocks:unknown:solana", expectations: [{ key: "SELF_CUSTODY" }] }),
+    /UNKNOWN_PRODUCT_ID/
+  );
+
+  // Unknown expectation
+  await assert.rejects(
+    async () => runProductPreflight({ underlying: "AAPL", expectations: [{ key: "NOT_A_REAL_KEY" }] }),
+    /UNKNOWN_EXPECTATION_KEY/
+  );
+
+  // Duplicate expectations
+  await assert.rejects(
+    async () => runProductPreflight({ underlying: "AAPL", expectations: [{ key: "SELF_CUSTODY" }, { key: "SELF_CUSTODY" }] }),
+    /DUPLICATE_EXPECTATION_KEY/
+  );
+
+  // Invalid priority
+  await assert.rejects(
+    async () => runProductPreflight({ underlying: "AAPL", expectations: [{ key: "SELF_CUSTODY", priority: "SUPER_IMPORTANT" }] }),
+    /INVALID_PRIORITY/
+  );
+});
+
 
 
 
