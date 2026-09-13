@@ -99,5 +99,19 @@
   * **Issuer-Specific Name Identity Validation:** `validateMetadataNameIdentity` ensures on-chain names match expected underlying security aliases without rejecting legitimate issuer-specific branding (e.g. `"Apple xStock"` for `AAPLx` or `"Apple (Ondo Tokenized)"` for `AAPLon`).
   * **Reproducible Revalidation Pipeline:** Created [`scripts/revalidate-product-registry.js`](file:///c:/Users/HomePC/desktop/JustFair/scripts/revalidate-product-registry.js) generating deterministic evidence at [`scratch/product_registry_revalidation.json`](file:///c:/Users/HomePC/desktop/JustFair/scratch/product_registry_revalidation.json) with 24/24 observable matches and 0 mismatches.
 
-
-
+## Decision 013: Expectation Matcher Engine & Product Preflight Consumer API (Phase 13 / Order 012)
+* **Context:** Director Order 012 establishes Phase 13, creating the deterministic Expectation Matcher engine and the `POST /api/v1/product-preflight` consumer API endpoint. Product Preflight evaluates user requirement profiles against verified product facts without subjective scores, rankings, or AI hallucinations.
+* **Decision:**
+  * **Two Preflight Modes:**
+    1. `UNDERLYING_DISCOVERY` (Mode A): Takes an underlying symbol (e.g., `AAPL`) and user expectations, evaluates all registered representations (`AAPLx`, `AAPLon`), computes factual differences, and returns an overall underlying state.
+    2. `SPECIFIC_PRODUCT_CHECK` (Mode B): Takes an exact product ID (e.g., `xstocks:aaplx:solana`) and evaluates ONLY that specific representation against user expectations in isolation, without injecting cross-product comparisons.
+  * **10 Canonical Consumer Expectations:** `SELF_CUSTODY`, `DIRECT_SHARE_OWNERSHIP`, `ORDINARY_VOTING_RIGHTS`, `ECONOMIC_DIVIDEND_BENEFIT`, `CASH_DIVIDEND_PAYOUT`, `WALLET_TRANSFERABILITY`, `ONCHAIN_SECONDARY_TRADING`, `DIRECT_ISSUER_REDEMPTION`, `REDEMPTION_WITHOUT_KYC`, `WEEKEND_TRADING`.
+  * **Expectation Priorities:** `REQUIRED`, `OPTIONAL`, `NOT_IMPORTANT`.
+  * **Strict Deterministic States (No Percentage Scores or Rankings):**
+    * *Expectation Level:* `MATCH`, `MISMATCH`, `CONDITIONAL`, `UNKNOWN`, `NOT_APPLICABLE`.
+    * *Product Level:* `MATCH`, `MISMATCH`, `CONDITIONAL_MATCH`, `UNABLE_TO_VERIFY`.
+    * *Underlying Level:* `MATCHES_REQUIRED_EXPECTATIONS`, `MULTIPLE_VERIFIED_MATCHES`, `CONDITIONAL_MATCHES`, `NO_VERIFIED_PRODUCT_MATCH`, `UNABLE_TO_VERIFY_PRODUCT`.
+  * **Exact-Asset Verification Gate:** Products must be verified on Solana Token-2022 to receive `MATCH`. On-chain failure forces `UNABLE_TO_VERIFY`.
+  * **Protective Consumer Guidance:** If a REQUIRED expectation mismatches, plain-language protective advice is generated (e.g., advising not to purchase if ordinary shareholder voting rights are required).
+  * **Immutable Handoff Contract:** Valid matches export exact mint and metadata alongside `execution_preflight_support: "SUPPORTED"` (xStocks) or `"NOT_YET_SUPPORTED"` (Ondo).
+  * **REST API:** `POST /api/v1/product-preflight` accepts both Mode A and Mode B JSON payloads with strict validation and standard error handling.

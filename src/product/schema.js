@@ -16,12 +16,83 @@ export const MATCH_STATE = {
   NOT_APPLICABLE: "NOT_APPLICABLE"
 };
 
-export const PRODUCT_VERDICT = {
+export const PREFLIGHT_MODE = {
+  UNDERLYING_DISCOVERY: "UNDERLYING_DISCOVERY",
+  SPECIFIC_PRODUCT_CHECK: "SPECIFIC_PRODUCT_CHECK"
+};
+
+export const PRODUCT_EVALUATION_STATE = {
+  MATCH: "MATCH",
+  MISMATCH: "MISMATCH",
+  CONDITIONAL_MATCH: "CONDITIONAL_MATCH",
+  UNABLE_TO_VERIFY: "UNABLE_TO_VERIFY"
+};
+
+export const UNDERLYING_RESULT_STATE = {
   MATCHES_REQUIRED_EXPECTATIONS: "MATCHES_REQUIRED_EXPECTATIONS",
   MULTIPLE_VERIFIED_MATCHES: "MULTIPLE_VERIFIED_MATCHES",
-  REQUIREMENT_MISMATCH: "REQUIREMENT_MISMATCH",
+  CONDITIONAL_MATCHES: "CONDITIONAL_MATCHES",
   NO_VERIFIED_PRODUCT_MATCH: "NO_VERIFIED_PRODUCT_MATCH",
   UNABLE_TO_VERIFY_PRODUCT: "UNABLE_TO_VERIFY_PRODUCT"
+};
+
+// Backward-compatible alias
+export const PRODUCT_VERDICT = {
+  ...UNDERLYING_RESULT_STATE,
+  REQUIREMENT_MISMATCH: "REQUIREMENT_MISMATCH"
+};
+
+export const CONSUMER_EXPECTATION_PROMPTS = {
+  SELF_CUSTODY: {
+    key: "SELF_CUSTODY",
+    prompt: "I want to hold it in my own wallet.",
+    shortLabel: "Self-Custodial Storage"
+  },
+  DIRECT_SHARE_OWNERSHIP: {
+    key: "DIRECT_SHARE_OWNERSHIP",
+    prompt: "I need to directly own shares of the underlying company.",
+    shortLabel: "Direct Share Ownership"
+  },
+  ORDINARY_VOTING_RIGHTS: {
+    key: "ORDINARY_VOTING_RIGHTS",
+    prompt: "I need normal shareholder voting rights.",
+    shortLabel: "Corporate Voting Rights"
+  },
+  ECONOMIC_DIVIDEND_BENEFIT: {
+    key: "ECONOMIC_DIVIDEND_BENEFIT",
+    prompt: "I want to benefit economically when the company pays dividends.",
+    shortLabel: "Economic Dividend Benefit"
+  },
+  CASH_DIVIDEND_PAYOUT: {
+    key: "CASH_DIVIDEND_PAYOUT",
+    prompt: "I need dividends paid directly to me as cash/stablecoins.",
+    shortLabel: "Cash Dividend Payouts"
+  },
+  WALLET_TRANSFERABILITY: {
+    key: "WALLET_TRANSFERABILITY",
+    prompt: "I want to move the token between my own wallets.",
+    shortLabel: "Wallet Transferability"
+  },
+  ONCHAIN_SECONDARY_TRADING: {
+    key: "ONCHAIN_SECONDARY_TRADING",
+    prompt: "I want to trade it onchain.",
+    shortLabel: "On-Chain Secondary Trading"
+  },
+  DIRECT_ISSUER_REDEMPTION: {
+    key: "DIRECT_ISSUER_REDEMPTION",
+    prompt: "I need the option to redeem directly with the issuer.",
+    shortLabel: "Direct Primary Redemption"
+  },
+  REDEMPTION_WITHOUT_KYC: {
+    key: "REDEMPTION_WITHOUT_KYC",
+    prompt: "I need redemption without completing issuer KYC.",
+    shortLabel: "Redemption Without KYC"
+  },
+  WEEKEND_TRADING: {
+    key: "WEEKEND_TRADING",
+    prompt: "I need the ability to trade on weekends.",
+    shortLabel: "Weekend & Off-Hours Trading"
+  }
 };
 
 export const FACT_AUTHORITY_CLASS = {

@@ -237,3 +237,27 @@ All 24 token representations verified directly against Solana Mainnet Beta via R
 | **MSTR** | `MSTRon` | `FSz4ouiqXpHuGPcpacZfTzbMjScoj5FfzHkiyu2ondo` | 9 | `1.0000000000` | Token-2022 | `VERIFIED` |
 | **QQQ** | `QQQx` | `Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ` | 8 | `1.0019546534` | Token-2022 | `VERIFIED` |
 | **QQQ** | `QQQon` | `HrYNm6jTQ71LoFphjVKBTdAE4uja7WsmLG8VxB8ondo` | 9 | `1.0033528542` | Token-2022 | `VERIFIED` |
+
+---
+
+## 10. Phase 13 Expectation Matcher Engine & Consumer API Test Proofs (Order 012)
+
+### 10.1 Automated Test Execution
+* **Test Suite:** `test/product-preflight.test.js`
+* **Total Tests:** 45 / 45 PASS (0 Failures)
+* **Execution Time:** ~1.6s
+
+### 10.2 Profile Acceptance Proofs
+| Profile ID | Description | User Expectations | Overall Underlying Result | Product Results | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Profile A** | Self-Custody & Dividends | `SELF_CUSTODY` (REQ), `ECONOMIC_DIVIDEND_BENEFIT` (REQ) | `MULTIPLE_VERIFIED_MATCHES` | `AAPLx`: MATCH<br>`AAPLon`: MATCH | Both issuers pass on-chain verification & capability matching. |
+| **Profile B** | Corporate Voting Rights | `ORDINARY_VOTING_RIGHTS` (REQ) | `NO_VERIFIED_PRODUCT_MATCH` | `AAPLx`: MISMATCH<br>`AAPLon`: MISMATCH | Truthfully prevents users from buying tokenized equity expecting voting shares. |
+| **Profile C** | Cash Dividend Payouts | `CASH_DIVIDEND_PAYOUT` (REQ) | `NO_VERIFIED_PRODUCT_MATCH` | `AAPLx`: MISMATCH<br>`AAPLon`: MISMATCH | Neither issuer pays cash dividends directly into user wallets. |
+| **Profile D** | Self-Custody + Cash Div (Opt) | `SELF_CUSTODY` (REQ), `CASH_DIVIDEND_PAYOUT` (OPT) | `MULTIPLE_VERIFIED_MATCHES` | `AAPLx`: MATCH (Warning)<br>`AAPLon`: MATCH (Warning) | Optional preference mismatch generates clear warning without disqualifying match. |
+| **Profile E** | Direct Issuer Redemption | `DIRECT_ISSUER_REDEMPTION` (REQ) | `CONDITIONAL_MATCHES` | `AAPLx`: CONDITIONAL<br>`AAPLon`: CONDITIONAL | Direct redemption requires issuer KYC, whitelisting, and min sizes ($5,000 / Reg S). |
+| **Profile F** | Anonymous Redemption | `REDEMPTION_WITHOUT_KYC` (REQ) | `NO_VERIFIED_PRODUCT_MATCH` | `AAPLx`: MISMATCH<br>`AAPLon`: MISMATCH | Direct issuer redemption without KYC is impossible under current regulatory frameworks. |
+
+### 10.3 Mode B Specific Product Check Proof
+* **Input Payload:** `mode: "SPECIFIC_PRODUCT_CHECK"`, `product_id: "xstocks:aaplx:solana"`, `expectations: [{ key: "ORDINARY_VOTING_RIGHTS", priority: "REQUIRED" }]`
+* **Result:** `overall_result: "MISMATCH"`
+* **Isolation Guarantee:** Output contains ONLY evaluation for `xstocks:aaplx:solana`, with zero cross-product comparisons or third-party product data injected.

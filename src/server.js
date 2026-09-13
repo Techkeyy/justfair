@@ -9,6 +9,7 @@ import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, SERVER_CONFIG } from "./config.js
 import { getAllUnderlyings, getAllProducts, getProduct, getProductCapabilities } from "./product/registry.js";
 import { verifyProductOnchain } from "./product/verifier.js";
 import { compareProducts, compareUnderlyingRepresentations } from "./product/comparator.js";
+import { runProductPreflight } from "./product/matcher.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -508,7 +509,50 @@ export async function handleRequest(req, res) {
     });
   }
 
-  // 7. Primary Preflight Endpoint: POST /api/v1/preflight
+  // 7. Product Preflight (FinePrint Layer 1 Matching): POST /api/v1/product-preflight
+  if (req.method === "POST" && (pathname === "/api/v1/product-preflight" || pathname.endsWith("/product-preflight"))) {
+    try {
+      const payload = await getRequestBody(req, SERVER_CONFIG.MAX_PAYLOAD_BYTES || 1048576);
+      const underlying = payload.underlying || payload.underlyingSymbol || null;
+      const productId = payload.productId || payload.product_id || null;
+      const expectations = payload.expectations;
+
+      const result = await runProductPreflight({
+        underlying,
+        productId,
+        expectations
+      });
+
+      return sendJson(res, 200, result);
+    } catch (err) {
+      if (err.code === "PAYLOAD_TOO_LARGE") {
+        return sendJson(res, 413, {
+          request_status: "ERROR",
+          error: "PAYLOAD_TOO_LARGE",
+          reason_codes: ["PAYLOAD_TOO_LARGE"],
+          message: "Request body exceeded 1MB limit"
+        });
+      }
+
+      const isClientError = err.message.startsWith("INVALID_") ||
+        err.message.startsWith("AMBIGUOUS_") ||
+        err.message.startsWith("UNKNOWN_") ||
+        err.message.startsWith("DUPLICATE_") ||
+        err.message.startsWith("MALFORMED_");
+
+      const statusCode = isClientError ? 400 : 500;
+      const errorCode = err.message.split(":")[0];
+
+      return sendJson(res, statusCode, {
+        request_status: "ERROR",
+        error: errorCode,
+        reason_codes: [errorCode],
+        message: err.message
+      });
+    }
+  }
+
+  // 8. Execution Preflight Endpoint: POST /api/v1/preflight
   if (req.method === "POST" && (pathname === "/api/v1/preflight" || pathname.endsWith("/preflight"))) {
     try {
       const payload = await getRequestBody(req, SERVER_CONFIG.MAX_PAYLOAD_BYTES || 1048576);

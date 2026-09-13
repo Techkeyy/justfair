@@ -11,6 +11,9 @@ import {
   VERIFICATION_REASON_CODES,
   MATCH_STATE,
   PRODUCT_VERDICT,
+  PRODUCT_EVALUATION_STATE,
+  UNDERLYING_RESULT_STATE,
+  PREFLIGHT_MODE,
   EXECUTION_SUPPORT,
   CAPABILITY_KEYS,
   EXPECTATION_KEYS,
@@ -50,7 +53,10 @@ import {
 import {
   COMPARISON_PROFILES,
   evaluateExpectationForRepresentation,
-  matchUnderlyingExpectations
+  matchUnderlyingExpectations,
+  runProductPreflight,
+  createProductHandoff,
+  clearVerificationCache
 } from "../src/product/matcher.js";
 
 import { handleRequest } from "../src/server.js";
@@ -628,5 +634,327 @@ test("32. Malformed Metadata & Issuer-Specific Name Validation", () => {
   assert.equal(validateMetadataNameIdentity(ondoExpected, "NVDAon"), true);
   assert.equal(validateMetadataNameIdentity(ondoExpected, "Apple (Ondo Tokenized)"), false);
 });
+
+test("33. Profile A Acceptance Test: Self-Custody + Economic Dividends -> MULTIPLE_VERIFIED_MATCHES", async () => {
+  const result = await runProductPreflight({
+    underlying: "AAPL",
+    expectations: [
+      { key: "SELF_CUSTODY", priority: EXPECTATION_PRIORITY.REQUIRED },
+      { key: "ECONOMIC_DIVIDEND_BENEFIT", priority: EXPECTATION_PRIORITY.REQUIRED }
+    ]
+  });
+
+  assert.equal(result.request_status, "COMPLETED");
+  assert.equal(result.mode, PREFLIGHT_MODE.UNDERLYING_DISCOVERY);
+  assert.equal(result.underlying, "AAPL");
+  assert.equal(result.overall_result, UNDERLYING_RESULT_STATE.MULTIPLE_VERIFIED_MATCHES);
+  assert.equal(result.products.length, 2);
+
+  const aaplx = result.products.find(p => p.symbol === "AAPLx");
+  const aaplon = result.products.find(p => p.symbol === "AAPLon");
+  assert.equal(aaplx.evaluation.status, PRODUCT_EVALUATION_STATE.MATCH);
+  assert.equal(aaplon.evaluation.status, PRODUCT_EVALUATION_STATE.MATCH);
+  assert.ok(result.meaningful_differences.length > 0);
+  assert.ok(result.consumer_summary.includes("Multiple verified tokenized representations"));
+});
+
+test("34. Profile B Acceptance Test: Ordinary Voting Rights -> NO_VERIFIED_PRODUCT_MATCH", async () => {
+  const result = await runProductPreflight({
+    underlying: "AAPL",
+    expectations: [
+      { key: "ORDINARY_VOTING_RIGHTS", priority: EXPECTATION_PRIORITY.REQUIRED }
+    ]
+  });
+
+  assert.equal(result.overall_result, UNDERLYING_RESULT_STATE.NO_VERIFIED_PRODUCT_MATCH);
+  const aaplx = result.products.find(p => p.symbol === "AAPLx");
+  const aaplon = result.products.find(p => p.symbol === "AAPLon");
+  assert.equal(aaplx.evaluation.status, PRODUCT_EVALUATION_STATE.MISMATCH);
+  assert.equal(aaplon.evaluation.status, PRODUCT_EVALUATION_STATE.MISMATCH);
+  assert.ok(result.consumer_summary.includes("Neither currently verified"));
+});
+
+test("35. Profile C Acceptance Test: Cash Dividend Payout -> NO_VERIFIED_PRODUCT_MATCH", async () => {
+  const result = await runProductPreflight({
+    underlying: "AAPL",
+    expectations: [
+      { key: "CASH_DIVIDEND_PAYOUT", priority: EXPECTATION_PRIORITY.REQUIRED }
+    ]
+  });
+
+  assert.equal(result.overall_result, UNDERLYING_RESULT_STATE.NO_VERIFIED_PRODUCT_MATCH);
+  const aaplx = result.products.find(p => p.symbol === "AAPLx");
+  const aaplon = result.products.find(p => p.symbol === "AAPLon");
+  assert.equal(aaplx.evaluation.status, PRODUCT_EVALUATION_STATE.MISMATCH);
+  assert.equal(aaplon.evaluation.status, PRODUCT_EVALUATION_STATE.MISMATCH);
+  assert.ok(result.consumer_summary.includes("Neither currently verified"));
+});
+
+test("36. Profile D Acceptance Test: Self-Custody Required + Cash Dividend Optional -> MULTIPLE_VERIFIED_MATCHES", async () => {
+  const result = await runProductPreflight({
+    underlying: "AAPL",
+    expectations: [
+      { key: "SELF_CUSTODY", priority: EXPECTATION_PRIORITY.REQUIRED },
+      { key: "CASH_DIVIDEND_PAYOUT", priority: EXPECTATION_PRIORITY.OPTIONAL }
+    ]
+  });
+
+  assert.equal(result.overall_result, UNDERLYING_RESULT_STATE.MULTIPLE_VERIFIED_MATCHES);
+  const aaplx = result.products.find(p => p.symbol === "AAPLx");
+  const aaplon = result.products.find(p => p.symbol === "AAPLon");
+  assert.equal(aaplx.evaluation.status, PRODUCT_EVALUATION_STATE.MATCH);
+  assert.equal(aaplon.evaluation.status, PRODUCT_EVALUATION_STATE.MATCH);
+  assert.ok(aaplx.evaluation.optionalWarnings.length > 0);
+  assert.ok(aaplon.evaluation.optionalWarnings.length > 0);
+});
+
+test("37. Profile E Acceptance Test: Direct Issuer Redemption -> CONDITIONAL_MATCHES", async () => {
+  const result = await runProductPreflight({
+    underlying: "AAPL",
+    expectations: [
+      { key: "DIRECT_ISSUER_REDEMPTION", priority: EXPECTATION_PRIORITY.REQUIRED }
+    ]
+  });
+
+  assert.equal(result.overall_result, UNDERLYING_RESULT_STATE.CONDITIONAL_MATCHES);
+  const aaplx = result.products.find(p => p.symbol === "AAPLx");
+  const aaplon = result.products.find(p => p.symbol === "AAPLon");
+  assert.equal(aaplx.evaluation.status, PRODUCT_EVALUATION_STATE.CONDITIONAL_MATCH);
+  assert.equal(aaplon.evaluation.status, PRODUCT_EVALUATION_STATE.CONDITIONAL_MATCH);
+  assert.ok(aaplx.evaluation.summary.includes("subject to issuer-specific conditions"));
+});
+
+test("38. Profile F Acceptance Test: Redemption Without KYC -> NO_VERIFIED_PRODUCT_MATCH", async () => {
+  const result = await runProductPreflight({
+    underlying: "AAPL",
+    expectations: [
+      { key: "REDEMPTION_WITHOUT_KYC", priority: EXPECTATION_PRIORITY.REQUIRED }
+    ]
+  });
+
+  assert.equal(result.overall_result, UNDERLYING_RESULT_STATE.NO_VERIFIED_PRODUCT_MATCH);
+  const aaplx = result.products.find(p => p.symbol === "AAPLx");
+  const aaplon = result.products.find(p => p.symbol === "AAPLon");
+  assert.equal(aaplx.evaluation.status, PRODUCT_EVALUATION_STATE.MISMATCH);
+  assert.equal(aaplon.evaluation.status, PRODUCT_EVALUATION_STATE.MISMATCH);
+});
+
+test("39. Specific Product Check Mode B: AAPLx with Ordinary Voting Rights -> MISMATCH", async () => {
+  const result = await runProductPreflight({
+    productId: "xstocks:aaplx:solana",
+    expectations: [
+      { key: "ORDINARY_VOTING_RIGHTS", priority: EXPECTATION_PRIORITY.REQUIRED }
+    ]
+  });
+
+  assert.equal(result.mode, PREFLIGHT_MODE.SPECIFIC_PRODUCT_CHECK);
+  assert.equal(result.symbol, "AAPLx");
+  assert.equal(result.overall_result, PRODUCT_EVALUATION_STATE.MISMATCH);
+  assert.equal(result.product.evaluation.status, PRODUCT_EVALUATION_STATE.MISMATCH);
+  assert.ok(result.consumer_summary.includes("AAPLx does not satisfy your required expectation for: Corporate Voting Rights"));
+  assert.equal(result.meaningful_differences, undefined, "No other issuer differences should be injected in specific product mode");
+});
+
+test("40. UNKNOWN Capability Handling: Unmodeled required capability returns UNABLE_TO_VERIFY", async () => {
+  const dummyRep = {
+    productId: "xstocks:test:solana",
+    representationTicker: "TESTx",
+    underlyingSymbol: "TEST",
+    companyName: "Test Inc.",
+    issuerProfile: { issuerName: "Test Issuer" },
+    mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+    decimals: 8,
+    tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    executionPreflightSupport: "SUPPORTED",
+    executionPreflightSupported: true
+  };
+
+  // When capability is missing from registry facts
+  const evalExp = evaluateExpectationForRepresentation("UNMODELED_FUTURE_KEY", EXPECTATION_PRIORITY.REQUIRED, dummyRep);
+  assert.equal(evalExp.state, MATCH_STATE.UNKNOWN);
+});
+
+test("41. Asset Verification Failure Gate: On-Chain Mismatch Prevents MATCH", async () => {
+  const targetProduct = getProduct("xstocks:aaplx:solana");
+  const failedVerification = {
+    verificationStatus: VERIFICATION_STATUS.MISMATCH,
+    reasonCodes: ["DECIMALS_MISMATCH", "TOKEN_PROGRAM_MISMATCH"],
+    checkedAt: new Date().toISOString()
+  };
+
+  const expectations = [{ key: "SELF_CUSTODY", priority: EXPECTATION_PRIORITY.REQUIRED }];
+  const evalResult = (await import("../src/product/matcher.js")).evaluateRepresentation(targetProduct, expectations, failedVerification);
+
+  assert.equal(evalResult.evaluation.status, PRODUCT_EVALUATION_STATE.UNABLE_TO_VERIFY);
+  assert.ok(evalResult.evaluation.reasonCodes.includes("DECIMALS_MISMATCH"));
+});
+
+test("42. Matcher Determinism: Identical inputs produce identical outputs", async () => {
+  const input = {
+    underlying: "NVDA",
+    expectations: [
+      { key: "SELF_CUSTODY", priority: EXPECTATION_PRIORITY.REQUIRED },
+      { key: "ECONOMIC_DIVIDEND_BENEFIT", priority: EXPECTATION_PRIORITY.REQUIRED },
+      { key: "WEEKEND_TRADING", priority: EXPECTATION_PRIORITY.OPTIONAL }
+    ]
+  };
+
+  const run1 = await runProductPreflight(input);
+  const run2 = await runProductPreflight(input);
+
+  assert.equal(run1.overall_result, run2.overall_result);
+  assert.equal(run1.products.length, run2.products.length);
+  assert.equal(run1.products[0].evaluation.status, run2.products[0].evaluation.status);
+  assert.equal(run1.products[1].evaluation.status, run2.products[1].evaluation.status);
+  assert.equal(run1.consumer_summary, run2.consumer_summary);
+});
+
+test("43. Product Fact Isolation Gate: Facts from one issuer never alter another", async () => {
+  const aaplxOnly = await runProductPreflight({
+    productId: "xstocks:aaplx:solana",
+    expectations: [{ key: "DIRECT_ISSUER_REDEMPTION", priority: EXPECTATION_PRIORITY.REQUIRED }]
+  });
+
+  const aaplonOnly = await runProductPreflight({
+    productId: "ondo:aaplon:solana",
+    expectations: [{ key: "DIRECT_ISSUER_REDEMPTION", priority: EXPECTATION_PRIORITY.REQUIRED }]
+  });
+
+  assert.ok(aaplxOnly.product.evaluation.required[0].explanation.includes("Backed Assets (JE) Limited"));
+  assert.ok(aaplonOnly.product.evaluation.required[0].explanation.includes("Ondo Global Markets (BVI) Limited"));
+  assert.ok(!aaplxOnly.product.evaluation.required[0].explanation.includes("Ondo"));
+  assert.ok(!aaplonOnly.product.evaluation.required[0].explanation.includes("Backed Assets"));
+});
+
+test("44. Immutable Product Preflight Handoff Contract Gate", async () => {
+  const aaplxPreflight = await runProductPreflight({
+    productId: "xstocks:aaplx:solana",
+    expectations: [{ key: "SELF_CUSTODY", priority: EXPECTATION_PRIORITY.REQUIRED }]
+  });
+
+  const handoffX = aaplxPreflight.handoff;
+  assert.ok(handoffX, "Handoff must be created for matched product");
+  assert.equal(handoffX.product_id, "xstocks:aaplx:solana");
+  assert.equal(handoffX.underlying_symbol, "AAPL");
+  assert.equal(handoffX.representation_symbol, "AAPLx");
+  assert.equal(handoffX.mint, "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp");
+  assert.equal(handoffX.execution_preflight_support, EXECUTION_SUPPORT.SUPPORTED);
+  assert.equal(handoffX.execution_preflight_supported, true);
+
+  const aaplonPreflight = await runProductPreflight({
+    productId: "ondo:aaplon:solana",
+    expectations: [{ key: "SELF_CUSTODY", priority: EXPECTATION_PRIORITY.REQUIRED }]
+  });
+
+  const handoffOn = aaplonPreflight.handoff;
+  assert.ok(handoffOn, "Handoff must be created for matched product");
+  assert.equal(handoffOn.product_id, "ondo:aaplon:solana");
+  assert.equal(handoffOn.underlying_symbol, "AAPL");
+  assert.equal(handoffOn.representation_symbol, "AAPLon");
+  assert.equal(handoffOn.mint, "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo");
+  assert.equal(handoffOn.execution_preflight_support, EXECUTION_SUPPORT.NOT_YET_SUPPORTED);
+  assert.equal(handoffOn.execution_preflight_supported, false);
+});
+
+test("45. REST API: POST /api/v1/product-preflight full HTTP request validation & routing", async () => {
+  // A. Valid Mode A request (Underlying Discovery)
+  const req1 = {
+    method: "POST",
+    url: "/api/v1/product-preflight",
+    headers: { host: "localhost" },
+    body: {
+      underlying: "AAPL",
+      expectations: [
+        { key: "SELF_CUSTODY", priority: "REQUIRED" },
+        { key: "ECONOMIC_DIVIDEND_BENEFIT", priority: "REQUIRED" }
+      ]
+    }
+  };
+  let code1, data1;
+  await handleRequest(req1, {
+    writeHead: (c) => { code1 = c; },
+    end: (b) => { data1 = JSON.parse(b); }
+  });
+  assert.equal(code1, 200);
+  assert.equal(data1.request_status, "COMPLETED");
+  assert.equal(data1.overall_result, "MULTIPLE_VERIFIED_MATCHES");
+
+  // B. Valid Mode B request (Specific Product Check)
+  const req2 = {
+    method: "POST",
+    url: "/api/v1/product-preflight",
+    headers: { host: "localhost" },
+    body: {
+      productId: "xstocks:aaplx:solana",
+      expectations: [
+        { key: "SELF_CUSTODY", priority: "REQUIRED" }
+      ]
+    }
+  };
+  let code2, data2;
+  await handleRequest(req2, {
+    writeHead: (c) => { code2 = c; },
+    end: (b) => { data2 = JSON.parse(b); }
+  });
+  assert.equal(code2, 200);
+  assert.equal(data2.overall_result, "MATCH");
+
+  // C. Invalid: Missing underlying and productId
+  const req3 = {
+    method: "POST",
+    url: "/api/v1/product-preflight",
+    headers: { host: "localhost" },
+    body: {
+      expectations: [{ key: "SELF_CUSTODY", priority: "REQUIRED" }]
+    }
+  };
+  let code3, data3;
+  await handleRequest(req3, {
+    writeHead: (c) => { code3 = c; },
+    end: (b) => { data3 = JSON.parse(b); }
+  });
+  assert.equal(code3, 400);
+  assert.equal(data3.request_status, "ERROR");
+
+  // D. Invalid: Unknown expectation key
+  const req4 = {
+    method: "POST",
+    url: "/api/v1/product-preflight",
+    headers: { host: "localhost" },
+    body: {
+      underlying: "AAPL",
+      expectations: [{ key: "BOGUS_EXPECTATION_KEY", priority: "REQUIRED" }]
+    }
+  };
+  let code4, data4;
+  await handleRequest(req4, {
+    writeHead: (c) => { code4 = c; },
+    end: (b) => { data4 = JSON.parse(b); }
+  });
+  assert.equal(code4, 400);
+  assert.equal(data4.request_status, "ERROR");
+
+  // E. Invalid: Duplicate expectation keys
+  const req5 = {
+    method: "POST",
+    url: "/api/v1/product-preflight",
+    headers: { host: "localhost" },
+    body: {
+      underlying: "AAPL",
+      expectations: [
+        { key: "SELF_CUSTODY", priority: "REQUIRED" },
+        { key: "SELF_CUSTODY", priority: "OPTIONAL" }
+      ]
+    }
+  };
+  let code5, data5;
+  await handleRequest(req5, {
+    writeHead: (c) => { code5 = c; },
+    end: (b) => { data5 = JSON.parse(b); }
+  });
+  assert.equal(code5, 400);
+  assert.equal(data5.request_status, "ERROR");
+});
+
 
 

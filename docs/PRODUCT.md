@@ -115,10 +115,32 @@ JustFair maintains a deterministic, provenance-backed catalog mapping 12 underly
 | **MSTR** (MicroStrategy) | Equity | `MSTRx` (`XsP7xz...xyZ`, Dec: 8) | `MSTRon` (`FSz4ou...ndo`, Dec: 9) | `MSTRx`: SUPPORTED · `MSTRon`: NOT_YET_SUPPORTED |
 | **QQQ** (Invesco QQQ Trust) | ETF | `QQQx` (`Xs8S1u...WHZ`, Dec: 8) | `QQQon` (`HrYNm6...ndo`, Dec: 9) | `QQQx`: SUPPORTED · `QQQon`: NOT_YET_SUPPORTED |
 
----
-
 ## 9. Product Preflight REST API Surface
 * `GET /api/v1/products`: Returns the complete master catalog with 12 underlying securities and 24 representations.
 * `GET /api/v1/products/:productId`: Returns full composed capabilities, scenarios ("What happens if"), and safety facts for a specific representation.
 * `GET /api/v1/products/:productId/verify`: Executes a live Solana Mainnet RPC verification of expected vs observed Token-2022 account parameters.
 * `GET /api/v1/products/compare/:symbol`: Computes a deterministic cross-issuer factual difference matrix between representations without subjective ranking.
+* `POST /api/v1/product-preflight`: Evaluates user expectation profiles in Mode A (`underlying`) or Mode B (`product_id`) against verified facts and live on-chain Token-2022 state.
+
+---
+
+## 10. Expectation Matcher Engine & Preflight Modes (Phase 13)
+
+### Operating Principles
+1. **Never Answers "Which stock should I buy?":** Focuses purely on product truth and capability satisfaction.
+2. **Never Ranks or Scores:** No percentage scores, arbitrary weights, or subjective "Best / Worst" badges.
+3. **On-Chain Exact Verification Gate:** Representations must be verified on Solana Token-2022; failure forces `UNABLE_TO_VERIFY`.
+4. **Protective Advice:** When a `REQUIRED` expectation mismatches, plain-language consumer advice is provided.
+5. **Execution Handoff:** Successful evaluations produce an immutable handoff structure for Layer 2 Execution Preflight.
+
+### 10 Canonical Consumer Expectations
+1. `SELF_CUSTODY`: "I want to hold it in my own wallet."
+2. `DIRECT_SHARE_OWNERSHIP`: "I need to directly own shares of the underlying company."
+3. `ORDINARY_VOTING_RIGHTS`: "I need normal shareholder voting rights."
+4. `ECONOMIC_DIVIDEND_BENEFIT`: "I want to benefit economically when the company pays dividends."
+5. `CASH_DIVIDEND_PAYOUT`: "I expect cash or stablecoins deposited into my wallet when dividends are paid."
+6. `WALLET_TRANSFERABILITY`: "I want to move the token between my own wallets."
+7. `ONCHAIN_SECONDARY_TRADING`: "I want to buy and sell on Solana decentralized exchanges."
+8. `DIRECT_ISSUER_REDEMPTION`: "I want the right to redeem directly with the issuer for cash or underlying stock."
+9. `REDEMPTION_WITHOUT_KYC`: "I want to redeem directly with the issuer without submitting ID/KYC."
+10. `WEEKEND_TRADING`: "I need the ability to trade on weekends."
