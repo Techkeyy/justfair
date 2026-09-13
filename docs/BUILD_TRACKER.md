@@ -13,9 +13,10 @@ This build tracker covers all project completion gates compressed into a strict 
 | **07. Verdict Threshold Model** | Pure verdict determination logic with MEASURED calibration gating & state-truthful labels | Day 2 | **THRESHOLD_CALIBRATION_PENDING_LIVE_MARKET** | `src/engine/verdict.js` MEASURED state active until regular session calibration |
 | **08. Consumer UX & Design** | White + Purple UI restructure (Dashboard + App views) with standalone interactive cards | Day 2 | **INTEGRATION PROVEN** | `public/index.html`, `public/styles.css`, `public/app.js`, 11 Playwright browser screenshots (`docs/evidence/ui/`) |
 | **09. Failure / Recovery States** | 4-state UI (Loading, Success, Empty, Error) with state-truthful weekend handling | Day 2 | **INTEGRATION PROVEN** | Rate limiting, timeouts, bounds, market closed banners, Playwright failure card checks |
-| **10. Security & Secret Audit** | Env boundaries, sanitization, dependency checks | Day 3 | **PENDING** | Awaiting Day 3 Phase 3 |
-| **11. Production Deployment** | Public full-stack Vercel deployment with White + Purple UI | Day 3 | **PREVIEW LIVE** | Live URL: `https://justfair-theta.vercel.app` (Verified HTTP 200 on `/`, `/api/v1/health`, `/api/v1/stocks`, `/api/v1/preflight`) |
-| **12. Project Edge Polish** | Frictionless trade pre-check flow, better option routing discovery, and safety guarantees | Day 3 | **INTEGRATION PROVEN** | Alternative routing discovery + state-truthful labels |
-| **13. Human UAT & Edge Cases** | Manual walkthrough across wallets and browsers | Day 3 | **UAT READY** | Playwright test suites (12/12) + dual-surface verification |
-| **14. Final Demo Video (<3 Min)** | 90-second crisp demo recording & narration | Day 3 | **PENDING** | Playwright recorded videos available in `docs/evidence/ui/videos/` |
-| **15. Perfect README & Submission** | Submission package on hackathons.solana.com | Day 3 | **PENDING** | Awaiting final packaging |
+| **10. Continuous Price Streaming** | Server-side authenticated Pyth Hermes stream + live active route scheduler | Day 3 | **COMPLETE (PASS)** | `src/server.js`, `test/streaming.test.js` (6/6 pass), Vercel Production deployment |
+| **11. Product Preflight (FinePrint)** | Truth Model, Multi-Issuer Registry (`Underlying -> Representations`), Ondo Proof, Second Issuer Gate PASS | Day 3 | **COMPLETE (PASS)** | `src/product/schema.js`, `src/product/registry.js`, `src/product/matcher.js`, `test/product-preflight.test.js` (9/9 pass) |
+| **12. Security & Secret Audit** | Env boundaries, sanitization, dependency checks | Day 3 | **PENDING** | Awaiting Day 3 Phase 3 |
+| **13. Production Deployment** | Public full-stack Vercel deployment with White + Purple UI | Day 3 | **PREVIEW LIVE** | Live URL: `https://justfair-theta.vercel.app` |
+| **14. Human UAT & Edge Cases** | Manual walkthrough across wallets and browsers | Day 3 | **UAT READY** | Playwright test suites + dual-surface verification |
+| **15. Final Demo Video (<3 Min)** | 90-second crisp demo recording & narration | Day 3 | **PENDING** | Playwright recorded videos available in `docs/evidence/ui/videos/` |
+| **16. Perfect README & Submission** | Submission package on hackathons.solana.com | Day 3 | **PENDING** | Awaiting final packaging |

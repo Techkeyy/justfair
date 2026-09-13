@@ -122,3 +122,50 @@ This document contains live, unedited verification evidence from Solana Mainnet,
     * `GET /api/v1/stocks` $\to$ HTTP 200 (4 stocks)
     * `POST /api/v1/preflight` $\to$ HTTP 200 (`SUCCESS`, live route economics returned)
 
+---
+
+## 8. Multi-Issuer On-Chain Evidence & Product Preflight Suite (Phase 11 / Order 010.1)
+
+### 8.1 Second-Issuer Reality Check & Historical Correction Record
+* **Previous Preliminary Finding:** Single verified issuer (Backed Assets xStocks).
+* **Current Status:** `SUPERSEDED_INCORRECT`
+* **Correction Finding:** Primary evidence from official Ondo Finance documentation and live Solana Mainnet RPC accounts confirms **Ondo Stocks is officially live on Solana** as of January 2026.
+* **Second-Issuer Kill Gate:** `PASS`
+
+### 8.2 Live On-Chain Solana RPC Account Evidence for Ondo Global Markets
+* **Program ID:** `XzTT4XB8m7sLD2xi6snefSasaswsKCxx5Tifjondogm` ([Solscan](https://solscan.io/account/XzTT4XB8m7sLD2xi6snefSasaswsKCxx5Tifjondogm))
+* **Program Owner:** `BPFLoaderUpgradeab1e11111111111111111111111`
+* **Total Program Accounts:** `2,842`
+* **Token Factory Limit Accounts (115 bytes):** `565` deployed token slots
+* **Live Token-2022 Mints on Solana:** `38+` verified active tokens including:
+  * `NVDAon` (NVIDIA Ondo Tokenized): `gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo` (Decimals: 9)
+  * `DELLon` (Dell Technologies Ondo Tokenized): `cFDP5SsUBeKrV1RkKHdaofHBSfRW8cBd7DiaPTSLAon` (Decimals: 9)
+  * `ISRGon` (Intuitive Surgical Ondo Tokenized): `1MGRpPrkhEsCm2GCWD3rsvEU77xTTLAzfKXeFgFondo` (Decimals: 9)
+  * `BABAon` (Alibaba Ondo Tokenized): `1zvb9ELBFShBCWKEk5jRTJAaPAwtVt7quEXx1X4ondo` (Decimals: 9)
+  * `TSMon` (Taiwan Semiconductor Ondo Tokenized): `keybg184d4vyXeQdFqs4o99YsMg7xBthxTJ6Ky3ondo` (Decimals: 9)
+
+### 8.3 Exact AAPLon Solana Mint Resolution Status
+* **Documented Chain Identifier:** `solana-900`
+* **Primary API Endpoint:** `GET https://api.gm.ondo.finance/v1/assets/AAPLon/addresses`
+* **Resolution Status:** `UNRESOLVED_DUE_TO_PRIMARY_SOURCE_ACCESS` (Endpoint returns HTTP 403 Forbidden requiring authenticated `x-api-key`). On-chain factory deployment slot reserved pending public metadata publication.
+
+### 8.4 Backed Assets AAPLx Solana Mainnet Account Dump
+* **Target Stock:** Apple Inc. Tokenized Stock (`AAPLx`)
+* **Solana Mainnet Mint:** `XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp`
+* **Token Program:** `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` (SPL Token-2022)
+* **Decimals:** `8`
+* **Mint Authority:** `7pt9tkctJPK7PPNQJ77GKg8ZffSF6QxoMiCFYHxrtaCj`
+* **Freeze Authority:** `JDq14BWvqCRFNu1krb12bcRpbGtJZ1FLEakMw6FdxJNs`
+* **Extensions:** `scaledUiAmountConfig`, `permanentDelegate`, `pausableConfig`, `defaultAccountState: initialized`, `metadataPointer`, `tokenMetadata` (`https://xstocks-metadata.backed.fi/tokens/Solana/AAPLx/metadata.json`).
+
+### 8.5 Product Preflight Multi-Issuer Test Suite (`test/product-preflight.test.js`)
+* **Test Results:** 9/9 PASS (0 Failures)
+  1. `✔ Registry: Underlying Catalog structures multiple representations under same security`
+  2. `✔ Second-Issuer Kill Gate: Verified PASS with Ondo Stocks on Solana`
+  3. `✔ Fact Isolation: Issuer-specific legal facts and programs do not leak across representations`
+  4. `✔ Profile 1 (Self-Custody & Exposure): Returns MULTIPLE_VERIFIED_MATCHES for both AAPLx and AAPLon`
+  5. `✔ Profile 2 (Direct Shareholder & Voting): Returns REQUIREMENT_MISMATCH for all representations`
+  6. `✔ Profile 3 (Transferability & Anon Redemption): Returns REQUIREMENT_MISMATCH due to KYC requirement`
+  7. `✔ Profile 4 (Cash Dividend Payouts): Differentiates between stablecoin payout and multiplier accretion`
+  8. `✔ Execution Preflight Boundary: Flag truthfully reflects current engine support`
+  9. `✔ Unknown Underlying Security: Returns NO_VERIFIED_PRODUCT_MATCH`

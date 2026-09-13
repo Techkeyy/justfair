@@ -45,3 +45,19 @@
   * Expand Playwright automated browser suite to 7 assertions capturing visual evidence in `docs/evidence/ui/`.
   * Redeploy and verify live on Vercel production edge (`https://justfair-theta.vercel.app`).
 
+## Decision 008: Multi-Issuer Product Preflight (FinePrint) & Underlying Architecture Lock
+* **Context:** Director Order 010 and 010.1 established Product Preflight ("Does this tokenized stock give me what I think it gives me?"), corrected the Solana ecosystem reality check regarding Ondo Stocks, separated legal holder rights from on-chain technical states, and introduced the Underlying $\to$ Multiple Representations data architecture.
+* **Decision:**
+  * Two-layer product promise: *"KNOW WHAT YOU'RE BUYING. THEN CHECK THE FILL."* (Layer 1: Product Preflight / FinePrint; Layer 2: Execution Preflight).
+  * Multi-Issuer Architecture: Structure catalog around underlying securities (e.g. `AAPL`), containing multiple verified representations (`AAPLx` by Backed Assets, `AAPLon` by Ondo Finance). Users pick the company first; FinePrint discovers representations without forcing ticker familiarity.
+  * Second-Issuer Reality Check & Kill Gate:
+    * **Previous Status:** `SUPERSEDED_INCORRECT` (Preliminary finding claimed single issuer).
+    * **Corrected Status:** `PASS` (Official primary evidence from Ondo Finance and live Solana Mainnet RPC confirmed Ondo Stocks active under Program ID `XzTT4XB8m7sLD2xi6snefSasaswsKCxx5Tifjondogm` with 565 deployed factory slots and 38+ live Token-2022 mints).
+  * Strict Fact Authority Separation:
+    * Legal facts (direct equity ownership, voting rights, bankruptcy claim structure, KYC redemption) sourced strictly from official issuer prospectuses/documentation (Backed Assets & Ondo Global Markets). Never infer legal standing from on-chain tokens.
+    * Technical on-chain facts verified via Solana RPC `getAccountInfo` on SPL Token-2022 program state.
+  * Match Engine Multi-Result Model:
+    * If multiple representations satisfy user requirements, emit `MULTIPLE_VERIFIED_MATCHES` and display the comparison matrix without picking an arbitrary single winner.
+    * If exactly one satisfies requirements, emit `MATCHES_REQUIRED_EXPECTATIONS`.
+    * If none satisfy requirements, emit `REQUIREMENT_MISMATCH`.
+  * Execution Preflight Boundary: xStocks representations are immediately executable in JustFair's Swap V2 pipeline; Ondo Stocks representations are clearly marked `EXECUTION_PREFLIGHT_NOT_YET_SUPPORTED_FOR_THIS_REPRESENTATION` until dedicated DEX routing is integrated in Phase 12/17.
