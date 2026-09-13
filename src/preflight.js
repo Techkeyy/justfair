@@ -154,8 +154,12 @@ function evaluateAlternativeRoutes({
 /**
  * Execute Unified Equity Preflight Analysis
  */
-export async function runPreflight({ inputSymbol, stockSymbol, amount, userPublicKey = null }) {
+export async function runPreflight(params = {}) {
   const startTime = Date.now();
+  const inputSymbol = params.inputSymbol || params.inputAsset;
+  const stockSymbol = params.stockSymbol || params.stock;
+  const amount = params.amount;
+  const userPublicKey = params.userPublicKey || params.wallet || null;
 
   // 1. Validate Input Asset
   const inputAsset = SUPPORTED_PAYMENTS[inputSymbol];

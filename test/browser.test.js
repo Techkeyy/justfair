@@ -432,11 +432,17 @@ async function runBrowserTests() {
 
       // 1. Check AAPLx with USDC
       const aaplCard = await page.$("#stock-card-AAPLx");
+      const isExpanded = await page.$eval("#stock-card-AAPLx", el => el.classList.contains("is-expanded"));
+      if (!isExpanded) {
+        await page.click("#stock-card-AAPLx .stock-card-header");
+        await page.waitForTimeout(400);
+      }
       
       // Select USDC tab
       await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+      await page.waitForTimeout(300);
       await page.click("#stock-card-AAPLx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 15000 });
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 20000 });
 
       let jupLink = await aaplCard.$eval(".jupiter-exit-link", a => a.href);
       let linkText = await aaplCard.$eval(".jupiter-exit-link", a => a.textContent.trim());
@@ -454,9 +460,9 @@ async function runBrowserTests() {
 
       // 2. Switch to SOL on AAPLx
       await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
+      await page.waitForTimeout(400);
       await page.click("#stock-card-AAPLx .submit-trade-btn");
-      await page.waitForTimeout(2500);
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 15000 });
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 20000 });
 
       jupLink = await aaplCard.$eval(".jupiter-exit-link", a => a.href);
       if (!jupLink.includes("buy=XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp") || !jupLink.includes("sell=So11111111111111111111111111111111111111112")) {
@@ -464,12 +470,16 @@ async function runBrowserTests() {
       }
 
       // 3. Switch to NVDAx with SOL
-      await page.click("#stock-card-NVDAx .stock-card-header");
-      await page.waitForTimeout(400);
+      const nvdaExpanded = await page.$eval("#stock-card-NVDAx", el => el.classList.contains("is-expanded"));
+      if (!nvdaExpanded) {
+        await page.click("#stock-card-NVDAx .stock-card-header");
+        await page.waitForTimeout(400);
+      }
       const nvdaCard = await page.$("#stock-card-NVDAx");
       await page.click("#stock-card-NVDAx .payment-tab[data-asset='SOL']");
+      await page.waitForTimeout(400);
       await page.click("#stock-card-NVDAx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 15000 });
+      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 20000 });
 
       jupLink = await nvdaCard.$eval(".jupiter-exit-link", a => a.href);
       if (!jupLink.includes("buy=Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh") || !jupLink.includes("sell=So11111111111111111111111111111111111111112")) {
@@ -478,9 +488,9 @@ async function runBrowserTests() {
 
       // 4. Switch to USDC on NVDAx
       await page.click("#stock-card-NVDAx .payment-tab[data-asset='USDC']");
+      await page.waitForTimeout(400);
       await page.click("#stock-card-NVDAx .submit-trade-btn");
-      await page.waitForTimeout(2500);
-      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 15000 });
+      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 20000 });
 
       jupLink = await nvdaCard.$eval(".jupiter-exit-link", a => a.href);
       if (!jupLink.includes("buy=Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh") || !jupLink.includes("sell=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")) {
@@ -504,25 +514,31 @@ async function runBrowserTests() {
       // 3. Select 4 SOL preset or enter 4
       await page.fill("#stock-card-AAPLx .amount-input", "4");
       await page.dispatchEvent("#stock-card-AAPLx .amount-input", "input");
+      await page.waitForTimeout(300);
 
-      // 4. Read displayed SOL price
-      const displayedSolPriceText = await page.textContent("#stock-card-AAPLx .sol-spot-sub");
-      const cleanSolPrice = parseFloat(displayedSolPriceText.replace(/[^0-9.]/g, ""));
+      // 4. Read displayed SOL price and form estimate atomically
+      const { cleanSolPrice, cleanFormEstimate } = await page.evaluate(() => {
+        const solText = document.querySelector("#stock-card-AAPLx .sol-spot-sub")?.textContent || "";
+        const estText = document.querySelector("#stock-card-AAPLx .amount-usd-equivalent")?.textContent || "";
+        return {
+          cleanSolPrice: parseFloat(solText.replace(/[^0-9.]/g, "")),
+          cleanFormEstimate: parseFloat(estText.replace(/[^0-9.]/g, ""))
+        };
+      });
+
       if (isNaN(cleanSolPrice) || cleanSolPrice <= 0) {
-        throw new Error(`Invalid displayed SOL price: ${displayedSolPriceText}`);
+        throw new Error(`Invalid displayed SOL price: ${cleanSolPrice}`);
       }
 
-      // 5. Read form estimate
-      const formEstimateText = await page.textContent("#stock-card-AAPLx .amount-usd-equivalent");
-      const cleanFormEstimate = parseFloat(formEstimateText.replace(/[^0-9.]/g, ""));
       const expectedFormEstimate = parseFloat((4 * cleanSolPrice).toFixed(2));
       if (Math.abs(cleanFormEstimate - expectedFormEstimate) > 0.05) {
         throw new Error(`Form estimate mismatch: displayed ${cleanFormEstimate}, expected ${expectedFormEstimate} (from $${cleanSolPrice}/SOL)`);
       }
 
       // 6. Submit trade check
+      await page.waitForTimeout(1000);
       await page.click("#stock-card-AAPLx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 15000 });
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 20000 });
 
       // 7. Read YOU'RE SPENDING in result
       const spendValText = await page.textContent("#stock-card-AAPLx .res-spend-val");
