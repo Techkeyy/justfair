@@ -53,6 +53,13 @@ async function runBrowserTests() {
   const page = await context.newPage();
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
   page.on('pageerror', err => console.log('PAGE ERROR:', err.message));
+  page.on('response', async res => {
+    if (res.status() >= 400) {
+      try {
+        console.log('HTTP ERROR:', res.url(), res.status(), await res.text());
+      } catch {}
+    }
+  });
 
   try {
     // 1. Desktop Hero Split-White Canvas & Initial View (Order 008)
@@ -324,14 +331,18 @@ async function runBrowserTests() {
     // 9. Execute Trade Check & Assert 3-Metric Plain-Money Hierarchy
     await test("9. Switch back to Apple, execute trade check ($500 USDC) and verify locked 3-metric hierarchy", async () => {
       // Expand Apple card again
-      await page.click("#stock-card-AAPLx .stock-card-header");
-      await page.waitForTimeout(400);
+      const isExpanded = await page.$eval("#stock-card-AAPLx", el => el.classList.contains("is-expanded"));
+      if (!isExpanded) {
+        await page.click("#stock-card-AAPLx .stock-card-header");
+        await page.waitForTimeout(500);
+      }
 
       const appleCard = await page.$("#stock-card-AAPLx");
       const submitBtn = await appleCard.$(".submit-trade-btn");
 
+      await page.waitForTimeout(600);
       await submitBtn.click();
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 15000 });
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
 
       // Metric #1: YOU'RE SPENDING
       const spendLabel = await page.textContent("#stock-card-AAPLx .money-stat:nth-child(1) .money-label");
@@ -440,9 +451,9 @@ async function runBrowserTests() {
       
       // Select USDC tab
       await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(600);
       await page.click("#stock-card-AAPLx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 20000 });
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
 
       let jupLink = await aaplCard.$eval(".jupiter-exit-link", a => a.href);
       let linkText = await aaplCard.$eval(".jupiter-exit-link", a => a.textContent.trim());
@@ -459,10 +470,11 @@ async function runBrowserTests() {
       }
 
       // 2. Switch to SOL on AAPLx
+      await page.waitForTimeout(800);
       await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(600);
       await page.click("#stock-card-AAPLx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 20000 });
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
 
       jupLink = await aaplCard.$eval(".jupiter-exit-link", a => a.href);
       if (!jupLink.includes("buy=XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp") || !jupLink.includes("sell=So11111111111111111111111111111111111111112")) {
@@ -470,16 +482,17 @@ async function runBrowserTests() {
       }
 
       // 3. Switch to NVDAx with SOL
+      await page.waitForTimeout(800);
       const nvdaExpanded = await page.$eval("#stock-card-NVDAx", el => el.classList.contains("is-expanded"));
       if (!nvdaExpanded) {
         await page.click("#stock-card-NVDAx .stock-card-header");
-        await page.waitForTimeout(400);
+        await page.waitForTimeout(600);
       }
       const nvdaCard = await page.$("#stock-card-NVDAx");
       await page.click("#stock-card-NVDAx .payment-tab[data-asset='SOL']");
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(600);
       await page.click("#stock-card-NVDAx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 20000 });
+      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 35000 });
 
       jupLink = await nvdaCard.$eval(".jupiter-exit-link", a => a.href);
       if (!jupLink.includes("buy=Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh") || !jupLink.includes("sell=So11111111111111111111111111111111111111112")) {
@@ -487,10 +500,11 @@ async function runBrowserTests() {
       }
 
       // 4. Switch to USDC on NVDAx
+      await page.waitForTimeout(800);
       await page.click("#stock-card-NVDAx .payment-tab[data-asset='USDC']");
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(600);
       await page.click("#stock-card-NVDAx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 20000 });
+      await page.waitForSelector("#stock-card-NVDAx .inline-result-container:not(.hidden)", { timeout: 35000 });
 
       jupLink = await nvdaCard.$eval(".jupiter-exit-link", a => a.href);
       if (!jupLink.includes("buy=Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh") || !jupLink.includes("sell=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")) {
@@ -538,7 +552,7 @@ async function runBrowserTests() {
       // 6. Submit trade check
       await page.waitForTimeout(1000);
       await page.click("#stock-card-AAPLx .submit-trade-btn");
-      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 20000 });
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
 
       // 7. Read YOU'RE SPENDING in result
       const spendValText = await page.textContent("#stock-card-AAPLx .res-spend-val");
@@ -597,7 +611,7 @@ async function runBrowserTests() {
     try { await browser.close(); } catch {}
     try {
       if (server.closeAllConnections) server.closeAllConnections();
-      await new Promise(resolve => server.close(resolve));
+      server.close();
     } catch {}
   }
 
@@ -605,12 +619,10 @@ async function runBrowserTests() {
   console.log(`PLAYWRIGHT TEST SUMMARY: ${passed} PASSED | ${failed} FAILED`);
   console.log("==================================================");
 
-  if (failed > 0) {
-    process.exitCode = 1;
-  }
+  process.exit(failed > 0 ? 1 : 0);
 }
 
 runBrowserTests().catch(err => {
   console.error("Playwright Test Runner Crashed:", err);
-  process.exitCode = 1;
+  process.exit(1);
 });

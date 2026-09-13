@@ -2,24 +2,36 @@
 import { API_ENDPOINTS, TIMEOUTS } from "../config.js";
 
 /**
- * Resilient fetch with exponential backoff on HTTP 429 rate limits
+ * Resilient fetch with per-attempt timeout and exponential backoff on HTTP 429/503 rate limits
  */
-async function fetchWithRetry(url, options = {}, retries = 3, delayMs = 800) {
+async function fetchWithRetry(url, options = {}, retries = 4, initialDelayMs = 600) {
+  let delayMs = initialDelayMs;
   for (let i = 0; i <= retries; i++) {
-    const res = await fetch(url, options);
-    if (res.status === 429 && i < retries) {
-      await new Promise(r => setTimeout(r, delayMs));
-      delayMs *= 1.5;
-      continue;
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(TIMEOUTS.UPSTREAM_FETCH_MS || 10000)
+      });
+      if ((res.status === 429 || res.status === 503) && i < retries) {
+        await new Promise(r => setTimeout(r, delayMs));
+        delayMs *= 1.5;
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (i < retries && (err.name === "TimeoutError" || err.name === "AbortError" || err.message?.includes("fetch"))) {
+        await new Promise(r => setTimeout(r, delayMs));
+        delayMs *= 1.5;
+        continue;
+      }
+      throw err;
     }
-    return res;
   }
 }
 
 /**
  * Fetch real route from official Jupiter Swap V2 API (/swap/v2/order)
- * NOTE: Does NOT send manual slippageBps by default; allows Jupiter default ultra/automatic mode.
- * Officially supported route-control parameters on /order: excludeRouters, excludeDexes
+ * With automatic resilience fallback to /v6/quote if V2 is rate-limited
  */
 export async function fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountHuman, taker = null, options = {}) {
   const rawAmount = Math.floor(amountHuman * Math.pow(10, inputAssetConfig.decimals));
@@ -50,10 +62,36 @@ export async function fetchJupiterOrderV2(inputAssetConfig, stockConfig, amountH
   }
 
   const quoteStartTime = Date.now();
-  const res = await fetchWithRetry(url, { headers, signal: AbortSignal.timeout(TIMEOUTS.UPSTREAM_FETCH_MS) });
+  let res;
+  try {
+    res = await fetchWithRetry(url, { headers });
+  } catch (err) {
+    // If V2 order fails with network error, attempt V6 quote fallback
+    const v6Url = `https://quote-api.jup.ag/v6/quote?inputMint=${inputAssetConfig.mint}&outputMint=${stockConfig.mint}&amount=${rawAmount}`;
+    try {
+      res = await fetchWithRetry(v6Url, { headers });
+    } catch {
+      throw err;
+    }
+  }
+
   const latencyMs = Date.now() - quoteStartTime;
 
   if (!res.ok) {
+    // If V2 returned 429 / error, try V6 quote fallback
+    if (res.status === 429 || res.status >= 500) {
+      const v6Url = `https://quote-api.jup.ag/v6/quote?inputMint=${inputAssetConfig.mint}&outputMint=${stockConfig.mint}&amount=${rawAmount}`;
+      const v6Res = await fetchWithRetry(v6Url, { headers });
+      if (v6Res.ok) {
+        const orderData = await v6Res.json();
+        return {
+          orderData,
+          obtained_at: new Date().toISOString(),
+          fetch_latency_ms: latencyMs,
+          options_applied: { ...options, fallback: "v6_quote" }
+        };
+      }
+    }
     const errText = await res.text();
     throw new Error(`Jupiter Swap V2 order failed: ${errText}`);
   }

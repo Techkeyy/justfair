@@ -159,36 +159,48 @@ export class MarketStreamManager {
   }
 
   connect() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.eventSource) {
       try { this.eventSource.close(); } catch {}
-    }
-    this.eventSource = new EventSource("/api/v1/stream");
-
-    this.eventSource.onopen = () => {
-      this.status = "LIVE";
-      this.reconnectAttempts = 0;
-    };
-
-    this.eventSource.onmessage = (e) => {
-      try {
-        const payload = JSON.parse(e.data);
-        if (payload.type === "PRICE_UPDATE" && payload.symbol === "SOL") {
-          currentSolPrice = payload.price;
-          solPriceTimestamp = payload.timestamp;
-          solPriceStatus = "FRESH";
-          updateAllSolPriceDisplays();
-        }
-      } catch {}
-    };
-
-    this.eventSource.onerror = () => {
-      this.status = "RECONNECTING";
-      try { this.eventSource.close(); } catch {}
       this.eventSource = null;
-      const backoff = Math.min(16000, 1000 * Math.pow(2, this.reconnectAttempts)) * (0.8 + Math.random() * 0.4);
-      this.reconnectAttempts++;
-      this.reconnectTimer = setTimeout(() => this.connect(), backoff);
-    };
+    }
+    if (this.reconnectAttempts >= 8) {
+      this.status = "DISCONNECTED";
+      return;
+    }
+
+    try {
+      this.eventSource = new EventSource("/api/v1/stream");
+
+      this.eventSource.onopen = () => {
+        this.status = "LIVE";
+        this.reconnectAttempts = 0;
+      };
+
+      this.eventSource.onmessage = (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.type === "PRICE_UPDATE" && payload.symbol === "SOL") {
+            currentSolPrice = payload.price;
+            solPriceTimestamp = payload.timestamp;
+            solPriceStatus = "FRESH";
+            updateAllSolPriceDisplays();
+          }
+        } catch {}
+      };
+
+      this.eventSource.onerror = () => {
+        this.status = "RECONNECTING";
+        try { this.eventSource?.close(); } catch {}
+        this.eventSource = null;
+        const backoff = Math.min(16000, 1000 * Math.pow(2, this.reconnectAttempts)) * (0.8 + Math.random() * 0.4);
+        this.reconnectAttempts++;
+        this.reconnectTimer = setTimeout(() => this.connect(), backoff);
+      };
+    } catch {}
   }
 }
 
@@ -1273,6 +1285,12 @@ function setupCardInteractivity(card, symbol) {
   // Form Submit Handler
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    // Stop and abort pending background route polling so explicit preflight has priority
+    activeRouteScheduler.stopTimer();
+    if (activeRouteScheduler.abortController) {
+      try { activeRouteScheduler.abortController.abort(); } catch {}
+    }
 
     const inputAsset = inputAssetHidden ? inputAssetHidden.value : "USDC";
     const amount = parseFloat(amountInput.value);
