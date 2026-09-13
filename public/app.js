@@ -701,6 +701,17 @@ export function navigateToSection(target, targetStock = null) {
     if (window.location.hash !== "#dashboard" && window.location.hash !== "") {
       history.pushState(null, "", "#dashboard");
     }
+  } else if (target === "why-justfair") {
+    switchView("dashboard");
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const el = document.getElementById("why-justfair");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        history.pushState(null, "", "#why-justfair");
+      }, 50);
+    });
   } else if (target === "differentiation") {
     switchView("dashboard");
     requestAnimationFrame(() => {
@@ -750,6 +761,11 @@ if (navBrandLink) navBrandLink.addEventListener("click", (e) => {
   e.preventDefault();
   navigateToSection("dashboard");
 });
+const navWhyBtn = document.getElementById("nav-why-btn");
+if (navWhyBtn) navWhyBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("why-justfair");
+});
 const navHowBtn = document.getElementById("nav-how-btn");
 if (navHowBtn) navHowBtn.addEventListener("click", (e) => {
   e.preventDefault();
@@ -763,7 +779,7 @@ if (navApiBtn) navApiBtn.addEventListener("click", (e) => {
 const heroLearnBtn = document.getElementById("hero-learn-btn");
 if (heroLearnBtn) heroLearnBtn.addEventListener("click", (e) => {
   e.preventDefault();
-  navigateToSection("differentiation");
+  navigateToSection("how-it-works");
 });
 if (headerLaunchBtn) headerLaunchBtn.addEventListener("click", (e) => {
   e.preventDefault();
@@ -771,7 +787,7 @@ if (headerLaunchBtn) headerLaunchBtn.addEventListener("click", (e) => {
 });
 if (heroOpenAppBtn) heroOpenAppBtn.addEventListener("click", (e) => {
   e.preventDefault();
-  navigateToSection("app", "AAPLx");
+  navigateToSection("app");
 });
 const exampleOpenAppBtn = document.getElementById("example-open-app-btn");
 if (exampleOpenAppBtn) exampleOpenAppBtn.addEventListener("click", (e) => {
@@ -786,11 +802,22 @@ if (bottomOpenAppBtn) bottomOpenAppBtn.addEventListener("click", (e) => {
   e.preventDefault();
   navigateToSection("app");
 });
+const footerAppLink = document.getElementById("footer-app-link");
+if (footerAppLink) footerAppLink.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("app");
+});
 
 function handleRoute() {
   const hash = window.location.hash.toLowerCase();
   if (hash === "#app") {
     switchView("app");
+  } else if (hash === "#why-justfair") {
+    switchView("dashboard");
+    setTimeout(() => {
+      const el = document.getElementById("why-justfair");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
   } else if (hash === "#differentiation") {
     switchView("dashboard");
     setTimeout(() => {
@@ -801,6 +828,12 @@ function handleRoute() {
     switchView("dashboard");
     setTimeout(() => {
       const el = document.getElementById("how-it-works");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+  } else if (hash === "#product-proof") {
+    switchView("dashboard");
+    setTimeout(() => {
+      const el = document.getElementById("product-proof");
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
   } else if (hash === "#api" || hash === "#api-docs") {

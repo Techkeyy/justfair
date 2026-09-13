@@ -70,18 +70,18 @@
               </div>
               <h1 class="hero-headline">Know what you're buying.<br>Then check the fill.</h1>
               <p class="hero-subheadline">
-                JustFair protects you twice: first, verify what the tokenized stock actually gives you. Second, check if the trade fill is economically fair.
+                JustFair checks whether a tokenized stock actually gives you what you expect, then checks whether the trade itself gives you a fair deal.
               </p>
               <div class="hero-cta-group">
                 <button type="button" class="btn btn-primary btn-lg" id="hero-open-app-btn">
-                  <span>Check a stock trade</span>
+                  <span>Start a Preflight</span>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M5 12h14"></path>
                     <path d="M12 5l7 7-7 7"></path>
                   </svg>
                 </button>
-                <a href="#differentiation" class="btn btn-secondary btn-lg" id="hero-learn-btn">
-                  <span>Learn How It Works</span>
+                <a href="#how-it-works" class="btn btn-secondary btn-lg" id="hero-learn-btn">
+                  <span>How It Works</span>
                 </a>
               </div>
             </div>
@@ -143,12 +143,68 @@
           </div>
         </section>
 
-        <!-- 3. Key Differentiation: Wallet vs JustFair -->
+        <!-- 3. Why JustFair (Pillars of Truth) -->
+        <section class="dashboard-section reveal-section" id="why-justfair">
+          <div class="section-header">
+            <div class="section-badge-sm">WHY JUSTFAIR</div>
+            <h2 class="section-title">Built specifically for tokenized equity truth.</h2>
+            <p class="section-subtitle">
+              Standard swap routers check whether a transaction will succeed. JustFair verifies the legal rights, onchain asset configuration, and true fill economics.
+            </p>
+          </div>
+
+          <div class="why-pillars-grid">
+            <div class="why-pillar-card reveal-item">
+              <div class="why-pillar-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+              </div>
+              <h3 class="why-pillar-title">VERIFY THE PRODUCT</h3>
+              <p class="why-pillar-desc">
+                Checks issuer facts, shareholder voting rights, dividend distribution mechanisms, and exact primary redemption terms.
+              </p>
+            </div>
+
+            <div class="why-pillar-card reveal-item">
+              <div class="why-pillar-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                </svg>
+              </div>
+              <h3 class="why-pillar-title">VERIFY THE ASSET</h3>
+              <p class="why-pillar-desc">
+                Checks the exact Solana mint address, Token-2022 program configuration, decimals, and share-split multiplier onchain.
+              </p>
+            </div>
+
+            <div class="why-pillar-card reveal-item">
+              <div class="why-pillar-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="1" x2="12" y2="23"></line>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+              </div>
+              <h3 class="why-pillar-title">VERIFY THE TRADE</h3>
+              <p class="why-pillar-desc">
+                Checks live route economics, expected stock exposure, market reference context, and unsigned simulation before funds move.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. What JustFair Checks (Layer 1 vs Layer 2 Comparison) -->
         <section class="dashboard-section reveal-section" id="differentiation">
           <div class="section-header">
-            <h2 class="section-title diff-main-title">A swap can execute perfectly<br>and still be a bad stock trade.</h2>
+            <div class="section-badge-sm">TWO-LAYER PREFLIGHT</div>
+            <h2 class="section-title diff-main-title">A swap can execute smoothly<br>and still be an expensive stock trade.</h2>
             <p class="section-subtitle">
-              Wallets are good at checking whether a swap will execute safely. JustFair checks something different: whether the tokenized stock you're receiving is actually worth what you're paying for it.
+              Wallets check whether a swap will execute on Solana. JustFair checks what the tokenized stock represents and whether the trade gives you fair economic value.
             </p>
             <div class="diff-framing-box">
               <span class="diff-framing-text">Wallets solve one problem. JustFair solves the next one.</span>
@@ -156,92 +212,90 @@
           </div>
 
           <div class="comparison-grid">
-            <!-- LEFT: YOUR WALLET CHECKS -->
+            <!-- LEFT: LAYER 1 PRODUCT PREFLIGHT -->
             <div class="comparison-card wallet-check-card reveal-item">
               <div class="comparison-card-header">
                 <div class="comparison-icon-box wallet-icon-box">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="6" width="20" height="12" rx="3"></rect>
-                    <circle cx="16" cy="12" r="2"></circle>
+                    <path d="M9 12l2 2 4-4"></path>
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                   </svg>
                 </div>
                 <div>
-                  <h3 class="comparison-title">YOUR WALLET CHECKS</h3>
-                  <span class="comparison-sub">Execution mechanics</span>
+                  <h3 class="comparison-title">LAYER 1: PRODUCT PREFLIGHT</h3>
+                  <span class="comparison-sub">Legal rights and token identity</span>
                 </div>
               </div>
               <ul class="comparison-list">
                 <li>
-                  <svg class="check-icon muted" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>Route</span>
+                  <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Exact representation and issuer entity</span>
                 </li>
                 <li>
-                  <svg class="check-icon muted" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>Slippage</span>
+                  <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Shareholder voting rights eligibility</span>
                 </li>
                 <li>
-                  <svg class="check-icon muted" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>Price impact</span>
+                  <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Dividend mechanism (reinvestment vs payout)</span>
                 </li>
                 <li>
-                  <svg class="check-icon muted" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>Fees</span>
+                  <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Direct issuer redemption and in-kind share delivery</span>
                 </li>
                 <li>
-                  <svg class="check-icon muted" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>Whether the transaction should succeed</span>
+                  <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Exact Solana Token-2022 mint address verification</span>
                 </li>
               </ul>
             </div>
 
-            <!-- RIGHT: JUSTFAIR ALSO CHECKS -->
+            <!-- RIGHT: LAYER 2 EXECUTION PREFLIGHT -->
             <div class="comparison-card justfair-check-card reveal-item">
               <div class="comparison-card-header">
                 <div class="comparison-icon-box justfair-icon-box">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 3v18"></path>
-                    <path d="M4 7l8-4 8 4"></path>
-                    <path d="M6 18l-3-6h6l-3 6z"></path>
-                    <path d="M18 18l-3-6h6l-3 6z"></path>
+                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
                   </svg>
                 </div>
                 <div>
-                  <h3 class="comparison-title">JUSTFAIR ALSO CHECKS</h3>
-                  <span class="comparison-sub">Underlying equity economics</span>
+                  <h3 class="comparison-title">LAYER 2: EXECUTION PREFLIGHT</h3>
+                  <span class="comparison-sub">Live economics and fill fairness</span>
                 </div>
               </div>
               <ul class="comparison-list">
                 <li>
                   <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>What the token represents (Product Preflight)</span>
+                  <span>Current DEX route and input USD value</span>
                 </li>
                 <li>
                   <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>Current stock-share multiplier</span>
+                  <span>Token-2022 share multiplier scaling</span>
                 </li>
                 <li>
                   <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>Underlying equity reference</span>
+                  <span>Independent underlying equity reference benchmark</span>
                 </li>
                 <li>
                   <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>Dollar value of expected stock exposure</span>
+                  <span>Expected stock exposure and dollar net difference</span>
                 </li>
                 <li>
                   <svg class="check-icon purple" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>Difference between what you spend and what you receive</span>
+                  <span>Alternative route evaluation and unsigned simulation</span>
                 </li>
               </ul>
             </div>
           </div>
         </section>
 
-        <!-- 4. Illustrative $500 Example Card -->
+        <!-- Illustrative $500 Example Card -->
         <section class="dashboard-section reveal-section" id="trade-example">
           <div class="example-card reveal-item">
             <div class="example-top-bar">
               <span class="example-pill">Example</span>
-              <span class="example-disclaimer">Illustrative scenario · Why stock preflight matters</span>
+              <span class="example-disclaimer">Illustrative scenario: Why stock preflight matters</span>
             </div>
 
             <div class="example-metrics-grid">
@@ -282,7 +336,7 @@
               </p>
               <div class="example-cta-wrap">
                 <button type="button" class="btn btn-primary btn-md" id="example-open-app-btn">
-                  <span>Check a stock trade</span>
+                  <span>Start a Preflight</span>
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M5 12h14"></path>
                     <path d="M12 5l7 7-7 7"></path>
@@ -296,6 +350,7 @@
         <!-- 5. How JustFair Works -->
         <section class="dashboard-section reveal-section" id="how-it-works">
           <div class="section-header">
+            <div class="section-badge-sm">STEP-BY-STEP</div>
             <h2 class="section-title">How JustFair Works</h2>
             <p class="section-subtitle">A deterministic 4-step sequence ensures complete product truth and economic transparency.</p>
           </div>
@@ -315,8 +370,8 @@
 
             <div class="step-card reveal-item">
               <div class="step-number">03</div>
-              <h3 class="step-heading">Compare verified products</h3>
-              <p class="step-desc">Product Preflight inspects on-chain Token-2022 mints and legal terms across issuers (xStocks, Ondo) to show matching products.</p>
+              <h3 class="step-heading">Verify matching products</h3>
+              <p class="step-desc">Product Preflight inspects on-chain Token-2022 mints and legal terms across issuers to evaluate your expectations.</p>
             </div>
 
             <div class="step-card reveal-item">
@@ -344,20 +399,51 @@
           </div>
         </section>
 
-        <!-- 6. Bottom Consumer CTA -->
-        <section class="dashboard-cta reveal-section">
-          <h2 class="cta-headline">Ready to inspect your tokenized stock trade?</h2>
-          <p class="cta-subtitle">Check real DEX fill economics and product capabilities in seconds without moving funds.</p>
-          <button type="button" class="btn btn-primary btn-lg" id="bottom-open-app-btn">
-            <span>Check a stock trade</span>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14"></path>
-              <path d="M12 5l7 7-7 7"></path>
-            </svg>
-          </button>
+        <!-- 6. Product Proof & Trust Section -->
+        <section class="dashboard-section reveal-section" id="product-proof">
+          <div class="section-header">
+            <div class="section-badge-sm">VERIFIED PROOF</div>
+            <h2 class="section-title">Deterministic Truth on Solana</h2>
+            <p class="section-subtitle">
+              Every check is backed by on-chain Token-2022 smart contract state and official primary-source legal documentation.
+            </p>
+          </div>
+
+          <div class="proof-metrics-grid">
+            <div class="proof-metric-card reveal-item">
+              <span class="proof-metric-num">24</span>
+              <h3 class="proof-metric-title">Verified Representations</h3>
+              <p class="proof-metric-desc">Indexed across xStocks and Ondo with zero duplicate mints.</p>
+            </div>
+            <div class="proof-metric-card reveal-item">
+              <span class="proof-metric-num">12</span>
+              <h3 class="proof-metric-title">Supported Underlyings</h3>
+              <p class="proof-metric-desc">Canonical equity universe including Apple, NVIDIA, and SPDR S&amp;P 500.</p>
+            </div>
+            <div class="proof-metric-card reveal-item">
+              <span class="proof-metric-num">2</span>
+              <h3 class="proof-metric-title">Issuer Families</h3>
+              <p class="proof-metric-desc">Fact-checked legal entities with strictly isolated contractual facts.</p>
+            </div>
+            <div class="proof-metric-card reveal-item">
+              <span class="proof-metric-num">100%</span>
+              <h3 class="proof-metric-title">Onchain Verification</h3>
+              <p class="proof-metric-desc">Validated directly against Solana Token-2022 contract configuration.</p>
+            </div>
+            <div class="proof-metric-card reveal-item">
+              <span class="proof-metric-num">Primary</span>
+              <h3 class="proof-metric-title">Source Documentation</h3>
+              <p class="proof-metric-desc">Backed by base prospectuses, issuer terms, and open-source code.</p>
+            </div>
+            <div class="proof-metric-card reveal-item">
+              <span class="proof-metric-num">0</span>
+              <h3 class="proof-metric-title">Funds Moved</h3>
+              <p class="proof-metric-desc">Zero custody, zero wallet transaction signing, and 100% pre-trade safety.</p>
+            </div>
+          </div>
         </section>
 
-        <!-- 7. Developer & Wallet API Section (Stays Last) -->
+        <!-- 7. Developer & Wallet API Section -->
         <section class="dashboard-section reveal-section" id="api-docs">
           <div class="api-compact-card">
             <div class="api-compact-header">
@@ -365,7 +451,7 @@
                 <div class="api-badge">Developer &amp; Wallet API</div>
                 <h3 class="api-compact-title">Built for users. Embeddable by wallets.</h3>
                 <p class="api-compact-desc">
-                  The Product Preflight and Execution Preflight engines can be integrated into wallets, trading interfaces, and tokenized-stock apps.
+                  Wallets and trading apps can integrate JustFair's deterministic Product Preflight and Execution Preflight checks before users commit to a tokenized stock product or route.
                 </p>
               </div>
               <div class="api-compact-actions">
@@ -373,7 +459,7 @@
                   <span>View API details</span>
                   <svg class="accordion-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </button>
-                <a href="/api/v1/stocks" target="_blank" class="btn btn-secondary btn-sm">GET /api/v1/stocks</a>
+                <a href="/api/v1/products" target="_blank" class="btn btn-secondary btn-sm">GET /api/v1/products</a>
               </div>
             </div>
             <div class="api-code-collapse hidden" id="api-code-drawer">
@@ -386,12 +472,25 @@
   -d '{
     "underlying": "AAPL",
     "expectations": [
-      { "capability": "HOLD_IN_OWN_WALLET", "priority": "MUST_HAVE" },
-      { "capability": "ECONOMIC_DIVIDEND_BENEFIT", "priority": "MUST_HAVE" }
+      { "key": "SELF_CUSTODY", "priority": "REQUIRED" },
+      { "key": "ECONOMIC_DIVIDEND_BENEFIT", "priority": "REQUIRED" }
     ]
   }'</code></pre>
             </div>
           </div>
+        </section>
+
+        <!-- 8. Final Consumer CTA -->
+        <section class="dashboard-cta reveal-section" id="final-cta">
+          <h2 class="cta-headline">Know what you're buying before you trade it.</h2>
+          <p class="cta-subtitle">Check real DEX fill economics and product capabilities in seconds without moving funds.</p>
+          <button type="button" class="btn btn-primary btn-lg" id="bottom-open-app-btn">
+            <span>Check a Tokenized Stock</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"></path>
+              <path d="M12 5l7 7-7 7"></path>
+            </svg>
+          </button>
         </section>
       </div>
 
@@ -728,11 +827,26 @@
             <span>JustFair</span>
           </div>
           <p class="footer-desc">Independent pre-trade product truth and execution safety inspector for tokenized equities on Solana. Non-custodial with zero fund access.</p>
+          <p class="footer-disclaimer">JustFair does not hold custody of user assets, execute trades, or provide financial advice.</p>
         </div>
         <div class="footer-right">
-          <span class="footer-meta">Stocklana Hackathon 2026</span>
-          <span class="footer-meta">MIT Licensed</span>
+          <div class="footer-links-col">
+            <span class="footer-heading">Navigation</span>
+            <a href="#dashboard" class="footer-link">Dashboard</a>
+            <a href="#app" class="footer-link" id="footer-app-link">Preflight App</a>
+            <a href="#how-it-works" class="footer-link">How It Works</a>
+          </div>
+          <div class="footer-links-col">
+            <span class="footer-heading">Resources</span>
+            <a href="/api/v1/products" target="_blank" class="footer-link">Product Catalog API</a>
+            <a href="/api/v1/health" target="_blank" class="footer-link">System Health</a>
+            <a href="https://github.com/techkeyy/justfair" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub</a>
+          </div>
         </div>
+      </div>
+      <div class="footer-bottom-bar">
+        <span class="footer-meta">Stocklana Hackathon 2026</span>
+        <span class="footer-meta">MIT Licensed</span>
       </div>
     </footer>
   </div>
