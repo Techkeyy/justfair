@@ -919,6 +919,102 @@ async function runBrowserTests() {
       }
     });
 
+    // 28-29. Tracker truth (013.9A)
+    await test("28. Tracker Truth Direct: fresh Step 4 leaves Steps 1-3 neutral", async () => {
+      const truthContext = await browser.newContext({ viewport: { width: 1600, height: 800 } });
+      const truthPage = await truthContext.newPage();
+      try {
+        await truthPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await truthPage.click("#hero-open-app-btn");
+        await truthPage.waitForSelector("#tracker-step-4", { timeout: 15000 });
+        await truthPage.click("#tracker-step-4");
+        await truthPage.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
+
+        const tracker = await truthPage.evaluate(() => {
+          const cls = id => document.getElementById(id)?.className || "";
+          return {
+            s1completed: cls("tracker-step-1").includes("completed"),
+            s2completed: cls("tracker-step-2").includes("completed"),
+            s3completed: cls("tracker-step-3").includes("completed"),
+            s4active: cls("tracker-step-4").includes("active"),
+            tradeRep: ("tradeRepresentation" in window.appState) ? window.appState.tradeRepresentation : "UNDEFINED"
+          };
+        });
+        if (tracker.s1completed || tracker.s2completed || tracker.s3completed) {
+          throw new Error(`Direct Step 4 must not complete Steps 1-3: ${JSON.stringify(tracker)}`);
+        }
+        if (!tracker.s4active) throw new Error("Step 4 must read active");
+        if (tracker.tradeRep !== null) throw new Error("Direct Step 4 trade representation must be null");
+        await truthPage.screenshot({ path: path.join(EVIDENCE_DIR, "28_tracker_direct_step4.png") });
+      } finally {
+        await truthContext.close();
+      }
+    });
+
+    await test("29. Tracker Truth Product Flow: genuine progress completes, Step 4 stays fresh", async () => {
+      const flowContext = await browser.newContext({ viewport: { width: 1600, height: 800 } });
+      const flowPage = await flowContext.newPage();
+      try {
+        await flowPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await flowPage.click("#hero-open-app-btn");
+        await flowPage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
+        await flowPage.click("#underlying-card-AAPL");
+        await flowPage.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
+        await flowPage.click("#exp-card-SELF_CUSTODY .btn-must-have");
+        await flowPage.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have");
+        await flowPage.click("#btn-submit-expectations");
+        await flowPage.waitForSelector("#rep-card-AAPLx .btn-check-trade", { timeout: 15000 });
+        await flowPage.click("#rep-card-AAPLx .btn-check-trade");
+        await flowPage.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
+
+        const tracker = await flowPage.evaluate(() => ({
+          s1: document.getElementById("tracker-step-1")?.className || "",
+          s2: document.getElementById("tracker-step-2")?.className || "",
+          s3: document.getElementById("tracker-step-3")?.className || "",
+          s4: document.getElementById("tracker-step-4")?.className || "",
+          tradeRep: ("tradeRepresentation" in window.appState) ? window.appState.tradeRepresentation : "UNDEFINED",
+          card: !!document.getElementById("stock-card-AAPLx"),
+          strip: !!document.querySelector(".execution-handoff-banner")
+        }));
+        for (const [k, v] of [["s1", tracker.s1], ["s2", tracker.s2], ["s3", tracker.s3]]) {
+          if (!v.includes("completed")) throw new Error(`Genuine product ${k} must read completed: ${v}`);
+        }
+        if (!tracker.s4.includes("active")) throw new Error("Step 4 must read active");
+        if (tracker.tradeRep !== null || tracker.card || tracker.strip) {
+          throw new Error("Step 4 must still start fresh with no preload or strip");
+        }
+
+        // Return navigation stays accurate: Step 2 shows, Step 3 keeps results.
+        await flowPage.click("#tracker-step-2");
+        await flowPage.waitForSelector("#step-2-container:not(.hidden)", { timeout: 15000 });
+        await flowPage.click("#tracker-step-3");
+        await flowPage.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+        const banner29 = await flowPage.textContent("#result-banner-title");
+        if (!banner29.includes("2 Verified Products Match Your Must-Haves")) {
+          throw new Error(`Step 3 must retain results, got: ${banner29}`);
+        }
+        await flowPage.screenshot({ path: path.join(EVIDENCE_DIR, "29_tracker_product_flow.png") });
+      } finally {
+        await flowContext.close();
+      }
+    });
+
+    await test("29b. Tracker Truth Guard: Step 3 without results routes to Step 2", async () => {
+      const guardContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+      const guardPage = await guardContext.newPage();
+      try {
+        await guardPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await guardPage.click("#hero-open-app-btn");
+        await guardPage.waitForSelector("#tracker-step-3", { timeout: 15000 });
+        await guardPage.click("#tracker-step-3");
+        await guardPage.waitForSelector("#step-2-container:not(.hidden)", { timeout: 15000 });
+        const noFabrication = await guardPage.evaluate(() => window.appState?.productPreflightResult ?? null);
+        if (noFabrication !== null) throw new Error("Step 3 must not fabricate results");
+      } finally {
+        await guardContext.close();
+      }
+    });
+
     // 15. Mobile Viewport: Dashboard Hero (Screenshot 15)
     // 16. Mobile Viewport: Dashboard Story (Screenshot 16)
     // 17. Mobile Viewport: App Step 1 (Screenshot 17)

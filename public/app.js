@@ -311,6 +311,7 @@ export const appState = {
   selectedRepresentation: null, // Product-side card highlight only; never preloaded into Step 4
   tradeRepresentation: null, // Step 4's own explicit selection
   tradeUnderlying: null,
+  progress: { company: false, expectations: false }, // genuine Product Preflight progress for tracker truth
   searchQuery: "",
   categoryFilter: "ALL"
 };
@@ -870,18 +871,10 @@ export function goToStep(step) {
   activeRouteScheduler.stop();
 
   // The four-step tracker is always visible; it is the shortcut.
-  const tracker = document.querySelector(".preflight-step-tracker");
-  if (tracker) tracker.classList.remove("hidden");
+  // Completion reflects genuine progress, never mere step number:
+  // direct Step 4 access leaves Steps 1-3 neutral.
+  renderTracker(step);
   for (let i = 1; i <= 4; i++) {
-    const item = document.getElementById(`tracker-step-${i}`);
-    if (item) {
-      item.classList.remove("active", "completed");
-      if (i === step) {
-        item.classList.add("active");
-      } else if (i < step) {
-        item.classList.add("completed");
-      }
-    }
     const container = document.getElementById(`step-${i}-container`);
     if (container) {
       container.classList.toggle("hidden", i !== step);
@@ -892,6 +885,29 @@ export function goToStep(step) {
   const appWorkspace = document.querySelector(".app-workspace");
   if (appWorkspace) {
     appWorkspace.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+// Tracker truth (013.9A): a step reads completed only when its work genuinely
+// happened — company explicitly chosen, expectations actually submitted,
+// results actually present. Step 4 is a tool and never reads completed.
+export function renderTracker(activeStep) {
+  const done = {
+    1: appState.progress.company === true,
+    2: appState.progress.expectations === true,
+    3: appState.productPreflightResult !== null,
+    4: false
+  };
+  for (let i = 1; i <= 4; i++) {
+    const item = document.getElementById(`tracker-step-${i}`);
+    if (item) {
+      item.classList.remove("active", "completed");
+      if (i === activeStep) {
+        item.classList.add("active");
+      } else if (done[i]) {
+        item.classList.add("completed");
+      }
+    }
   }
 }
 
@@ -912,15 +928,8 @@ export function openStep4() {
   for (let i = 1; i <= 4; i++) {
     document.getElementById(`step-${i}-container`)?.classList.toggle("hidden", i !== 4);
   }
-  // Tracker reflects Step 4 as the active step.
-  for (let i = 1; i <= 4; i++) {
-    const item = document.getElementById(`tracker-step-${i}`);
-    if (item) {
-      item.classList.remove("active", "completed");
-      if (i === 4) item.classList.add("active");
-      else item.classList.add("completed");
-    }
-  }
+  // Truthful tracker: only genuinely completed product steps read completed.
+  renderTracker(4);
   document.querySelector(".app-workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -1062,6 +1071,7 @@ export function selectUnderlying(canonical) {
   appState.selectedUnderlying = canonical;
   appState.productPreflightResult = null;
   appState.selectedRepresentation = null;
+  appState.progress = { company: true, expectations: false };
 
   // Highlight selected card
   document.querySelectorAll(".underlying-company-card").forEach(c => {
@@ -1219,6 +1229,8 @@ export async function submitProductPreflight() {
 
   // Reset representation selection until the user explicitly selects
   appState.selectedRepresentation = null;
+  // Genuine Step 2 completion: expectations actually submitted.
+  appState.progress.expectations = true;
 
   let expectationsPayload = Object.entries(appState.expectations).map(([capability, priority]) => ({
     key: capability,
@@ -1706,6 +1718,7 @@ export function initStepNavigation() {
     changeCompBtn.addEventListener("click", () => {
       appState.selectedRepresentation = null;
       appState.productPreflightResult = null;
+      appState.progress = { company: false, expectations: false };
       goToStep(1);
     });
   }
@@ -1715,6 +1728,7 @@ export function initStepNavigation() {
     backToStep1Btn.addEventListener("click", () => {
       appState.selectedRepresentation = null;
       appState.productPreflightResult = null;
+      appState.progress = { company: false, expectations: false };
       goToStep(1);
     });
   }
