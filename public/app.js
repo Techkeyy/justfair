@@ -1788,18 +1788,17 @@ function renderAllStockCards(initiallyExpandedSymbol = null) {
   if (!stockCardsContainer) return;
   stockCardsContainer.innerHTML = "";
 
-  // One card per exact representation in underlying order (xStocks trade
-  // card, then its Ondo counterpart). Only xStocks cards expand into the
-  // trade form; Ondo cards truthfully state unsupported execution.
-  Object.keys(UNDERLYING_CATALOG).forEach(canonical => {
-    const data = UNDERLYING_CATALOG[canonical];
-    data.representations.forEach(symbol => {
-      if (STOCK_META[symbol]) {
-        renderTradeCard(symbol, symbol === initiallyExpandedSymbol);
-      } else {
-        renderUnsupportedCard(symbol, data);
-      }
-    });
+  // Execution-supported catalog only (013.10A): STOCK_META is the frontend
+  // execution registry — every member has Execution Preflight = SUPPORTED.
+  // Execution-unsupported representations (e.g. Ondo) belong to Product
+  // Preflight (Steps 1-3), never to this feed. Capability filter, not a
+  // recommendation; no substitution.
+  const symbols = Object.keys(STOCK_META);
+  const allPill = document.querySelector('.trade-category-pill[data-category="ALL"]');
+  if (allPill) allPill.textContent = `All (${symbols.length})`;
+
+  symbols.forEach(symbol => {
+    renderTradeCard(symbol, symbol === initiallyExpandedSymbol);
   });
 }
 
@@ -1858,51 +1857,6 @@ function renderTradeCard(symbol, isExpanded) {
     setupCardInteractivity(cardEl, symbol);
 }
 
-// Static counterpart card for execution-unsupported representations.
-// Same visual system, no trade form, no substitution, honest state.
-function renderUnsupportedCard(symbol, underlyingData) {
-  const cardEl = document.createElement("div");
-  cardEl.className = "stock-card-standalone stock-card-unsupported is-revealed";
-  cardEl.id = `stock-card-${symbol}`;
-  cardEl.setAttribute("data-symbol", symbol);
-  cardEl.setAttribute("data-category", underlyingData.category);
-  cardEl.setAttribute("data-keywords", `${underlyingData.name} ${underlyingData.canonical} ${underlyingData.fullName} ${symbol} ondo unsupported`.toLowerCase());
-
-  cardEl.innerHTML = `
-    <div class="stock-card-header stock-header-static" aria-expanded="false">
-      <div class="stock-card-brand">
-        <div class="stock-logo-wrap">
-          <img src="${underlyingData.logo}" alt="${underlyingData.name} logo" class="stock-logo-img" loading="lazy">
-        </div>
-        <div class="stock-brand-info">
-          <div class="stock-title-row">
-            <h3 class="stock-name">${underlyingData.name}</h3>
-            <span class="stock-ticker-badge">${symbol}</span>
-            <span class="stock-canonical-pill">${underlyingData.canonical}</span>
-          </div>
-          <p class="stock-desc">Tokenized ${underlyingData.name} equity on Solana · Ondo</p>
-        </div>
-      </div>
-      <div class="stock-header-action">
-        <span class="unsupported-pill">Trade Check not yet supported</span>
-      </div>
-    </div>
-
-    <div class="stock-card-body" id="stock-body-${symbol}">
-      <p class="unsupported-desc">Ondo Global Markets (BVI) Limited · Token-2022 Verified on Solana</p>
-      <p class="quick-rep-note">Trade Check not yet supported for this representation. Product verification is a separate step.</p>
-      <button type="button" class="btn-link unsupported-details-btn" data-underlying="${underlyingData.canonical}">Check product details</button>
-    </div>
-  `;
-
-  stockCardsContainer.appendChild(cardEl);
-  const detailsBtn = cardEl.querySelector(".unsupported-details-btn");
-  if (detailsBtn) {
-    detailsBtn.addEventListener("click", () => {
-      selectUnderlying(detailsBtn.getAttribute("data-underlying"));
-    });
-  }
-}
 
 function renderCardBodyMarkup(symbol) {
   const stock = STOCK_META[symbol] || { name: symbol, canonical: symbol, mint: "", fullName: symbol };

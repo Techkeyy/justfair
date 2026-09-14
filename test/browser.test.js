@@ -365,7 +365,7 @@ async function runBrowserTests() {
         verifiedLeak: /Product verified|Conditional product match|match all of your requirements|verification incomplete/i.test(document.getElementById("step-4-container")?.innerText || ""),
         trackerVisible: !document.querySelector(".preflight-step-tracker")?.classList.contains("hidden")
       }));
-      if (fresh.cards !== 24) throw new Error(`Step 4 feed must list 24 representations, found ${fresh.cards}`);
+      if (fresh.cards !== 12) throw new Error(`Step 4 feed must list 12 execution-supported cards, found ${fresh.cards}`);
       if (fresh.expanded !== 0) throw new Error("Step 4 must start with no card expanded");
       if (fresh.stripPresent || fresh.verifiedLeak) throw new Error("No handoff strip/badge may exist in Step 4");
       if (!fresh.trackerVisible) throw new Error("Step tracker must stay visible");
@@ -385,7 +385,7 @@ async function runBrowserTests() {
         cards: document.querySelectorAll("#stock-cards-container .stock-card-standalone").length
       }));
       if (preState.expanded !== 0) throw new Error("Direct Step 4 must start with no card expanded");
-      if (preState.cards !== 24) throw new Error(`Direct Step 4 feed must list 24 representations, found ${preState.cards}`);
+      if (preState.cards !== 12) throw new Error(`Direct Step 4 feed must list 12 execution-supported cards, found ${preState.cards}`);
 
       // Explicit in-feed selection: expand the exact AAPLx card.
       await page.click("#stock-card-AAPLx .stock-card-header");
@@ -886,7 +886,7 @@ async function runBrowserTests() {
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "26_mismatch_to_fresh_step4.png") });
     });
 
-    await test("27. Step 4 AAPLon safety: unsupported truth, zero AAPLx substitution", async () => {
+    await test("27. Step 4 has no Ondo cards: AAPLon absent, no substitution", async () => {
       const lonePosts = [];
       const onReq = req => {
         if (req.method() === "POST" && req.url().endsWith("/api/v1/preflight")) lonePosts.push(req.postData());
@@ -894,43 +894,54 @@ async function runBrowserTests() {
       page.on("request", onReq);
       try {
         await page.click("#tracker-step-4");
-        await page.waitForSelector("#stock-card-AAPLon", { timeout: 15000 });
-        const rowText = await page.textContent("#stock-card-AAPLon");
-        if (!/not yet supported/i.test(rowText)) throw new Error(`AAPLon must state unsupported truth: ${rowText.slice(0, 200)}`);
-        const aaplonForm = await page.$("#stock-card-AAPLon .stock-trade-form");
-        if (aaplonForm) throw new Error("AAPLon must offer no trade form");
-        const detailsBtn = await page.$("#stock-card-AAPLon .unsupported-details-btn");
-        if (!detailsBtn) throw new Error("AAPLon must link to product details");
-        const before = lonePosts.length;
-        await page.waitForTimeout(2500); // any hidden polling would fire here
-        const aaplxPosts = lonePosts.slice(before).filter(p => (p || "").includes("AAPLx"));
-        if (aaplxPosts.length !== 0) throw new Error("Viewing AAPLon must cause zero AAPLx execution POSTs");
-        const expanded = await page.evaluate(() => document.querySelectorAll("#stock-cards-container .stock-card-standalone.is-expanded").length);
-        if (expanded !== 0) throw new Error("Viewing AAPLon must not expand any card");
-        // Details path leads into Product Preflight without substitution.
-        await detailsBtn.click();
-        await page.waitForSelector("#step-2-container:not(.hidden)", { timeout: 15000 });
-        const selUnd = await page.evaluate(() => window.appState?.selectedUnderlying);
-        if (selUnd !== "AAPL") throw new Error(`Product details must open Apple, got ${selUnd}`);
-        await page.screenshot({ path: path.join(EVIDENCE_DIR, "27_step4_aaplon_truth.png") });
+        await page.waitForSelector("#stock-cards-container .stock-card-standalone", { timeout: 15000 });
+        // AAPLon must not exist anywhere in the execution feed.
+        if (await page.$("#stock-card-AAPLon")) {
+          throw new Error("AAPLon must be absent from the Step-4 execution feed");
+        }
+        const counts = await page.evaluate(() => ({
+          total: document.querySelectorAll("#stock-cards-container .stock-card-standalone").length,
+          forms: document.querySelectorAll("#stock-cards-container .stock-trade-form").length,
+          allPill: document.querySelector('.trade-category-pill[data-category="ALL"]')?.textContent || ""
+        }));
+        if (counts.total !== 12) throw new Error(`Expected 12 execution cards, found ${counts.total}`);
+        if (counts.forms !== 12) throw new Error(`Expected 12 trade forms, found ${counts.forms}`);
+        if (!counts.allPill.includes("12")) throw new Error(`All pill must read All (12), got: ${counts.allPill}`);
+        // Searching AAPLon must yield zero results and substitute nothing.
+        await page.fill("#trade-search-input", "AAPLon");
+        await page.waitForTimeout(300);
+        const afterSearch = await page.evaluate(() => ({
+          visible: document.querySelectorAll("#stock-cards-container .stock-card-standalone:not(.hidden)").length,
+          aaplxVisible: document.querySelectorAll("#stock-card-AAPLx:not(.hidden)").length,
+          emptyShown: !document.getElementById("trade-search-empty-state")?.classList.contains("hidden")
+        }));
+        if (afterSearch.visible !== 0) throw new Error("Search AAPLon must yield zero Step-4 results");
+        if (afterSearch.aaplxVisible !== 0) throw new Error("Search AAPLon must not substitute AAPLx");
+        if (!afterSearch.emptyShown) throw new Error("Empty state must appear on zero matches");
+        const aaplxPosts = lonePosts.filter(p => (p || "").includes("AAPLon") || (p || "").includes('"stock":"AAPLx"'));
+        if (aaplxPosts.length !== 0) throw new Error("AAPLon search must cause zero execution POSTs");
+        await page.click("#trade-clear-search-btn");
+        await page.waitForTimeout(300);
+        await page.screenshot({ path: path.join(EVIDENCE_DIR, "27_step4_no_ondo_cards.png") });
       } finally {
         page.off("request", onReq);
       }
     });
 
-    // 30. Trade feed search (013.10 §6/§20): company, symbol, issuer filtering
-    await test("30. Trade Search filters exact representations without touching Step 1", async () => {
+    // 30. Trade feed search (013.10A §6): supported-only feed truth
+    await test("30. Trade Search searches the supported feed only, no substitution", async () => {
       await page.click("#tracker-step-4");
       await page.waitForSelector("#stock-cards-container .stock-card-standalone", { timeout: 15000 });
 
-      await page.fill("#trade-search-input", "ondo");
+      await page.fill("#trade-search-input", "apple");
       await page.waitForTimeout(300);
-      const ondoVisible = await page.evaluate(() => ({
-        xCards: document.querySelectorAll("#stock-card-AAPLx:not(.hidden)").length,
-        onCards: document.querySelectorAll("#stock-card-AAPLon:not(.hidden)").length
+      const appleVisible = await page.evaluate(() => ({
+        aaplx: document.querySelectorAll("#stock-card-AAPLx:not(.hidden)").length,
+        total: document.querySelectorAll("#stock-cards-container .stock-card-standalone:not(.hidden)").length
       }));
-      if (ondoVisible.xCards !== 0) throw new Error("Search 'ondo' must hide xStocks cards");
-      if (ondoVisible.onCards !== 1) throw new Error("Search 'ondo' must show Ondo cards");
+      if (appleVisible.aaplx !== 1 || appleVisible.total !== 1) {
+        throw new Error(`Search Apple must show only AAPLx, got ${JSON.stringify(appleVisible)}`);
+      }
 
       await page.fill("#trade-search-input", "aaplx");
       await page.waitForTimeout(300);
@@ -942,10 +953,27 @@ async function runBrowserTests() {
         throw new Error(`Symbol search must isolate AAPLx, got ${JSON.stringify(symVisible)}`);
       }
 
+      await page.fill("#trade-search-input", "ondo");
+      await page.waitForTimeout(300);
+      const ondoVisible = await page.evaluate(() => document.querySelectorAll("#stock-cards-container .stock-card-standalone:not(.hidden)").length);
+      if (ondoVisible !== 0) throw new Error(`Search Ondo must yield zero Step-4 results, got ${ondoVisible}`);
+      const emptyOndo = await page.isVisible("#trade-search-empty-state");
+      if (!emptyOndo) throw new Error("Empty state must appear for Ondo search");
+
+      await page.fill("#trade-search-input", "AAPLon");
+      await page.waitForTimeout(300);
+      const aaplonVisible = await page.evaluate(() => ({
+        total: document.querySelectorAll("#stock-cards-container .stock-card-standalone:not(.hidden)").length,
+        aaplx: document.querySelectorAll("#stock-card-AAPLx:not(.hidden)").length
+      }));
+      if (aaplonVisible.total !== 0 || aaplonVisible.aaplx !== 0) {
+        throw new Error(`Search AAPLon must yield zero results with no AAPLx substitution, got ${JSON.stringify(aaplonVisible)}`);
+      }
+
       await page.click("#trade-clear-search-btn");
       await page.waitForTimeout(300);
       const restored = await page.evaluate(() => document.querySelectorAll("#stock-cards-container .stock-card-standalone:not(.hidden)").length);
-      if (restored !== 24) throw new Error(`Clearing search must restore 24 cards, got ${restored}`);
+      if (restored !== 12) throw new Error(`Clearing search must restore 12 cards, got ${restored}`);
 
       await page.fill("#trade-search-input", "zzz-no-match");
       await page.waitForTimeout(300);
