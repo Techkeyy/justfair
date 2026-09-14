@@ -338,6 +338,25 @@ async function runBrowserTests() {
 
     // 13. Product -> Execution Transition (Screenshot 13)
     await test("13. Product -> Execution Handoff: Explicit AAPLx selection creates verified handoff", async () => {
+      // 013.8A-B: establish a genuine full MATCH first (prior flow leaves CONDITIONAL state).
+      await page.click("#btn-edit-expectations");
+      await page.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
+      const secHidden13 = await page.$eval("#secondary-expectations-body", el => el.classList.contains("hidden"));
+      if (secHidden13) {
+        await page.click("#toggle-secondary-expectations-btn");
+        await page.waitForTimeout(200);
+      }
+      await page.click("#exp-card-IN_KIND_SHARE_REDEMPTION .btn-must-have"); // toggle off
+      await page.click("#exp-card-SELF_CUSTODY .btn-must-have"); // toggle on
+      await page.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have"); // toggle on
+      await page.waitForTimeout(200);
+      await page.click("#btn-submit-expectations");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+      const banner13 = await page.textContent("#result-banner-title");
+      if (!banner13.includes("2 Verified Products Match Your Must-Haves")) {
+        throw new Error(`Precondition: expected full-match banner, got ${banner13}`);
+      }
+
       await page.click("#rep-card-AAPLx .btn-check-trade");
       await page.waitForTimeout(400);
 
@@ -363,6 +382,18 @@ async function runBrowserTests() {
       if (!handoffBadge.includes("Product verified")) {
         throw new Error(`Verified strip mismatch: ${handoffBadge}`);
       }
+      // 013.8A-B: verified claim must rest on AAPLx's own MATCH evaluation.
+      const handoffTruth = await page.evaluate(() => {
+        const prod = (window.appState?.productPreflightResult?.products || []).find(p => p.symbol === "AAPLx");
+        return {
+          evalStatus: prod?.evaluation?.status ?? null,
+          handoffStatus: window.appState?.productHandoffStatus ?? null,
+          verified: window.appState?.productPreflightVerified ?? null
+        };
+      });
+      if (handoffTruth.evalStatus !== "MATCH") throw new Error(`AAPLx evaluation must be MATCH, got ${handoffTruth.evalStatus}`);
+      if (handoffTruth.handoffStatus !== "MATCH") throw new Error(`Handoff status must be MATCH, got ${handoffTruth.handoffStatus}`);
+      if (handoffTruth.verified !== true) throw new Error("Full MATCH must set productPreflightVerified true");
       const giantBanner = await page.$(".handoff-tag");
       if (giantBanner) throw new Error("Large purple handoff banner must be removed");
 
@@ -887,6 +918,7 @@ async function runBrowserTests() {
         const qs = await quickPage.evaluate(() => ({
           entryPath: window.appState?.entryPath,
           verified: window.appState?.productPreflightVerified,
+          handoffStatus: window.appState?.productHandoffStatus ?? null,
           selRep: window.appState?.selectedRepresentation,
           step2Hidden: document.getElementById("step-2-container")?.classList.contains("hidden"),
           step3Hidden: document.getElementById("step-3-container")?.classList.contains("hidden"),
@@ -901,6 +933,7 @@ async function runBrowserTests() {
         }));
         if (qs.entryPath !== "QUICK_TRADE") throw new Error(`entryPath must be QUICK_TRADE, got ${qs.entryPath}`);
         if (qs.verified !== false) throw new Error("Quick path must never claim product verification");
+        if (qs.handoffStatus !== "NOT_CHECKED") throw new Error(`Quick handoff status must be NOT_CHECKED, got ${qs.handoffStatus}`);
         if (qs.selRep !== "AAPLx") throw new Error(`Expected AAPLx selected, got ${qs.selRep}`);
         if (!qs.step2Hidden || !qs.step3Hidden) throw new Error("Quick path must skip the questionnaire");
         if (qs.badgeHidden !== true) throw new Error(`Quick path must hide verified badge, shows: ${qs.badgeText}`);
@@ -1034,6 +1067,172 @@ async function runBrowserTests() {
         await exactPage.screenshot({ path: path.join(EVIDENCE_DIR, "23_quick_exact_result.png") });
       } finally {
         await exactContext.close();
+      }
+    });
+
+    // 24b. Conditional handoff truth (013.8A-C): IN_KIND scenario, AAPLx CONDITIONAL
+    await test("24b. Conditional Strip: AAPLx conditional wording, never verified", async () => {
+      // Establish the proven CONDITIONAL scenario explicitly (self-contained).
+      await page.click("#btn-back-to-step3");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+      await page.click("#btn-edit-expectations");
+      await page.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
+      await page.click("#exp-card-SELF_CUSTODY .btn-must-have"); // toggle off
+      await page.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have"); // toggle off
+      const secHidden24b = await page.$eval("#secondary-expectations-body", el => el.classList.contains("hidden"));
+      if (secHidden24b) {
+        await page.click("#toggle-secondary-expectations-btn");
+        await page.waitForTimeout(200);
+      }
+      await page.click("#exp-card-IN_KIND_SHARE_REDEMPTION .btn-must-have"); // toggle on
+      await page.waitForTimeout(200);
+      await page.click("#btn-submit-expectations");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+      const badge = await page.textContent("#rep-card-AAPLx .rep-match-badge");
+      if (!badge.includes("CONDITIONAL MATCH")) {
+        throw new Error(`Precondition: AAPLx must read CONDITIONAL MATCH, got ${badge}`);
+      }
+      await page.click("#rep-card-AAPLx .btn-check-trade");
+      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+
+      const truth = await page.evaluate(() => {
+        const prod = (window.appState?.productPreflightResult?.products || []).find(p => p.symbol === "AAPLx");
+        return {
+          evalStatus: prod?.evaluation?.status ?? null,
+          handoffStatus: window.appState?.productHandoffStatus ?? null,
+          verified: window.appState?.productPreflightVerified ?? null,
+          strip: document.querySelector(".execution-handoff-banner")?.innerText || "",
+          badgeClass: document.getElementById("handoff-badge")?.className || ""
+        };
+      });
+      if (truth.evalStatus !== "CONDITIONAL_MATCH") throw new Error(`Backend says ${truth.evalStatus}, expected CONDITIONAL_MATCH`);
+      if (truth.handoffStatus !== "CONDITIONAL_MATCH") throw new Error(`Handoff must be CONDITIONAL_MATCH, got ${truth.handoffStatus}`);
+      if (truth.verified !== false) throw new Error("Conditional must not verify");
+      if (!/Conditional product match/.test(truth.strip)) throw new Error(`Strip must carry conditional language: ${truth.strip.slice(0, 200)}`);
+      if (/Product verified/.test(truth.strip)) throw new Error("Conditional strip must not claim verified");
+      if (!truth.badgeClass.includes("badge-conditional")) throw new Error("Conditional badge needs restrained treatment");
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "24b_conditional_strip.png") });
+    });
+
+    // 24c. Mismatch handoff truth (013.8A-D): voting-rights scenario, AAPLx MISMATCH
+    await test("24c. Mismatch Strip: requirement failure shown honestly, never verified", async () => {
+      await page.click("#btn-back-to-step3");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+      await page.click("#btn-edit-expectations");
+      await page.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
+      const secHidden = await page.$eval("#secondary-expectations-body", el => el.classList.contains("hidden"));
+      if (secHidden) {
+        await page.click("#toggle-secondary-expectations-btn");
+        await page.waitForTimeout(200);
+      }
+      await page.click("#exp-card-IN_KIND_SHARE_REDEMPTION .btn-must-have"); // toggle off
+      await page.click("#exp-card-ORDINARY_VOTING_RIGHTS .btn-must-have"); // toggle on
+      await page.waitForTimeout(200);
+      await page.click("#btn-submit-expectations");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+
+      const badge = await page.textContent("#rep-card-AAPLx .rep-match-badge");
+      if (!badge.includes("MISMATCHES MUST-HAVES")) {
+        throw new Error(`Precondition: AAPLx must read MISMATCH, got ${badge}`);
+      }
+      const cta = await page.$("#rep-card-AAPLx .btn-check-trade");
+      if (!cta) throw new Error("Mismatch cards keep an explicit Trade Check action (existing behavior)");
+      await cta.click();
+      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+
+      const truth = await page.evaluate(() => {
+        const prod = (window.appState?.productPreflightResult?.products || []).find(p => p.symbol === "AAPLx");
+        return {
+          evalStatus: prod?.evaluation?.status ?? null,
+          handoffStatus: window.appState?.productHandoffStatus ?? null,
+          verified: window.appState?.productPreflightVerified ?? null,
+          strip: document.querySelector(".execution-handoff-banner")?.innerText || ""
+        };
+      });
+      if (truth.evalStatus !== "MISMATCH") throw new Error(`Backend says ${truth.evalStatus}, expected MISMATCH`);
+      if (truth.handoffStatus !== "MISMATCH") throw new Error(`Handoff must be MISMATCH, got ${truth.handoffStatus}`);
+      if (truth.verified !== false) throw new Error("Mismatch must not verify");
+      if (!/Doesn't match all of your requirements/.test(truth.strip)) {
+        throw new Error(`Strip must state the mismatch: ${truth.strip.slice(0, 200)}`);
+      }
+      if (/Product verified/.test(truth.strip)) throw new Error("Mismatch strip must not claim verified");
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "24c_mismatch_strip.png") });
+    });
+
+    // 24d. Unable-to-verify handoff truth (013.8A-E): stubbed genuine backend status class
+    await test("24d. Unable Strip: incomplete verification shown honestly, never verified", async () => {
+      await page.route("**/api/v1/product-preflight", async route => {
+        const req = route.request();
+        if (req.method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            request_status: "COMPLETED",
+            mode: "UNDERLYING_DISCOVERY",
+            underlying: "AAPL",
+            company_name: "Apple Inc.",
+            checked_at: new Date().toISOString(),
+            overall_result: "UNABLE_TO_VERIFY_PRODUCT",
+            expectations: [{ key: "SELF_CUSTODY", priority: "REQUIRED" }],
+            products: [
+              {
+                productId: "xstocks:aaplx:solana", symbol: "AAPLx", underlyingSymbol: "AAPL",
+                companyName: "Apple Inc.", issuer: "Backed Assets (JE) Limited",
+                mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp", decimals: 8,
+                tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+                executionPreflightSupport: "SUPPORTED", executionPreflightSupported: true,
+                assetVerification: { status: "UNABLE_TO_VERIFY", observedMultiplier: "1.0", checkedAt: new Date().toISOString() },
+                evaluation: {
+                  status: "UNABLE_TO_VERIFY", reasonCodes: ["VERIFICATION_UNAVAILABLE"],
+                  summary: "On-chain verification is incomplete for this representation.", required: []
+                }
+              },
+              {
+                productId: "ondo:aaplon:solana", symbol: "AAPLon", underlyingSymbol: "AAPL",
+                companyName: "Apple Inc.", issuer: "Ondo Global Markets (BVI) Limited",
+                mint: "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo", decimals: 8,
+                tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+                executionPreflightSupport: "NOT_YET_SUPPORTED", executionPreflightSupported: false,
+                assetVerification: { status: "VERIFIED", observedMultiplier: "1.0", checkedAt: new Date().toISOString() },
+                evaluation: {
+                  status: "MISMATCH", reasonCodes: ["REQUIRED_MISMATCH_SELF_CUSTODY"],
+                  summary: "AAPLon does not satisfy the requirement.", required: []
+                }
+              }
+            ]
+          })
+        });
+      });
+      try {
+        await page.click("#btn-back-to-step3");
+        await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+        await page.click("#btn-edit-expectations");
+        await page.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
+        await page.click("#btn-submit-expectations");
+        await page.waitForSelector("#rep-card-AAPLx", { timeout: 15000 });
+        await page.click("#rep-card-AAPLx .btn-check-trade");
+        await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+
+        const truth = await page.evaluate(() => {
+          const prod = (window.appState?.productPreflightResult?.products || []).find(p => p.symbol === "AAPLx");
+          return {
+            evalStatus: prod?.evaluation?.status ?? null,
+            handoffStatus: window.appState?.productHandoffStatus ?? null,
+            verified: window.appState?.productPreflightVerified ?? null,
+            strip: document.querySelector(".execution-handoff-banner")?.innerText || ""
+          };
+        });
+        if (truth.evalStatus !== "UNABLE_TO_VERIFY") throw new Error(`Backend says ${truth.evalStatus}`);
+        if (truth.handoffStatus !== "UNABLE_TO_VERIFY") throw new Error(`Handoff must be UNABLE_TO_VERIFY, got ${truth.handoffStatus}`);
+        if (truth.verified !== false) throw new Error("Incomplete verification must not verify");
+        if (!/Product verification incomplete/.test(truth.strip)) {
+          throw new Error(`Strip must state incompleteness: ${truth.strip.slice(0, 200)}`);
+        }
+        if (/Product verified ✓/.test(truth.strip)) throw new Error("Unable strip must not claim verified");
+        await page.screenshot({ path: path.join(EVIDENCE_DIR, "24d_unable_strip.png") });
+      } finally {
+        await page.unroute("**/api/v1/product-preflight");
       }
     });
 

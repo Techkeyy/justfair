@@ -309,7 +309,8 @@ export const appState = {
   expectations: {}, // capability -> 'MUST_HAVE' | 'NICE_TO_HAVE'
   productPreflightResult: null,
   selectedRepresentation: null,
-  productPreflightVerified: false,
+  productPreflightVerified: false, // true ONLY for a genuine full MATCH (013.8A)
+  productHandoffStatus: null, // MATCH | CONDITIONAL_MATCH | MISMATCH | UNABLE_TO_VERIFY | NOT_CHECKED | null
   executionHandoff: null,
   searchQuery: "",
   categoryFilter: "ALL"
@@ -913,6 +914,7 @@ export function startFreshFlow() {
   appState.productPreflightResult = null;
   appState.selectedRepresentation = null;
   appState.productPreflightVerified = false;
+  appState.productHandoffStatus = null;
   appState.executionHandoff = null;
   activeRouteScheduler.stop();
   showEntryChoice();
@@ -949,6 +951,7 @@ export function chooseQuickTrade() {
   appState.entryPath = "QUICK_TRADE";
   appState.selectedRepresentation = null;
   appState.productPreflightVerified = false;
+  appState.productHandoffStatus = null;
   appState.executionHandoff = null;
   showQuickSelector();
 }
@@ -1024,6 +1027,25 @@ export function renderQuickSelector() {
   });
 }
 
+// Handoff truth (013.8A): the strip reflects the BACKEND matcher's
+// per-representation outcome for the EXACT selected symbol — never the mere
+// existence of a response, the overall result, another rep's result, or
+// on-chain identity verification. Canonical PRODUCT_EVALUATION_STATE
+// vocabulary is reused verbatim; NOT_CHECKED marks the quick path.
+export function resolveHandoffStatus(productPreflightResult, symbol, entryPath) {
+  if (entryPath !== "PRODUCT_PREFLIGHT" || !productPreflightResult || !symbol) {
+    return { status: "NOT_CHECKED", verified: false };
+  }
+  const products = Array.isArray(productPreflightResult.products) ? productPreflightResult.products : [];
+  const rep = products.find(p => p && p.symbol === symbol);
+  const evalStatus = rep && rep.evaluation ? rep.evaluation.status : null;
+  if (evalStatus === "MATCH") return { status: "MATCH", verified: true };
+  if (evalStatus === "CONDITIONAL_MATCH") return { status: "CONDITIONAL_MATCH", verified: false };
+  if (evalStatus === "MISMATCH") return { status: "MISMATCH", verified: false };
+  if (evalStatus === "UNABLE_TO_VERIFY") return { status: "UNABLE_TO_VERIFY", verified: false };
+  return { status: "UNABLE_TO_VERIFY", verified: false };
+}
+
 // Explicit exact-representation selection. Never verified, never substituted.
 export function quickSelectRepresentation(symbol, underlying) {
   if (!STOCK_META[symbol] || !UNDERLYING_CATALOG[underlying]) return;
@@ -1031,7 +1053,9 @@ export function quickSelectRepresentation(symbol, underlying) {
   appState.uiView = "execution";
   appState.selectedUnderlying = underlying;
   appState.selectedRepresentation = symbol;
-  appState.productPreflightVerified = false;
+  const resolved = resolveHandoffStatus(null, symbol, "QUICK_TRADE");
+  appState.productHandoffStatus = resolved.status;
+  appState.productPreflightVerified = resolved.verified;
   appState.executionHandoff = {
     representation: symbol,
     canonical: UNDERLYING_CATALOG[underlying].canonical || underlying,
@@ -1048,11 +1072,13 @@ export function quickSelectRepresentation(symbol, underlying) {
   document.querySelector(".app-workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-// Compact context strip. "Verified" appears ONLY for the guided product flow.
+// Compact context strip. The badge reflects the user's Product Preflight
+// MATCHER outcome for the exact selected representation — never token
+// authenticity alone, and never a run that didn't match.
 export function renderExecutionStrip() {
   const symbol = appState.selectedRepresentation;
   if (!symbol) return;
-  const verified = appState.entryPath === "PRODUCT_PREFLIGHT" && appState.productPreflightVerified === true;
+  const status = appState.productHandoffStatus || "NOT_CHECKED";
   const title = document.getElementById("handoff-title");
   const badge = document.getElementById("handoff-badge");
   const sub = document.getElementById("handoff-sub");
@@ -1061,11 +1087,29 @@ export function renderExecutionStrip() {
   const issuer = meta ? "Backed Assets (JE) Limited · Token-2022 Verified on Solana" : "Ondo Global Markets (BVI) Limited · Token-2022 Verified on Solana";
   if (title) title.textContent = symbol;
   if (badge) {
-    badge.textContent = verified ? "Product verified ✓" : "";
-    badge.classList.toggle("hidden", !verified);
+    badge.classList.remove("badge-conditional", "badge-issue");
+    if (status === "MATCH") {
+      badge.textContent = "Product verified ✓";
+      badge.classList.remove("hidden");
+    } else if (status === "CONDITIONAL_MATCH") {
+      badge.textContent = "Conditional product match";
+      badge.classList.remove("hidden");
+      badge.classList.add("badge-conditional");
+    } else if (status === "MISMATCH") {
+      badge.textContent = "Doesn't match all of your requirements";
+      badge.classList.remove("hidden");
+      badge.classList.add("badge-issue");
+    } else if (status === "UNABLE_TO_VERIFY") {
+      badge.textContent = "Product verification incomplete";
+      badge.classList.remove("hidden");
+      badge.classList.add("badge-issue");
+    } else {
+      badge.textContent = "";
+      badge.classList.add("hidden");
+    }
   }
   if (sub) sub.textContent = issuer;
-  if (quickLink) quickLink.classList.toggle("hidden", verified);
+  if (quickLink) quickLink.classList.toggle("hidden", status !== "NOT_CHECKED");
 }
 
 // Step 1: Render Company Grid
@@ -1123,6 +1167,7 @@ export function selectUnderlying(canonical) {
   appState.productPreflightResult = null;
   appState.selectedRepresentation = null;
   appState.productPreflightVerified = false;
+  appState.productHandoffStatus = null;
   appState.executionHandoff = null;
 
   // Highlight selected card
@@ -1284,6 +1329,7 @@ export async function submitProductPreflight() {
   appState.uiView = "product";
   appState.selectedRepresentation = null;
   appState.productPreflightVerified = false;
+  appState.productHandoffStatus = null;
   appState.executionHandoff = null;
 
   let expectationsPayload = Object.entries(appState.expectations).map(([capability, priority]) => ({
@@ -1742,10 +1788,10 @@ export function handoffToExecutionPreflight(symbol) {
     entryPath: appState.entryPath || "PRODUCT_PREFLIGHT",
     timestamp: new Date().toISOString()
   };
-  // Verified ONLY when this handoff follows a real Product Preflight result.
-  appState.productPreflightVerified = !!(
-    appState.entryPath === "PRODUCT_PREFLIGHT" && appState.productPreflightResult
-  );
+  // Verified ONLY for a genuine full MATCH of the exact selected rep.
+  const resolved = resolveHandoffStatus(appState.productPreflightResult, symbol, appState.entryPath);
+  appState.productHandoffStatus = resolved.status;
+  appState.productPreflightVerified = resolved.verified;
   appState.uiView = "execution";
 
   // Activate single execution card for symbol in Step 4 with empty amount input
@@ -1780,6 +1826,7 @@ export function initStepNavigation() {
       appState.uiView = "product";
       appState.selectedRepresentation = null;
       appState.productPreflightVerified = false;
+  appState.productHandoffStatus = null;
       appState.executionHandoff = null;
       if (UNDERLYING_CATALOG[underlying]) {
         selectUnderlying(underlying);
@@ -1804,6 +1851,7 @@ export function initStepNavigation() {
     changeCompBtn.addEventListener("click", () => {
       appState.selectedRepresentation = null;
       appState.productPreflightVerified = false;
+  appState.productHandoffStatus = null;
       appState.executionHandoff = null;
       appState.productPreflightResult = null;
       goToStep(1);
@@ -1815,6 +1863,7 @@ export function initStepNavigation() {
     backToStep1Btn.addEventListener("click", () => {
       appState.selectedRepresentation = null;
       appState.productPreflightVerified = false;
+  appState.productHandoffStatus = null;
       appState.executionHandoff = null;
       appState.productPreflightResult = null;
       goToStep(1);
@@ -1840,6 +1889,7 @@ export function initStepNavigation() {
     editExpBtn.addEventListener("click", () => {
       appState.selectedRepresentation = null;
       appState.productPreflightVerified = false;
+  appState.productHandoffStatus = null;
       appState.executionHandoff = null;
       goToStep(2);
     });
@@ -1850,6 +1900,7 @@ export function initStepNavigation() {
     backToStep2Btn.addEventListener("click", () => {
       appState.selectedRepresentation = null;
       appState.productPreflightVerified = false;
+  appState.productHandoffStatus = null;
       appState.executionHandoff = null;
       goToStep(2);
     });
@@ -1862,6 +1913,7 @@ export function initStepNavigation() {
       if (appState.entryPath === "QUICK_TRADE") {
         appState.selectedRepresentation = null;
         appState.productPreflightVerified = false;
+  appState.productHandoffStatus = null;
         appState.executionHandoff = null;
         showQuickSelector();
       } else {

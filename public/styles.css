@@ -3858,6 +3858,16 @@ body {
   border-radius: var(--radius-full);
 }
 
+.handoff-badge.badge-conditional {
+  color: #92400E;
+  background: #FEF3C7;
+}
+
+.handoff-badge.badge-issue {
+  color: #4B5563;
+  background: #F3F4F6;
+}
+
 .handoff-sub {
   font-size: 13px;
   color: var(--text-muted);
