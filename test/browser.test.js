@@ -52,6 +52,14 @@ async function runBrowserTests() {
   const page = await context.newPage();
   page.on('pageerror', err => console.log('PAGE ERROR:', err.message));
 
+  // Director Order 013.5A: count Execution Preflight POSTs from page load.
+  const seenPreflightPosts = [];
+  page.on('request', req => {
+    if (req.method() === "POST" && req.url().endsWith("/api/v1/preflight")) {
+      seenPreflightPosts.push({ url: req.url(), postData: req.postData() });
+    }
+  });
+
   try {
     // 1. Desktop Dashboard Hero Section (Screenshot 01)
     await test("1. Dashboard Hero: Lady Justice artwork, tagline, and Two Checks badge", async () => {
@@ -74,6 +82,13 @@ async function runBrowserTests() {
 
       const isArtVisible = await page.isVisible(".hero-art-image");
       if (!isArtVisible) throw new Error("Hero artwork image is not visible");
+
+      // 013.5A: landing must fire ZERO Execution Preflight POSTs (wait 3s).
+      await page.waitForTimeout(3000);
+      const landingPreflightPosts = seenPreflightPosts.filter(r => r.url.endsWith("/api/v1/preflight"));
+      if (landingPreflightPosts.length !== 0) {
+        throw new Error(`Landing fired ${landingPreflightPosts.length} POST /api/v1/preflight before user intent: ${JSON.stringify(landingPreflightPosts).slice(0, 300)}`);
+      }
 
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "01_desktop_hero.png") });
     });
@@ -332,19 +347,75 @@ async function runBrowserTests() {
         throw new Error(`Expected Step 4 amount input to start empty, found: '${amountInputVal}'`);
       }
 
+      // 013.5B: no default pay asset, CHECK TRADE starts disabled
+      const initialTradeState = await page.evaluate(() => {
+        const card = document.getElementById("stock-card-AAPLx");
+        const tabs = [...card.querySelectorAll(".payment-tab")].map(t => ({
+          asset: t.getAttribute("data-asset"),
+          selected: t.classList.contains("active") || t.getAttribute("aria-checked") === "true"
+        }));
+        return {
+          tabs,
+          hidden: card.querySelector("input[name='inputAsset']")?.value ?? null,
+          amount: card.querySelector(".amount-input")?.value ?? null,
+          btnDisabled: card.querySelector(".submit-trade-btn")?.disabled ?? null
+        };
+      });
+      const usdcSelected = initialTradeState.tabs.find(t => t.asset === "USDC")?.selected;
+      const solSelected = initialTradeState.tabs.find(t => t.asset === "SOL")?.selected;
+      if (usdcSelected) throw new Error("USDC must not be preselected on Step 4 open");
+      if (solSelected) throw new Error("SOL must not be preselected on Step 4 open");
+      if (initialTradeState.hidden !== "") {
+        throw new Error(`Expected hidden inputAsset to be empty, found: '${initialTradeState.hidden}'`);
+      }
+      if (initialTradeState.amount !== "") {
+        throw new Error(`Expected amount to start empty, found: '${initialTradeState.amount}'`);
+      }
+      if (initialTradeState.btnDisabled !== true) {
+        throw new Error("CHECK TRADE must start disabled until asset + amount are explicit");
+      }
+
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "13_desktop_product_to_execution.png") });
     });
 
     // 14. Execution Result & 3-Metric Plain-Money Hierarchy (Screenshot 14)
     await test("14. Execution Result: User enters $500, verifies 3 plain-money metrics", async () => {
+      // 013.5C: explicit asset first; button stays disabled until amount too.
+      await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+      await page.waitForTimeout(200);
+
+      let gatedState = await page.evaluate(() => {
+        const card = document.getElementById("stock-card-AAPLx");
+        return {
+          hidden: card.querySelector("input[name='inputAsset']")?.value ?? null,
+          btnDisabled: card.querySelector(".submit-trade-btn")?.disabled ?? null
+        };
+      });
+      if (gatedState.hidden !== "USDC") throw new Error(`Expected inputAsset USDC after click, got '${gatedState.hidden}'`);
+      if (gatedState.btnDisabled !== true) throw new Error("CHECK TRADE must stay disabled with asset but no amount");
+
       await page.fill("#stock-card-AAPLx .amount-input", "500");
       await page.waitForTimeout(200);
 
+      gatedState = await page.evaluate(() => ({
+        btnDisabled: document.querySelector("#stock-card-AAPLx .submit-trade-btn")?.disabled ?? null
+      }));
+      if (gatedState.btnDisabled !== false) throw new Error("CHECK TRADE must enable with USDC + 500");
+
+      const postsBefore = seenPreflightPosts.length;
       const submitTradeBtn = await page.$("#stock-card-AAPLx .submit-trade-btn");
       if (!submitTradeBtn) throw new Error("Submit trade button not found");
 
       await submitTradeBtn.click();
       await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+
+      // 013.5C: exact payload assertion
+      const newPosts = seenPreflightPosts.slice(postsBefore);
+      if (newPosts.length < 1) throw new Error("Expected POST /api/v1/preflight after CHECK TRADE");
+      const payload = JSON.parse(newPosts[newPosts.length - 1].postData);
+      if (payload.inputAsset !== "USDC" || payload.stock !== "AAPLx" || payload.amount !== 500) {
+        throw new Error(`USDC payload mismatch: ${JSON.stringify(payload)}`);
+      }
 
       const spendVal = await page.textContent("#stock-card-AAPLx .res-spend-val");
       const exposureVal = await page.textContent("#stock-card-AAPLx .res-exposure-val");
@@ -355,6 +426,113 @@ async function runBrowserTests() {
       if (!diffVal.includes("$")) throw new Error(`Difference value missing: ${diffVal}`);
 
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "14_desktop_execution_result.png") });
+    });
+
+    // 14b. SOL path on fresh Step 4 state (Screenshot 14b)
+    await test("14b. SOL Path: fresh Step 4, select SOL, enter 1, correct payload + result", async () => {
+      await page.click("#btn-back-to-step3");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+      await page.click("#rep-card-AAPLx .btn-check-trade");
+      await page.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
+      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+
+      const freshDisabled = await page.$eval("#stock-card-AAPLx .submit-trade-btn", el => el.disabled);
+      if (freshDisabled !== true) throw new Error("Fresh Step 4 CHECK TRADE must start disabled (SOL path)");
+
+      await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
+      await page.waitForTimeout(200);
+      await page.fill("#stock-card-AAPLx .amount-input", "1");
+      await page.waitForTimeout(200);
+
+      const enabled = await page.$eval("#stock-card-AAPLx .submit-trade-btn", el => !el.disabled);
+      if (!enabled) throw new Error("CHECK TRADE must enable with SOL + 1");
+
+      const postsBefore = seenPreflightPosts.length;
+      await page.click("#stock-card-AAPLx .submit-trade-btn");
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+
+      const newPosts = seenPreflightPosts.slice(postsBefore);
+      if (newPosts.length < 1) throw new Error("Expected POST /api/v1/preflight after SOL CHECK TRADE");
+      const payload = JSON.parse(newPosts[newPosts.length - 1].postData);
+      if (payload.inputAsset !== "SOL" || payload.stock !== "AAPLx" || payload.amount !== 1) {
+        throw new Error(`SOL payload mismatch: ${JSON.stringify(payload)}`);
+      }
+
+      const spendSub = await page.textContent("#stock-card-AAPLx .res-spend-sub");
+      if (!spendSub.includes("SOL")) throw new Error(`SOL spend sub mismatch: ${spendSub}`);
+
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "14b_desktop_execution_sol.png") });
+    });
+
+    // 14c. Market-closed hierarchy with stubbed STALE_REFERENCE (Screenshot 14c)
+    await test("14c. Market-Closed: SUCCESS + STALE_REFERENCE renders completion, not failure", async () => {
+      await page.click("#btn-back-to-step3");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+      await page.click("#rep-card-AAPLx .btn-check-trade");
+      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+
+      await page.route("**/api/v1/preflight", async route => {
+        const req = route.request();
+        if (req.method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            request_status: "SUCCESS",
+            verification_status: "UNABLE_TO_VERIFY",
+            verdict: "UNABLE_TO_VERIFY",
+            preflight_level: "QUOTE_CHECK",
+            reason_codes: ["STALE_REFERENCE"],
+            reason: "Underlying reference is stale.",
+            trade: {
+              input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+              input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+              input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+              input_asset_price_freshness: "FRESH",
+              stock_symbol: "AAPLx", canonical_stock: "AAPL",
+              token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+              token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+            },
+            benchmark: {
+              symbol: "AAPLx", price: 332.27,
+              source: "Nasdaq Official Public Equity Quote API (api.nasdaq.com)",
+              source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+              provider: "Last known Nasdaq reference, not eligible",
+              timestamp: "2026-09-11T00:00:00.000Z", freshness_status: "STALE", is_real_time: false,
+              market_context: { session: "OVERNIGHT", underlying_reference_available: false, reference_eligibility: "INELIGIBLE_STALE" }
+            },
+            economics: {
+              raw_out_amount: "151127287", expected_stock_shares: 1.514192,
+              underlying_benchmark_price: 332.27, expected_stock_exposure_usd: 503.12,
+              effective_price_per_share: 329.77, difference_usd: 3.12, difference_pct: 0.62,
+              multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+            },
+            dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+            alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+            simulation: { status: "NOT_RUN", err: null, units_consumed: 0 }
+          })
+        });
+      });
+
+      await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+      await page.fill("#stock-card-AAPLx .amount-input", "500");
+      await page.click("#stock-card-AAPLx .submit-trade-btn");
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+
+      const resultText = await page.textContent("#stock-card-AAPLx .inline-result-container");
+      const upper = (resultText || "").toUpperCase();
+      for (const phrase of ["TRADE CHECK COMPLETE", "FAIRNESS VERDICT UNAVAILABLE", "NOT A CURRENT FAIRNESS VERDICT"]) {
+        if (!upper.includes(phrase)) throw new Error(`Market-closed copy missing '${phrase}': ${resultText.slice(0, 400)}`);
+      }
+      const errVisible = await page.evaluate(() => {
+        const el = document.querySelector("#stock-card-AAPLx .inline-error-state");
+        return el ? !el.classList.contains("hidden") : false;
+      });
+      if (errVisible) throw new Error("Market-closed must not present the error state");
+
+      await page.unroute("**/api/v1/preflight");
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "14c_desktop_market_closed.png") });
     });
 
     // 15. Mobile Viewport: Dashboard Hero (Screenshot 15)

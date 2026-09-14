@@ -1238,6 +1238,19 @@ body {
   animation: stockFormSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) 0.10s both;
 }
 
+/* CHECK TRADE gating (013.5): disabled until asset + amount are explicit */
+.submit-trade-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.submit-gating-hint {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 @keyframes stockFormSlideIn {
   from {
     opacity: 0;

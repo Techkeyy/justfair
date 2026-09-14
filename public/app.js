@@ -487,7 +487,8 @@ export class ActiveTradeRouteScheduler {
     const form = card.querySelector(".stock-trade-form");
     if (!form) return;
 
-    const inputAsset = form.querySelector("input[name='inputAsset']")?.value || "USDC";
+    const inputAsset = (form.querySelector("input[name='inputAsset']")?.value || "").trim();
+    if (!inputAsset) return;
     const amountVal = parseFloat(form.querySelector(".amount-input")?.value || "0");
     if (isNaN(amountVal) || amountVal <= 0) return;
 
@@ -1834,7 +1835,7 @@ function renderCardBodyMarkup(symbol) {
         <div class="form-col">
           <label class="form-label">Pay With</label>
           <div class="payment-tabs" role="radiogroup" aria-label="Select Payment Currency">
-            <button type="button" class="payment-tab active" data-asset="USDC" role="radio" aria-checked="true">
+            <button type="button" class="payment-tab" data-asset="USDC" role="radio" aria-checked="false">
               <div class="token-icon-wrap">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v12"></path><path d="M15 9.5a3 3 0 0 0-3-2.5c-2 0-3 1-3 2.5s1 2.5 3 2.5 3 1 3 2.5-1 2.5-3 2.5a3 3 0 0 1-3-2.5"></path></svg>
               </div>
@@ -1853,7 +1854,7 @@ function renderCardBodyMarkup(symbol) {
               </div>
             </button>
           </div>
-          <input type="hidden" name="inputAsset" value="USDC">
+          <input type="hidden" name="inputAsset" value="">
         </div>
 
         <!-- Spend Amount -->
@@ -1863,7 +1864,7 @@ function renderCardBodyMarkup(symbol) {
             <span class="label-sub amount-usd-equivalent">$0.00 USD</span>
           </div>
           <div class="input-wrapper">
-            <span class="input-prefix amount-prefix">$</span>
+            <span class="input-prefix amount-prefix">–</span>
             <input type="number" name="amount" class="form-input amount-input" value="" placeholder="0.00" min="1" max="1000000" step="any" required>
           </div>
           <div class="amount-presets">
@@ -1895,10 +1896,11 @@ function renderCardBodyMarkup(symbol) {
 
       <!-- Submit Row -->
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary btn-block btn-lg submit-trade-btn">
+        <button type="submit" class="btn btn-primary btn-block btn-lg submit-trade-btn" disabled>
           <span class="btn-text">CHECK TRADE</span>
           <span class="btn-spinner hidden" aria-hidden="true"></span>
         </button>
+        <p class="form-hint submit-gating-hint">Select USDC or SOL and enter an amount to check this trade.</p>
       </div>
     </form>
 
@@ -1942,7 +1944,7 @@ function renderCardBodyMarkup(symbol) {
       <div class="error-icon-box">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
       </div>
-      <h4 class="error-title">Unable to Check Trade</h4>
+      <h4 class="error-title">We Couldn't Check This Trade</h4>
       <p class="error-message">An error occurred while inspecting the trade.</p>
       <button type="button" class="btn btn-secondary btn-sm error-retry-btn">Try Again</button>
     </div>
@@ -2278,6 +2280,20 @@ function collapseCard(card, symbol) {
 // ==========================================
 // 7. Card Form & Preflight Logic
 // ==========================================
+// CHECK TRADE gating (Director Order 013.5): enabled only with an explicit
+// payment asset AND a valid positive amount. Never enabled by defaults.
+function updateSubmitState(card) {
+  if (!card) return;
+  const form = card.querySelector(".stock-trade-form");
+  if (!form) return;
+  const asset = (form.querySelector("input[name='inputAsset']")?.value || "").trim();
+  const amount = parseFloat(form.querySelector(".amount-input")?.value || "");
+  const submitBtn = card.querySelector(".submit-trade-btn");
+  if (submitBtn && !submitBtn.dataset.checking) {
+    submitBtn.disabled = !(asset !== "" && !isNaN(amount) && amount > 0);
+  }
+}
+
 function setupCardInteractivity(card, symbol) {
   const form = card.querySelector(".stock-trade-form");
   if (!form) return;
@@ -2329,6 +2345,7 @@ function setupCardInteractivity(card, symbol) {
         if (parseFloat(amountInput.value) <= 10) amountInput.value = "500";
       }
       updateUsdEquiv(amountInput, amountUsdEquiv, inputAssetHidden.value);
+      updateSubmitState(card);
       activeRouteScheduler.notifyFormChanged();
     });
   });
@@ -2337,7 +2354,8 @@ function setupCardInteractivity(card, symbol) {
   if (amountInput) {
     amountInput.addEventListener("input", () => {
       card.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
-      updateUsdEquiv(amountInput, amountUsdEquiv, inputAssetHidden?.value || "USDC");
+      updateUsdEquiv(amountInput, amountUsdEquiv, inputAssetHidden?.value || "");
+      updateSubmitState(card);
       clearTimeout(amountDebounceTimer);
       amountDebounceTimer = setTimeout(() => {
         activeRouteScheduler.notifyFormChanged();
@@ -2388,9 +2406,14 @@ function setupCardInteractivity(card, symbol) {
       try { activeRouteScheduler.abortController.abort(); } catch {}
     }
 
-    const inputAsset = inputAssetHidden ? inputAssetHidden.value : "USDC";
+    const inputAsset = inputAssetHidden ? (inputAssetHidden.value || "").trim() : "";
     const amount = parseFloat(amountInput.value);
     const userWallet = activeWalletAddress || walletInput?.value?.trim() || null;
+
+    if (!inputAsset) {
+      showCardError(card, "Select a Payment Asset", "Choose USDC or SOL above, then enter an amount to check this trade.");
+      return;
+    }
 
     if (isNaN(amount) || amount <= 0) {
       showCardError(card, "Invalid Amount", "Please enter a valid amount greater than zero.");
@@ -2426,14 +2449,14 @@ function setupCardInteractivity(card, symbol) {
         } else if (code === "INVALID_PUBLIC_KEY") {
           msg = "The provided Solana wallet address is not a valid base58 address.";
         }
-        showCardError(card, "Check Failed", msg);
+        showCardError(card, "We Couldn't Check This Trade", msg);
         return;
       }
 
       renderCardResult(card, data, symbol);
       activeRouteScheduler.setLastCheckedSnapshot(data);
     } catch (err) {
-      showCardError(card, "Connection Error", "Unable to connect to the JustFair Preflight service. Please check your network.");
+      showCardError(card, "We Couldn't Check This Trade", "Unable to connect to the JustFair Preflight service. Please check your network.");
     }
   });
 }
@@ -2452,6 +2475,8 @@ function renderPresets(container, values, prefix, amountInput, amountUsdEquiv, a
       btn.classList.add("active");
       if (amountInput) amountInput.value = v;
       updateUsdEquiv(amountInput, amountUsdEquiv, asset);
+      updateSubmitState(container.closest(".stock-card-standalone"));
+      activeRouteScheduler.notifyFormChanged();
     });
     container.appendChild(btn);
   });
@@ -2466,7 +2491,9 @@ function bindPresets(container, amountInput, amountUsdEquiv, inputAssetHidden) {
       btn.classList.add("active");
       const val = btn.getAttribute("data-val");
       if (amountInput && val) amountInput.value = val;
-      updateUsdEquiv(amountInput, amountUsdEquiv, inputAssetHidden?.value || "USDC");
+      updateUsdEquiv(amountInput, amountUsdEquiv, inputAssetHidden?.value || "");
+      updateSubmitState(container.closest(".stock-card-standalone"));
+      activeRouteScheduler.notifyFormChanged();
     });
   });
 }
@@ -2480,13 +2507,15 @@ function updateUsdEquiv(amountInput, amountUsdEquiv, asset) {
   }
   if (asset === "USDC") {
     amountUsdEquiv.textContent = `$${val.toFixed(2)} USD`;
-  } else {
+  } else if (asset === "SOL") {
     if (currentSolPrice) {
       const approx = val * currentSolPrice;
       amountUsdEquiv.textContent = `≈ $${approx.toFixed(2)} USD`;
     } else {
       amountUsdEquiv.textContent = "≈ -- USD";
     }
+  } else {
+    amountUsdEquiv.textContent = "Select USDC or SOL";
   }
 }
 
@@ -2502,6 +2531,7 @@ function showCardLoading(card) {
 
   if (submitBtn) {
     submitBtn.disabled = true;
+    submitBtn.dataset.checking = "1";
     const textEl = submitBtn.querySelector(".btn-text");
     if (textEl) textEl.textContent = "Checking...";
     const spinner = submitBtn.querySelector(".btn-spinner");
@@ -2530,11 +2560,12 @@ function showCardError(card, title, message) {
 
 function resetCardSubmitBtn(submitBtn) {
   if (!submitBtn) return;
-  submitBtn.disabled = false;
+  delete submitBtn.dataset.checking;
   const textEl = submitBtn.querySelector(".btn-text");
   if (textEl) textEl.textContent = "CHECK TRADE";
   const spinner = submitBtn.querySelector(".btn-spinner");
   if (spinner) spinner.classList.add("hidden");
+  updateSubmitState(submitBtn.closest(".stock-card-standalone"));
 }
 
 function renderCardResult(card, data, symbol) {
@@ -2627,8 +2658,8 @@ function renderCardResult(card, data, symbol) {
     if (isClosed) {
       verdictBanner.classList.add("verdict-closed");
       if (verdictIcon) verdictIcon.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
-      if (verdictTitle) verdictTitle.textContent = "CAN'T VERIFY RIGHT NOW";
-      if (verdictSubtitle) verdictSubtitle.textContent = `Traditional equity markets are closed. Live DEX routing delivered $${econ.expected_stock_exposure_usd.toFixed(2)} estimated exposure against last known reference price ($${bench.price}), but benchmark safety cannot be certified outside active trading hours.`;
+      if (verdictTitle) verdictTitle.textContent = "TRADE CHECK COMPLETE";
+      if (verdictSubtitle) verdictSubtitle.textContent = `Live route found. Fairness verdict unavailable — the underlying stock reference ($${bench.price}) is stale because the traditional market is closed. Not a current fairness verdict.`;
     } else {
       verdictBanner.classList.add("verdict-measured");
       if (verdictIcon) verdictIcon.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"></path><path d="M4 7l8-4 8 4"></path><path d="M6 18l-3-6h6l-3 6z"></path><path d="M18 18l-3-6h6l-3 6z"></path></svg>`;
@@ -2834,16 +2865,7 @@ async function handleGlobalWalletConnect() {
 
 if (walletBtn) walletBtn.addEventListener("click", handleGlobalWalletConnect);
 
-// Initial SOL Price Warmup
-fetch("/api/v1/preflight", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ inputAsset: "SOL", stock: "AAPLx", amount: 1 })
-}).then(r => r.json()).then(d => {
-  if (d.trade?.input_usd_value) {
-    currentSolPrice = d.trade.input_usd_value;
-    document.querySelectorAll(".sol-spot-sub").forEach(el => {
-      el.textContent = `$${currentSolPrice.toFixed(2)}`;
-    });
-  }
-}).catch(() => {});
+// SOL spot price is served exclusively by the authoritative price endpoint
+// (GET /api/v1/prices/sol via fetchAuthoritativeSolPrice). No Execution
+// Preflight POST may fire before the user explicitly submits Step 4
+// (Director Order 013.5: removed page-load preflight warmup).
