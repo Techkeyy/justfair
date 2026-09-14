@@ -2867,7 +2867,7 @@ function renderCardResult(card, data, symbol) {
       const refNote = refE.hasTimestamp
         ? `from the ${refE.weekday} close (${refE.dateLabel})`
         : "from the last available reference (timestamp unavailable)";
-      resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. The $${bench.price} reference is ${refNote} (${sessionClosureReason(refE.session)}). Not a current fairness verdict.`;
+      resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. The $${bench.price} reference is ${refNote}; ${sessionClosureReason(refE.session)}. Not a current fairness verdict.`;
     } else {
       resExplanation.textContent = `This trade route would spend $${trade.input_usd_value.toFixed(2)} to acquire approximately ${econ.expected_stock_shares} shares of ${stockMeta.name} on Solana, delivering $${econ.expected_stock_exposure_usd.toFixed(2)} of underlying exposure (difference: ${diffPrefix}$${econ.difference_usd.toFixed(2)} or ${diffPrefix}${diffPct.toFixed(2)}%).`;
     }
