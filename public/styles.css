@@ -3858,87 +3858,12 @@ body {
   border-radius: var(--radius-full);
 }
 
-.handoff-badge.badge-conditional {
-  color: #92400E;
-  background: #FEF3C7;
-}
-
-.handoff-badge.badge-issue {
-  color: #4B5563;
-  background: #F3F4F6;
-}
-
 .handoff-sub {
   font-size: 13px;
   color: var(--text-muted);
 }
 
-/* Compact execution context strip (013.8): secondary, single row */
-.execution-handoff-banner.execution-strip {
-  padding: 10px 16px;
-  margin-bottom: 16px;
-  background: var(--bg-card-subtle);
-  border: 1px solid var(--border-light);
-  box-shadow: none;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.execution-strip .handoff-strip-main {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-
-.execution-strip .handoff-title {
-  font-size: 15px;
-}
-
-.execution-strip .handoff-sub {
-  font-size: 12.5px;
-}
-
-.execution-strip .handoff-strip-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: auto;
-  flex-wrap: wrap;
-}
-
-/* Entry choice + quick selector (013.8) */
-.entry-choice-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.entry-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  padding: 22px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.entry-title {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.entry-desc {
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  margin-bottom: 8px;
-}
+/* Trade selector inside Step 4 (013.9): standalone representation choice */
 
 .quick-underlying-group {
   background: var(--bg-card);
@@ -3984,8 +3909,8 @@ body {
 }
 
 @media (max-width: 640px) {
-  .entry-choice-grid {
-    grid-template-columns: 1fr;
+  .quick-rep-row {
+    align-items: flex-start;
   }
 }
 
