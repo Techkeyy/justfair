@@ -301,16 +301,14 @@ export const EXPECTATIONS_CONFIG = {
 };
 
 // Global App & Product Preflight State
-// Steps 1-3 are Product Preflight. Step 4 is an independent trade checker
-// with its own explicit representation selection (tradeRepresentation).
+// Steps 1-3 are Product Preflight. Step 4 is an independent scrolling
+// trade-check feed; expanding a card is the explicit trade selection.
 export const appState = {
   currentStep: 1,
   selectedUnderlying: "AAPL",
   expectations: {}, // capability -> 'MUST_HAVE' | 'NICE_TO_HAVE'
   productPreflightResult: null,
   selectedRepresentation: null, // Product-side card highlight only; never preloaded into Step 4
-  tradeRepresentation: null, // Step 4's own explicit selection
-  tradeUnderlying: null,
   progress: { company: false, expectations: false }, // genuine Product Preflight progress for tracker truth
   searchQuery: "",
   categoryFilter: "ALL"
@@ -327,6 +325,7 @@ let activeWalletAddress = null;
 let activeWalletConnected = false; // true only when the address came from a wallet connection
 let currentSearchQuery = "";
 let currentCategoryFilter = "all";
+let currentTradeCategoryFilter = "all"; // Step 4 feed pills, independent of Step 1
 
 // ==========================================
 // Market Streaming & Route Scheduler (Order 009.6)
@@ -915,14 +914,19 @@ export function renderTracker(activeStep) {
 // the user explicitly chooses the representation to inspect inside Step 4.
 export function openStep4() {
   appState.currentStep = 4;
-  appState.tradeRepresentation = null;
-  appState.tradeUnderlying = null;
   activeRouteScheduler.stop();
-  const feed = document.getElementById("stock-cards-container");
-  if (feed) feed.innerHTML = "";
   const search = document.getElementById("trade-search-input");
   if (search) search.value = "";
-  renderTradeSelector();
+  // Original scrolling feed: all exact representations, collapsed.
+  // Explicit card expansion below is the user's trade selection.
+  currentTradeCategoryFilter = "all";
+  document.querySelectorAll(".trade-category-pill").forEach(p => {
+    const isAll = (p.getAttribute("data-category") || "").toLowerCase() === "all";
+    p.classList.toggle("active", isAll);
+    p.setAttribute("aria-checked", String(isAll));
+  });
+  renderAllStockCards(null);
+  applyTradeFeedSearch();
   const tracker = document.querySelector(".preflight-step-tracker");
   if (tracker) tracker.classList.remove("hidden");
   for (let i = 1; i <= 4; i++) {
@@ -931,92 +935,6 @@ export function openStep4() {
   // Truthful tracker: only genuinely completed product steps read completed.
   renderTracker(4);
   document.querySelector(".app-workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-// Step 4 selector: exact representations grouped by underlying with search.
-// Only STOCK_META members have Execution Preflight support; Ondo rows are
-// truthfully disabled with a path into Product Preflight. No substitution,
-// no preload — the user explicitly chooses what to inspect.
-export function renderTradeSelector() {
-  const container = document.getElementById("trade-groups-container");
-  if (!container) return;
-  container.innerHTML = "";
-
-  Object.keys(UNDERLYING_CATALOG).forEach(canonical => {
-    const data = UNDERLYING_CATALOG[canonical];
-    const group = document.createElement("div");
-    group.className = "quick-underlying-group";
-    group.id = `trade-group-${canonical}`;
-    group.setAttribute("data-keywords", `${data.name} ${canonical} ${data.fullName} ${data.representations.join(" ")}`.toLowerCase());
-
-    const rows = data.representations.map(symbol => {
-      const supported = !!STOCK_META[symbol];
-      const issuer = supported ? "Backed Assets (JE) Limited" : "Ondo Global Markets (BVI) Limited";
-      const isSelected = appState.tradeRepresentation === symbol;
-      return `
-        <div class="quick-rep-row ${isSelected ? "is-selected" : ""}" id="trade-rep-${symbol}" data-keywords="${symbol.toLowerCase()} ${issuer.toLowerCase()}">
-          <span class="quick-rep-symbol">${symbol}</span>
-          <span class="quick-rep-issuer">${issuer}</span>
-          ${supported ? `
-            <button type="button" class="btn btn-primary btn-sm trade-check-rep-btn" data-symbol="${symbol}" data-underlying="${canonical}">
-              <span>Check this representation</span>
-            </button>
-          ` : `
-            <span class="quick-rep-note">Trade Check not yet supported for this representation</span>
-            <button type="button" class="btn-link trade-product-details-btn" data-underlying="${canonical}">Check product details</button>
-          `}
-        </div>
-      `;
-    }).join("");
-
-    group.innerHTML = `
-      <h3 class="quick-underlying-title">${data.name} (${data.canonical})</h3>
-      ${rows}
-    `;
-    container.appendChild(group);
-  });
-
-  applyTradeSearch();
-  container.querySelectorAll(".trade-check-rep-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      selectTradeRepresentation(btn.getAttribute("data-symbol"), btn.getAttribute("data-underlying"));
-    });
-  });
-  container.querySelectorAll(".trade-product-details-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      selectUnderlying(btn.getAttribute("data-underlying"));
-    });
-  });
-}
-
-export function applyTradeSearch() {
-  const input = document.getElementById("trade-search-input");
-  const container = document.getElementById("trade-groups-container");
-  if (!input || !container) return;
-  const q = input.value.trim().toLowerCase();
-  container.querySelectorAll(".quick-underlying-group").forEach(group => {
-    let visibleRows = 0;
-    group.querySelectorAll(".quick-rep-row").forEach(row => {
-      const hay = `${group.getAttribute("data-keywords") || ""} ${row.getAttribute("data-keywords") || ""}`;
-      const show = q === "" || hay.includes(q);
-      row.classList.toggle("hidden", !show);
-      if (show) visibleRows++;
-    });
-    group.classList.toggle("hidden", visibleRows === 0);
-  });
-}
-
-// Step 4's own explicit selection. Mounts a fresh execution card below.
-export function selectTradeRepresentation(symbol, underlying) {
-  if (!STOCK_META[symbol] || !UNDERLYING_CATALOG[underlying]) return;
-  appState.tradeRepresentation = symbol;
-  appState.tradeUnderlying = underlying;
-  renderSingleStockCard(symbol);
-  document.querySelectorAll("#trade-groups-container .quick-rep-row").forEach(r => {
-    r.classList.remove("is-selected");
-  });
-  document.getElementById(`trade-rep-${symbol}`)?.classList.add("is-selected");
-  document.getElementById(`stock-card-${symbol}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 // Step 1: Render Company Grid
@@ -1704,13 +1622,41 @@ export function initStepNavigation() {
     }
   }
 
-  // Trade selector search (Step 4 standalone tool)
+  // Step 4 trade-feed search + clear (original feed interaction)
   const tradeSearchInput = document.getElementById("trade-search-input");
+  const tradeClearBtn = document.getElementById("trade-clear-search-btn");
+  const tradeEmptyClearBtn = document.getElementById("trade-empty-clear-search-btn");
   if (tradeSearchInput) {
     tradeSearchInput.addEventListener("input", () => {
-      applyTradeSearch();
+      applyTradeFeedSearch();
     });
   }
+  function clearTradeSearch(focusInput) {
+    if (tradeSearchInput) {
+      tradeSearchInput.value = "";
+      applyTradeFeedSearch();
+      if (focusInput) tradeSearchInput.focus();
+    }
+  }
+  if (tradeClearBtn) {
+    tradeClearBtn.addEventListener("click", () => clearTradeSearch(true));
+  }
+  if (tradeEmptyClearBtn) {
+    tradeEmptyClearBtn.addEventListener("click", () => clearTradeSearch(true));
+  }
+  // Step 4 category pills (original feed interaction, independent state)
+  document.querySelectorAll(".trade-category-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".trade-category-pill").forEach(p => {
+        p.classList.remove("active");
+        p.setAttribute("aria-checked", "false");
+      });
+      pill.classList.add("active");
+      pill.setAttribute("aria-checked", "true");
+      currentTradeCategoryFilter = pill.getAttribute("data-category") || "all";
+      applyTradeFeedSearch();
+    });
+  });
 
   // Step 2 buttons
   const changeCompBtn = document.getElementById("btn-change-company");
@@ -1838,21 +1784,37 @@ function initApiDrawer() {
 // ==========================================
 // 4. Data-Driven Stock Cards Rendering & Feed
 // ==========================================
-function renderAllStockCards(initiallyExpandedSymbol = "AAPLx") {
+function renderAllStockCards(initiallyExpandedSymbol = null) {
   if (!stockCardsContainer) return;
   stockCardsContainer.innerHTML = "";
 
-  const symbols = Object.keys(STOCK_META);
+  // One card per exact representation in underlying order (xStocks trade
+  // card, then its Ondo counterpart). Only xStocks cards expand into the
+  // trade form; Ondo cards truthfully state unsupported execution.
+  Object.keys(UNDERLYING_CATALOG).forEach(canonical => {
+    const data = UNDERLYING_CATALOG[canonical];
+    data.representations.forEach(symbol => {
+      if (STOCK_META[symbol]) {
+        renderTradeCard(symbol, symbol === initiallyExpandedSymbol);
+      } else {
+        renderUnsupportedCard(symbol, data);
+      }
+    });
+  });
+}
 
-  symbols.forEach((symbol, index) => {
-    const meta = STOCK_META[symbol];
-    const isExpanded = symbol === initiallyExpandedSymbol;
-    const cardEl = document.createElement("div");
-    cardEl.className = `stock-card-standalone ${isExpanded ? "is-expanded" : ""}`;
-    cardEl.id = `stock-card-${symbol}`;
-    cardEl.setAttribute("data-symbol", symbol);
-    cardEl.setAttribute("data-category", meta.category);
-    cardEl.setAttribute("data-keywords", `${meta.name} ${meta.canonical} ${meta.fullName} ${symbol}`.toLowerCase());
+// Original expandable trade card (007.x interaction), wired to current
+// neutral form state: collapsed, unselected asset, empty amount.
+function renderTradeCard(symbol, isExpanded) {
+  const meta = STOCK_META[symbol];
+  const cardEl = document.createElement("div");
+  // is-revealed: feed cards are created dynamically after initScrollReveal
+  // ran, so the IntersectionObserver never sees them (013.6 paint fix).
+  cardEl.className = `stock-card-standalone is-revealed ${isExpanded ? "is-expanded" : ""}`;
+  cardEl.id = `stock-card-${symbol}`;
+  cardEl.setAttribute("data-symbol", symbol);
+  cardEl.setAttribute("data-category", meta.category);
+  cardEl.setAttribute("data-keywords", `${meta.name} ${meta.canonical} ${meta.fullName} ${symbol} backed assets xstocks supported`.toLowerCase());
 
     cardEl.innerHTML = `
       <!-- Card Header / Collapsed Summary -->
@@ -1894,66 +1856,52 @@ function renderAllStockCards(initiallyExpandedSymbol = "AAPLx") {
 
     stockCardsContainer.appendChild(cardEl);
     setupCardInteractivity(cardEl, symbol);
-  });
 }
 
-export function renderSingleStockCard(symbol) {
-  if (!stockCardsContainer) return;
-  stockCardsContainer.innerHTML = "";
-
-  const meta = STOCK_META[symbol] || {
-    symbol,
-    name: symbol,
-    canonical: symbol,
-    fullName: symbol,
-    mint: "",
-    logo: "/assets/stocks/apple.svg",
-    category: "Tokenized Equity",
-    desc: `Tokenized ${symbol} on Solana`
-  };
-
+// Static counterpart card for execution-unsupported representations.
+// Same visual system, no trade form, no substitution, honest state.
+function renderUnsupportedCard(symbol, underlyingData) {
   const cardEl = document.createElement("div");
-  // is-revealed: this card is created dynamically after initScrollReveal ran,
-  // so the IntersectionObserver never sees it. Without this class the global
-  // scroll-reveal rule (.stock-card-standalone { opacity: 0 }) leaves the
-  // handed-off Step 4 card permanently invisible (owner Check 6 failure).
-  cardEl.className = "stock-card-standalone is-expanded is-revealed";
+  cardEl.className = "stock-card-standalone stock-card-unsupported is-revealed";
   cardEl.id = `stock-card-${symbol}`;
   cardEl.setAttribute("data-symbol", symbol);
-  cardEl.setAttribute("data-category", meta.category);
-  cardEl.setAttribute("data-keywords", `${meta.name} ${meta.canonical} ${meta.fullName} ${symbol}`.toLowerCase());
+  cardEl.setAttribute("data-category", underlyingData.category);
+  cardEl.setAttribute("data-keywords", `${underlyingData.name} ${underlyingData.canonical} ${underlyingData.fullName} ${symbol} ondo unsupported`.toLowerCase());
 
   cardEl.innerHTML = `
-    <!-- Card Header / Collapsed Summary -->
-    <div class="stock-card-header" role="button" tabindex="0" aria-expanded="true" aria-controls="stock-body-${symbol}">
+    <div class="stock-card-header stock-header-static" aria-expanded="false">
       <div class="stock-card-brand">
         <div class="stock-logo-wrap">
-          <img src="${meta.logo}" alt="${meta.name} logo" class="stock-logo-img" loading="lazy">
+          <img src="${underlyingData.logo}" alt="${underlyingData.name} logo" class="stock-logo-img" loading="lazy">
         </div>
         <div class="stock-brand-info">
           <div class="stock-title-row">
-            <h3 class="stock-name">${meta.name}</h3>
-            <span class="stock-ticker-badge">${meta.symbol}</span>
-            <span class="stock-canonical-pill">${meta.canonical}</span>
+            <h3 class="stock-name">${underlyingData.name}</h3>
+            <span class="stock-ticker-badge">${symbol}</span>
+            <span class="stock-canonical-pill">${underlyingData.canonical}</span>
           </div>
-          <p class="stock-desc">${meta.desc}</p>
+          <p class="stock-desc">Tokenized ${underlyingData.name} equity on Solana · Ondo</p>
         </div>
       </div>
       <div class="stock-header-action">
-        <span class="badge-active-rep" style="background: rgba(5,150,105,0.12); color: #059669; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 9999px; border: 1px solid rgba(5,150,105,0.25);">
-          Selected Product
-        </span>
+        <span class="unsupported-pill">Trade Check not yet supported</span>
       </div>
     </div>
 
-    <!-- Card Body (Active Trade Interface) -->
     <div class="stock-card-body" id="stock-body-${symbol}">
-      ${renderCardBodyMarkup(symbol)}
+      <p class="unsupported-desc">Ondo Global Markets (BVI) Limited · Token-2022 Verified on Solana</p>
+      <p class="quick-rep-note">Trade Check not yet supported for this representation. Product verification is a separate step.</p>
+      <button type="button" class="btn-link unsupported-details-btn" data-underlying="${underlyingData.canonical}">Check product details</button>
     </div>
   `;
 
   stockCardsContainer.appendChild(cardEl);
-  setupCardInteractivity(cardEl, symbol);
+  const detailsBtn = cardEl.querySelector(".unsupported-details-btn");
+  if (detailsBtn) {
+    detailsBtn.addEventListener("click", () => {
+      selectUnderlying(detailsBtn.getAttribute("data-underlying"));
+    });
+  }
 }
 
 function renderCardBodyMarkup(symbol) {
@@ -2292,8 +2240,10 @@ function clearSearch() {
 }
 
 function applyFilters() {
+  // Step 1 company grid only. The Step 4 trade feed has its own
+  // independent search (applyTradeFeedSearch) and must never inherit
+  // Step 1 filter state.
   const companyCards = document.querySelectorAll(".underlying-company-card");
-  const standaloneCards = document.querySelectorAll(".stock-card-standalone");
   let visibleCount = 0;
 
   companyCards.forEach(card => {
@@ -2315,28 +2265,34 @@ function applyFilters() {
     }
   });
 
-  standaloneCards.forEach(card => {
-    const rawCat = card.getAttribute("data-category") || "";
-    const cardCatSlug = normalizeCategory(rawCat);
-    const filterCatSlug = normalizeCategory(currentCategoryFilter);
-
-    const matchesCategory = filterCatSlug === "all" || cardCatSlug === filterCatSlug;
-    const keywords = card.getAttribute("data-keywords") || "";
-    const matchesSearch = currentSearchQuery === "" || keywords.includes(currentSearchQuery);
-
-    if (matchesCategory && matchesSearch) {
-      card.classList.remove("hidden");
-      card.classList.remove("search-hidden");
-    } else {
-      card.classList.add("hidden");
-      card.classList.add("search-hidden");
-    }
-  });
-
   const emptyState = document.getElementById("stock-search-empty-state");
   if (emptyState) {
     emptyState.classList.toggle("hidden", visibleCount > 0);
   }
+}
+
+// Step 4 trade-feed search: filters exact-representation cards by company,
+// symbol, or issuer without touching Step 1 state.
+export function applyTradeFeedSearch() {
+  const input = document.getElementById("trade-search-input");
+  const clearBtn = document.getElementById("trade-clear-search-btn");
+  const feed = document.getElementById("stock-cards-container");
+  const emptyState = document.getElementById("trade-search-empty-state");
+  if (!input || !feed) return;
+  const q = input.value.trim().toLowerCase();
+  if (clearBtn) clearBtn.classList.toggle("hidden", q.length === 0);
+  let visibleCount = 0;
+  feed.querySelectorAll(".stock-card-standalone").forEach(card => {
+    const hay = `${card.getAttribute("data-keywords") || ""}`;
+    const cardCatSlug = normalizeCategory(card.getAttribute("data-category") || "");
+    const filterCatSlug = normalizeCategory(currentTradeCategoryFilter);
+    const matchesCategory = filterCatSlug === "all" || cardCatSlug === filterCatSlug;
+    const show = matchesCategory && (q === "" || hay.includes(q));
+    card.classList.toggle("hidden", !show);
+    card.classList.toggle("search-hidden", !show);
+    if (show) visibleCount++;
+  });
+  if (emptyState) emptyState.classList.toggle("hidden", visibleCount > 0);
 }
 
 // ==========================================

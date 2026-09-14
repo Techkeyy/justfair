@@ -357,19 +357,17 @@ async function runBrowserTests() {
       await page.click("#rep-card-AAPLx .btn-check-trade");
       await page.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
 
-      // Step 4 must NOT preload the product or carry any handoff badge.
+      // Step 4 must show the original feed with nothing expanded or preloaded.
       const fresh = await page.evaluate(() => ({
-        tradeRep: (("tradeRepresentation" in window.appState) ? window.appState.tradeRepresentation : "UNDEFINED"),
-        cardPresent: !!document.getElementById("stock-card-AAPLx"),
+        cards: document.querySelectorAll("#stock-cards-container .stock-card-standalone").length,
+        expanded: document.querySelectorAll("#stock-cards-container .stock-card-standalone.is-expanded").length,
         stripPresent: !!document.querySelector(".execution-handoff-banner"),
-        badgePresent: !!document.getElementById("handoff-badge"),
-        groups: document.querySelectorAll("#trade-groups-container .quick-underlying-group").length,
+        verifiedLeak: /Product verified|Conditional product match|match all of your requirements|verification incomplete/i.test(document.getElementById("step-4-container")?.innerText || ""),
         trackerVisible: !document.querySelector(".preflight-step-tracker")?.classList.contains("hidden")
       }));
-      if (fresh.tradeRep !== null) throw new Error(`Step 4 must start with representation NONE, got ${fresh.tradeRep}`);
-      if (fresh.cardPresent) throw new Error("Step 4 must not preload an execution card");
-      if (fresh.stripPresent || fresh.badgePresent) throw new Error("No handoff strip/badge may exist in Step 4");
-      if (fresh.groups !== 12) throw new Error(`Step 4 selector must list 12 underlyings, found ${fresh.groups}`);
+      if (fresh.cards !== 24) throw new Error(`Step 4 feed must list 24 representations, found ${fresh.cards}`);
+      if (fresh.expanded !== 0) throw new Error("Step 4 must start with no card expanded");
+      if (fresh.stripPresent || fresh.verifiedLeak) throw new Error("No handoff strip/badge may exist in Step 4");
       if (!fresh.trackerVisible) throw new Error("Step tracker must stay visible");
 
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "13_desktop_product_to_execution.png") });
@@ -380,28 +378,28 @@ async function runBrowserTests() {
       await page.click("#tracker-step-4");
       await page.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
 
-      // Questionnaire never ran on this path.
+      // Questionnaire never ran on this path: feed present, nothing expanded.
       const preState = await page.evaluate(() => ({
         productResult: (("productPreflightResult" in window.appState) ? window.appState.productPreflightResult : "UNDEFINED"),
-        tradeRep: (("tradeRepresentation" in window.appState) ? window.appState.tradeRepresentation : "UNDEFINED"),
-        cardPresent: !!document.getElementById("stock-card-AAPLx")
+        expanded: document.querySelectorAll("#stock-cards-container .stock-card-standalone.is-expanded").length,
+        cards: document.querySelectorAll("#stock-cards-container .stock-card-standalone").length
       }));
-      if (preState.tradeRep !== null) throw new Error("Direct Step 4 must start with representation NONE");
-      if (preState.cardPresent) throw new Error("No execution card before explicit selection");
+      if (preState.expanded !== 0) throw new Error("Direct Step 4 must start with no card expanded");
+      if (preState.cards !== 24) throw new Error(`Direct Step 4 feed must list 24 representations, found ${preState.cards}`);
 
-      // Explicit in-step selection of the exact representation.
-      await page.click("#trade-rep-AAPLx .trade-check-rep-btn");
-      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+      // Explicit in-feed selection: expand the exact AAPLx card.
+      await page.click("#stock-card-AAPLx .stock-card-header");
+      await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
       await page.waitForTimeout(900);
 
       const selState = await page.evaluate(() => ({
-        tradeRep: window.appState?.tradeRepresentation,
+        expandedSymbol: document.querySelector("#stock-cards-container .stock-card-standalone.is-expanded")?.getAttribute("data-symbol") ?? null,
         opacity: window.getComputedStyle(document.getElementById("stock-card-AAPLx")).opacity,
         hidden: document.querySelector("#stock-card-AAPLx input[name='inputAsset']")?.value ?? null,
         amount: document.querySelector("#stock-card-AAPLx .amount-input")?.value ?? null,
         btnDisabled: document.querySelector("#stock-card-AAPLx .submit-trade-btn")?.disabled ?? null
       }));
-      if (selState.tradeRep !== "AAPLx") throw new Error(`Expected tradeRepresentation AAPLx, got ${selState.tradeRep}`);
+      if (selState.expandedSymbol !== "AAPLx") throw new Error(`Expected AAPLx expanded, got ${selState.expandedSymbol}`);
       if (selState.opacity !== "1") throw new Error(`Step 4 card transparent (opacity ${selState.opacity})`);
       if (selState.hidden !== "" || selState.amount !== "" || selState.btnDisabled !== true) {
         throw new Error(`Fresh gating violated: asset='${selState.hidden}' amount='${selState.amount}' disabled=${selState.btnDisabled}`);
@@ -454,8 +452,8 @@ async function runBrowserTests() {
     await test("14b. SOL Path: fresh Step 4, select SOL, enter 1, correct payload + result", async () => {
       await page.click("#tracker-step-4");
       await page.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
-      await page.click("#trade-rep-AAPLx .trade-check-rep-btn");
-      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+      await page.click("#stock-card-AAPLx .stock-card-header");
+      await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
 
       const freshDisabled = await page.$eval("#stock-card-AAPLx .submit-trade-btn", el => el.disabled);
       if (freshDisabled !== true) throw new Error("Fresh Step 4 CHECK TRADE must start disabled (SOL path)");
@@ -489,8 +487,8 @@ async function runBrowserTests() {
     await test("14c. Market-Closed: SUCCESS + STALE_REFERENCE renders completion, not failure", async () => {
       await page.click("#tracker-step-4");
       await page.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
-      await page.click("#trade-rep-AAPLx .trade-check-rep-btn");
-      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+      await page.click("#stock-card-AAPLx .stock-card-header");
+      await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
 
       await page.route("**/api/v1/preflight", async route => {
         const req = route.request();
@@ -560,8 +558,8 @@ async function runBrowserTests() {
     await test("14e. Exact Disclosure: quiet entry expands to Connect + manual fallback + safety copy", async () => {
       await page.click("#tracker-step-4");
       await page.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
-      await page.click("#trade-rep-AAPLx .trade-check-rep-btn");
-      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+      await page.click("#stock-card-AAPLx .stock-card-header");
+      await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
 
       await page.click("#stock-card-AAPLx .exact-sim-toggle");
       await page.waitForSelector("#stock-card-AAPLx .exact-sim-body:not(.hidden)", { timeout: 15000 });
@@ -722,9 +720,8 @@ async function runBrowserTests() {
         await freshPage.click("#hero-open-app-btn");
         await freshPage.waitForSelector("#tracker-step-4", { timeout: 15000 });
         await freshPage.click("#tracker-step-4");
-        await freshPage.waitForSelector("#trade-rep-AAPLx .trade-check-rep-btn", { timeout: 15000 });
-        await freshPage.click("#trade-rep-AAPLx .trade-check-rep-btn");
-        await freshPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await freshPage.click("#stock-card-AAPLx .stock-card-header");
+        await freshPage.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
         await freshPage.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
         await freshPage.fill("#stock-card-AAPLx .amount-input", "500");
         await freshPage.click("#stock-card-AAPLx .submit-trade-btn");
@@ -752,20 +749,20 @@ async function runBrowserTests() {
           await widePage.click("#hero-open-app-btn");
           await widePage.waitForSelector("#tracker-step-4", { timeout: 15000 });
           await widePage.click("#tracker-step-4");
-          await widePage.waitForSelector("#trade-rep-AAPLx .trade-check-rep-btn", { timeout: 15000 });
+          await widePage.waitForSelector("#stock-cards-container .stock-card-standalone", { timeout: 15000 });
 
-          // Selector itself must be painted (no blank Step 4).
+          // Feed itself must be painted (no blank Step 4).
           const selBox = await widePage.evaluate(() => {
-            const el = document.getElementById("trade-rep-AAPLx");
+            const el = document.getElementById("stock-card-AAPLx");
             if (!el) return null;
             const r = el.getBoundingClientRect();
             return { w: r.width, h: r.height, opacity: window.getComputedStyle(el).opacity };
           });
-          if (!selBox || !(selBox.w > 0 && selBox.h > 0)) throw new Error(`[${w}x${h}] Step 4 selector not painted`);
+          if (!selBox || !(selBox.w > 0 && selBox.h > 0)) throw new Error(`[${w}x${h}] Step 4 feed not painted`);
+          if (selBox.opacity !== "1") throw new Error(`[${w}x${h}] Step 4 feed transparent`);
 
-          await widePage.click("#trade-rep-AAPLx .trade-check-rep-btn");
-          await widePage.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
-          await widePage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+          await widePage.click("#stock-card-AAPLx .stock-card-header");
+          await widePage.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
           await widePage.waitForTimeout(900); // pass the 0.75s reveal transition, if any
 
           // DOM existence alone is not acceptance: assert painted boxes.
@@ -843,18 +840,16 @@ async function runBrowserTests() {
       await page.click("#rep-card-AAPLx .btn-check-trade");
       await page.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
       const fresh25 = await page.evaluate(() => ({
-        tradeRep: (("tradeRepresentation" in window.appState) ? window.appState.tradeRepresentation : "UNDEFINED"),
-        cardPresent: !!document.getElementById("stock-card-AAPLx"),
+        expanded: document.querySelectorAll("#stock-cards-container .stock-card-standalone.is-expanded").length,
         stripPresent: !!document.querySelector(".execution-handoff-banner"),
         condLeak: /Conditional product match|Product verified/i.test(document.getElementById("step-4-container")?.innerText || "")
       }));
-      if (fresh25.tradeRep !== null) throw new Error("Step 4 must start unselected after conditional product");
-      if (fresh25.cardPresent) throw new Error("Step 4 must not preload a card");
+      if (fresh25.expanded !== 0) throw new Error("Step 4 must start with no card expanded after conditional product");
       if (fresh25.stripPresent || fresh25.condLeak) throw new Error("No conditional/verified carryover into Step 4");
 
       // The user then deliberately checks AAPLx and it works.
-      await page.click("#trade-rep-AAPLx .trade-check-rep-btn");
-      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+      await page.click("#stock-card-AAPLx .stock-card-header");
+      await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
       await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
       await page.fill("#stock-card-AAPLx .amount-input", "500");
       await page.click("#stock-card-AAPLx .submit-trade-btn");
@@ -883,12 +878,10 @@ async function runBrowserTests() {
       await cta.click();
       await page.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
       const fresh26 = await page.evaluate(() => ({
-        tradeRep: (("tradeRepresentation" in window.appState) ? window.appState.tradeRepresentation : "UNDEFINED"),
-        cardPresent: !!document.getElementById("stock-card-AAPLx"),
+        expanded: document.querySelectorAll("#stock-cards-container .stock-card-standalone.is-expanded").length,
         mismatchLeak: /match all of your requirements|Product verified/i.test(document.getElementById("step-4-container")?.innerText || "")
       }));
-      if (fresh26.tradeRep !== null) throw new Error("Step 4 must start unselected after mismatch product");
-      if (fresh26.cardPresent) throw new Error("Step 4 must not preload a card");
+      if (fresh26.expanded !== 0) throw new Error("Step 4 must start with no card expanded after mismatch product");
       if (fresh26.mismatchLeak) throw new Error("No mismatch/verified carryover into Step 4");
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "26_mismatch_to_fresh_step4.png") });
     });
@@ -901,22 +894,77 @@ async function runBrowserTests() {
       page.on("request", onReq);
       try {
         await page.click("#tracker-step-4");
-        await page.waitForSelector("#trade-rep-AAPLon", { timeout: 15000 });
-        const rowText = await page.textContent("#trade-rep-AAPLon");
+        await page.waitForSelector("#stock-card-AAPLon", { timeout: 15000 });
+        const rowText = await page.textContent("#stock-card-AAPLon");
         if (!/not yet supported/i.test(rowText)) throw new Error(`AAPLon must state unsupported truth: ${rowText.slice(0, 200)}`);
-        if (await page.$("#trade-rep-AAPLon .trade-check-rep-btn")) {
-          throw new Error("AAPLon must offer no selection action");
-        }
+        const aaplonForm = await page.$("#stock-card-AAPLon .stock-trade-form");
+        if (aaplonForm) throw new Error("AAPLon must offer no trade form");
+        const detailsBtn = await page.$("#stock-card-AAPLon .unsupported-details-btn");
+        if (!detailsBtn) throw new Error("AAPLon must link to product details");
         const before = lonePosts.length;
         await page.waitForTimeout(2500); // any hidden polling would fire here
         const aaplxPosts = lonePosts.slice(before).filter(p => (p || "").includes("AAPLx"));
         if (aaplxPosts.length !== 0) throw new Error("Viewing AAPLon must cause zero AAPLx execution POSTs");
-        const st = await page.evaluate(() => (("tradeRepresentation" in window.appState) ? window.appState.tradeRepresentation : "UNDEFINED"));
-        if (st !== null) throw new Error("Selecting/viewing AAPLon must not set a trade representation");
+        const expanded = await page.evaluate(() => document.querySelectorAll("#stock-cards-container .stock-card-standalone.is-expanded").length);
+        if (expanded !== 0) throw new Error("Viewing AAPLon must not expand any card");
+        // Details path leads into Product Preflight without substitution.
+        await detailsBtn.click();
+        await page.waitForSelector("#step-2-container:not(.hidden)", { timeout: 15000 });
+        const selUnd = await page.evaluate(() => window.appState?.selectedUnderlying);
+        if (selUnd !== "AAPL") throw new Error(`Product details must open Apple, got ${selUnd}`);
         await page.screenshot({ path: path.join(EVIDENCE_DIR, "27_step4_aaplon_truth.png") });
       } finally {
         page.off("request", onReq);
       }
+    });
+
+    // 30. Trade feed search (013.10 §6/§20): company, symbol, issuer filtering
+    await test("30. Trade Search filters exact representations without touching Step 1", async () => {
+      await page.click("#tracker-step-4");
+      await page.waitForSelector("#stock-cards-container .stock-card-standalone", { timeout: 15000 });
+
+      await page.fill("#trade-search-input", "ondo");
+      await page.waitForTimeout(300);
+      const ondoVisible = await page.evaluate(() => ({
+        xCards: document.querySelectorAll("#stock-card-AAPLx:not(.hidden)").length,
+        onCards: document.querySelectorAll("#stock-card-AAPLon:not(.hidden)").length
+      }));
+      if (ondoVisible.xCards !== 0) throw new Error("Search 'ondo' must hide xStocks cards");
+      if (ondoVisible.onCards !== 1) throw new Error("Search 'ondo' must show Ondo cards");
+
+      await page.fill("#trade-search-input", "aaplx");
+      await page.waitForTimeout(300);
+      const symVisible = await page.evaluate(() => ({
+        aaplx: document.querySelectorAll("#stock-card-AAPLx:not(.hidden)").length,
+        total: document.querySelectorAll("#stock-cards-container .stock-card-standalone:not(.hidden)").length
+      }));
+      if (symVisible.aaplx !== 1 || symVisible.total !== 1) {
+        throw new Error(`Symbol search must isolate AAPLx, got ${JSON.stringify(symVisible)}`);
+      }
+
+      await page.click("#trade-clear-search-btn");
+      await page.waitForTimeout(300);
+      const restored = await page.evaluate(() => document.querySelectorAll("#stock-cards-container .stock-card-standalone:not(.hidden)").length);
+      if (restored !== 24) throw new Error(`Clearing search must restore 24 cards, got ${restored}`);
+
+      await page.fill("#trade-search-input", "zzz-no-match");
+      await page.waitForTimeout(300);
+      const emptyVisible = await page.isVisible("#trade-search-empty-state");
+      if (!emptyVisible) throw new Error("Empty search state must appear on zero matches");
+      await page.click("#trade-empty-clear-search-btn");
+      await page.waitForTimeout(300);
+
+      // Original category pills still work on the restored feed.
+      await page.click('.trade-category-pill[data-category="Crypto & AI"]');
+      await page.waitForTimeout(300);
+      const catVisible = await page.evaluate(() => ({
+        coinx: document.querySelectorAll("#stock-card-COINx:not(.hidden)").length,
+        aaplx: document.querySelectorAll("#stock-card-AAPLx:not(.hidden)").length
+      }));
+      if (catVisible.coinx !== 1) throw new Error("Crypto & AI pill must show COINx");
+      if (catVisible.aaplx !== 0) throw new Error("Crypto & AI pill must hide AAPLx");
+      await page.click('.trade-category-pill[data-category="ALL"]');
+      await page.waitForTimeout(300);
     });
 
     // 28-29. Tracker truth (013.9A)
@@ -937,14 +985,14 @@ async function runBrowserTests() {
             s2completed: cls("tracker-step-2").includes("completed"),
             s3completed: cls("tracker-step-3").includes("completed"),
             s4active: cls("tracker-step-4").includes("active"),
-            tradeRep: ("tradeRepresentation" in window.appState) ? window.appState.tradeRepresentation : "UNDEFINED"
+            expanded: document.querySelectorAll("#stock-cards-container .stock-card-standalone.is-expanded").length
           };
         });
         if (tracker.s1completed || tracker.s2completed || tracker.s3completed) {
           throw new Error(`Direct Step 4 must not complete Steps 1-3: ${JSON.stringify(tracker)}`);
         }
         if (!tracker.s4active) throw new Error("Step 4 must read active");
-        if (tracker.tradeRep !== null) throw new Error("Direct Step 4 trade representation must be null");
+        if (tracker.expanded !== 0) throw new Error("Direct Step 4 must start with no card expanded");
         await truthPage.screenshot({ path: path.join(EVIDENCE_DIR, "28_tracker_direct_step4.png") });
       } finally {
         await truthContext.close();
@@ -972,15 +1020,14 @@ async function runBrowserTests() {
           s2: document.getElementById("tracker-step-2")?.className || "",
           s3: document.getElementById("tracker-step-3")?.className || "",
           s4: document.getElementById("tracker-step-4")?.className || "",
-          tradeRep: ("tradeRepresentation" in window.appState) ? window.appState.tradeRepresentation : "UNDEFINED",
-          card: !!document.getElementById("stock-card-AAPLx"),
+          expanded: document.querySelectorAll("#stock-cards-container .stock-card-standalone.is-expanded").length,
           strip: !!document.querySelector(".execution-handoff-banner")
         }));
         for (const [k, v] of [["s1", tracker.s1], ["s2", tracker.s2], ["s3", tracker.s3]]) {
           if (!v.includes("completed")) throw new Error(`Genuine product ${k} must read completed: ${v}`);
         }
         if (!tracker.s4.includes("active")) throw new Error("Step 4 must read active");
-        if (tracker.tradeRep !== null || tracker.card || tracker.strip) {
+        if (tracker.expanded !== 0 || tracker.strip) {
           throw new Error("Step 4 must still start fresh with no preload or strip");
         }
 
@@ -1049,9 +1096,9 @@ async function runBrowserTests() {
       if (isOverflow) throw new Error("Mobile Step 1 exhibits horizontal overflow");
       // Tracker Step 4 shortcut must work without completing Product Preflight.
       await mobilePage.click("#tracker-step-4");
-      await mobilePage.waitForSelector("#trade-groups-container:not(.hidden)", { timeout: 15000 });
+      await mobilePage.waitForSelector("#stock-cards-container .stock-card-standalone", { timeout: 15000 });
       isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-      if (isOverflow) throw new Error("Mobile Step 4 selector exhibits horizontal overflow");
+      if (isOverflow) throw new Error("Mobile Step 4 feed exhibits horizontal overflow");
       await mobilePage.click("#tracker-step-1");
       await mobilePage.waitForSelector("#step-1-container:not(.hidden)", { timeout: 15000 });
       await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "17_mobile_step1.png") });
@@ -1071,13 +1118,13 @@ async function runBrowserTests() {
       if (isOverflow) throw new Error("Mobile Step 3 exhibits horizontal overflow");
       await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "19_mobile_product_results.png") });
 
-      // 20. Mobile App Step 4 (standalone selector + trade form)
+      // 20. Mobile App Step 4 (original feed + trade form)
       await mobilePage.click("#rep-card-AAPLx .btn-check-trade");
-      await mobilePage.waitForSelector("#trade-groups-container:not(.hidden)", { timeout: 15000 });
+      await mobilePage.waitForSelector("#stock-cards-container .stock-card-standalone", { timeout: 15000 });
       isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-      if (isOverflow) throw new Error("Mobile Step 4 selector exhibits horizontal overflow");
-      await mobilePage.click("#trade-rep-AAPLx .trade-check-rep-btn");
-      await mobilePage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+      if (isOverflow) throw new Error("Mobile Step 4 feed exhibits horizontal overflow");
+      await mobilePage.click("#stock-card-AAPLx .stock-card-header");
+      await mobilePage.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
       isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       if (isOverflow) throw new Error("Mobile Step 4 trade form exhibits horizontal overflow");
       await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "20_mobile_execution_handoff.png") });
