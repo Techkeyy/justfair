@@ -382,6 +382,24 @@ async function runBrowserTests() {
         throw new Error(`Step 4 card is transparent (opacity ${paintedOpacity}); owner sees a blank area`);
       }
 
+      // 013.7A: primary form shows no wallet/RPC complexity; exact sim is a quiet entry.
+      const walletLeak = await page.evaluate(() => {
+        const card = document.getElementById("stock-card-AAPLx");
+        const formText = card.querySelector(".stock-trade-form")?.innerText || "";
+        return {
+          legacyWalletSection: !!card.querySelector(".wallet-section"),
+          manualToggle: !!card.querySelector(".manual-key-toggle"),
+          rpcLeak: /RPC|Quote Precheck|public-key|taker/i.test(formText),
+          exactToggle: !!card.querySelector(".exact-sim-toggle"),
+          exactBodyHidden: card.querySelector(".exact-sim-body")?.classList.contains("hidden") ?? null
+        };
+      });
+      if (walletLeak.legacyWalletSection) throw new Error("Legacy wallet section must not render in primary Step 4");
+      if (walletLeak.manualToggle) throw new Error("Manual-address toggle must not sit in primary Step 4");
+      if (walletLeak.rpcLeak) throw new Error("Primary Step 4 leaks wallet/RPC terminology");
+      if (!walletLeak.exactToggle) throw new Error("Quiet exact-simulation entry missing beneath CHECK TRADE");
+      if (walletLeak.exactBodyHidden !== true) throw new Error("Exact-simulation panel must start collapsed");
+
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "13_desktop_product_to_execution.png") });
     });
 
@@ -416,12 +434,15 @@ async function runBrowserTests() {
       await submitTradeBtn.click();
       await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
 
-      // 013.5C: exact payload assertion
+      // 013.5C: exact payload assertion (013.7B: walletless normal check)
       const newPosts = seenPreflightPosts.slice(postsBefore);
       if (newPosts.length < 1) throw new Error("Expected POST /api/v1/preflight after CHECK TRADE");
       const payload = JSON.parse(newPosts[newPosts.length - 1].postData);
       if (payload.inputAsset !== "USDC" || payload.stock !== "AAPLx" || payload.amount !== 500) {
         throw new Error(`USDC payload mismatch: ${JSON.stringify(payload)}`);
+      }
+      if (payload.wallet !== null && payload.wallet !== undefined) {
+        throw new Error(`Normal quote check must be walletless, got wallet: ${payload.wallet}`);
       }
 
       const spendVal = await page.textContent("#stock-card-AAPLx .res-spend-val");
@@ -542,70 +563,268 @@ async function runBrowserTests() {
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "14c_desktop_market_closed.png") });
     });
 
-    // 14d. Owner-shape regression at wide desktop (Screenshot 14d)
-    await test("14d. Wide Desktop (1648x900): AAPLx Step 4 card truly painted with positive boxes", async () => {
-      const wideContext = await browser.newContext({ viewport: { width: 1648, height: 900 } });
-      const widePage = await wideContext.newPage();
-      try {
-        await widePage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await widePage.click("#hero-open-app-btn");
-        await widePage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
-        await widePage.click("#underlying-card-AAPL");
-        await widePage.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
-        await widePage.click("#exp-card-SELF_CUSTODY .btn-must-have");
-        await widePage.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have");
-        await widePage.click("#btn-submit-expectations");
-        await widePage.waitForSelector("#rep-card-AAPLx .btn-check-trade", { timeout: 15000 });
-        await widePage.click("#rep-card-AAPLx .btn-check-trade");
-        await widePage.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
-        await widePage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
-        await widePage.waitForTimeout(900); // pass the 0.75s reveal transition, if any
+    // 013.7C: Exact Simulation disclosure content (fresh Step 4)
+    await test("14e. Exact Disclosure: quiet entry expands to Connect + manual fallback + safety copy", async () => {
+      await page.click("#btn-back-to-step3");
+      await page.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+      await page.click("#rep-card-AAPLx .btn-check-trade");
+      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
 
-        // DOM existence alone is not acceptance: assert painted boxes.
-        const paint = await widePage.evaluate(() => {
-          function box(sel, root = document) {
-            const el = root.querySelector(sel);
-            if (!el) return { exists: false };
-            const r = el.getBoundingClientRect();
-            return {
-              exists: true,
-              opacity: window.getComputedStyle(el).opacity,
-              display: window.getComputedStyle(el).display,
-              w: r.width, h: r.height
-            };
-          }
-          const card = document.getElementById("stock-card-AAPLx");
-          return {
-            card: box("#stock-card-AAPLx"),
-            usdc: box(".payment-tab[data-asset='USDC']", card),
-            sol: box(".payment-tab[data-asset='SOL']", card),
-            amount: box(".amount-input", card),
-            submit: box(".submit-trade-btn", card),
-            submitDisabled: card.querySelector(".submit-trade-btn")?.disabled ?? null
-          };
+      await page.click("#stock-card-AAPLx .exact-sim-toggle");
+      await page.waitForSelector("#stock-card-AAPLx .exact-sim-body:not(.hidden)", { timeout: 15000 });
+
+      const panel = await page.evaluate(() => {
+        const card = document.getElementById("stock-card-AAPLx");
+        return {
+          connectVisible: card.querySelector(".exact-sim-connect-btn")?.offsetParent !== null,
+          formIntact: !!card.querySelector(".payment-tab[data-asset='USDC']") && !!card.querySelector(".amount-input") && !!card.querySelector(".submit-trade-btn")
+        };
+      });
+      if (!panel.connectVisible) throw new Error("Connect Wallet control must be visible in exact panel");
+      if (!panel.formIntact) throw new Error("Normal trade form must remain intact");
+
+      // Manual fallback demoted: hidden until requested.
+      let manualHidden = await page.$eval("#stock-card-AAPLx .exact-sim-manual-box", el => el.classList.contains("hidden"));
+      if (manualHidden !== true) throw new Error("Manual entry must start collapsed behind Connect Wallet");
+      await page.click("#stock-card-AAPLx .exact-sim-manual-toggle");
+      await page.waitForSelector("#stock-card-AAPLx .exact-sim-manual-box:not(.hidden)", { timeout: 15000 });
+
+      const manualCopy = await page.evaluate(() => {
+        const card = document.getElementById("stock-card-AAPLx");
+        const boxText = card.querySelector(".exact-sim-manual-box")?.innerText || "";
+        const bodyText = card.querySelector(".exact-sim-body")?.innerText || "";
+        return {
+          safetyCopy: /Nothing is signed or sent/.test(boxText),
+          noSeedKey: /seed phrase/i.test(boxText),
+          bodySafety: /Nothing is signed or sent/.test(bodyText)
+        };
+      });
+      if (!manualCopy.safetyCopy) throw new Error("Safety copy (nothing signed or sent) missing");
+      if (!manualCopy.noSeedKey) throw new Error("Seed-phrase warning missing from manual entry");
+      if (!manualCopy.bodySafety) throw new Error("Exact panel must carry safety copy");
+
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "14e_exact_disclosure.png") });
+    });
+
+    // 013.7E: invalid address blocks simulation with consumer copy (same fresh card)
+    await test("14g. Invalid Address: no POST, clear validation, no crash", async () => {
+      const postsBefore = seenPreflightPosts.length;
+      // Ensure the fallback entry is open (14e leaves it open; be explicit).
+      const boxOpen = await page.$eval("#stock-card-AAPLx .exact-sim-manual-box", el => !el.classList.contains("hidden"));
+      if (!boxOpen) {
+        await page.click("#stock-card-AAPLx .exact-sim-toggle");
+        await page.click("#stock-card-AAPLx .exact-sim-manual-toggle");
+        await page.waitForSelector("#stock-card-AAPLx .exact-sim-manual-box:not(.hidden)", { timeout: 15000 });
+      }
+      await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+      await page.fill("#stock-card-AAPLx .amount-input", "500");
+      await page.fill("#stock-card-AAPLx .exact-address-input", "not-a-valid-address!!");
+      await page.click("#stock-card-AAPLx .submit-trade-btn");
+      await page.waitForTimeout(1500);
+
+      // The invalid address itself must never leave the browser (background
+      // live-preview polls carry wallet null, never the bad value).
+      const leaked = seenPreflightPosts.slice(postsBefore).filter(p => (p.postData || "").includes("not-a-valid"));
+      if (leaked.length !== 0) {
+        throw new Error("Invalid address must not fire POST /api/v1/preflight");
+      }
+      const errVisible = await page.evaluate(() => {
+        const el = document.querySelector("#stock-card-AAPLx .inline-error-state");
+        return el ? !el.classList.contains("hidden") : false;
+      });
+      if (!errVisible) throw new Error("Invalid address must show a user-facing error");
+      const errText = await page.textContent("#stock-card-AAPLx .inline-error-state");
+      if (!/valid Solana public address/i.test(errText)) {
+        throw new Error(`Validation copy mismatch: ${errText.slice(0, 200)}`);
+      }
+      const resultShown = await page.evaluate(() => {
+        const el = document.querySelector("#stock-card-AAPLx .inline-result-container");
+        return el ? !el.classList.contains("hidden") : false;
+      });
+      if (resultShown) throw new Error("Invalid address must not render a successful result");
+    });
+
+    // 013.7D: valid manual address runs exact simulation (stubbed backend)
+    await test("14f. Manual Exact: valid address sent, EXACT_SIMULATION handled, nothing signed", async () => {
+      const EXACT_ADDR = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
+      await page.route("**/api/v1/preflight", async route => {
+        const req = route.request();
+        if (req.method() !== "POST") { await route.continue(); return; }
+        const body = JSON.parse(req.postData() || "{}");
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            request_status: "SUCCESS",
+            verification_status: "UNABLE_TO_VERIFY",
+            verdict: "UNABLE_TO_VERIFY",
+            preflight_level: "EXACT_SIMULATION",
+            reason_codes: ["STALE_REFERENCE"],
+            reason: "Underlying reference is stale.",
+            trade: {
+              input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+              input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+              input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+              input_asset_price_freshness: "FRESH",
+              stock_symbol: "AAPLx", canonical_stock: "AAPL",
+              token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+              token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+            },
+            benchmark: {
+              symbol: "AAPLx", price: 332.27,
+              source: "Nasdaq Official Public Equity Quote API (api.nasdaq.com)",
+              source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+              provider: "Last known Nasdaq reference, not eligible",
+              timestamp: "2026-09-11T00:00:00.000Z", freshness_status: "STALE", is_real_time: false,
+              market_context: { session: "OVERNIGHT", underlying_reference_available: false, reference_eligibility: "INELIGIBLE_STALE" }
+            },
+            economics: {
+              raw_out_amount: "151127287", expected_stock_shares: 1.514192,
+              underlying_benchmark_price: 332.27, expected_stock_exposure_usd: 503.12,
+              effective_price_per_share: 329.77, difference_usd: 3.12, difference_pct: 0.62,
+              multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+            },
+            dex_route: { router: "Jupiter Swap V2", mode: "EXACT_SIMULATION", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+            alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+            simulation: { status: "PASS", err: null, units_consumed: 42000 }
+          })
         });
+      });
 
-        for (const key of ["card", "usdc", "sol", "amount", "submit"]) {
-          const b = paint[key];
-          if (!b.exists) throw new Error(`Wide Step 4 missing element: ${key}`);
-          if (!(b.w > 0 && b.h > 0)) throw new Error(`Wide Step 4 zero box for ${key}: ${b.w}x${b.h}`);
+      const postsBefore = seenPreflightPosts.length;
+      await page.fill("#stock-card-AAPLx .exact-address-input", EXACT_ADDR);
+      await page.waitForTimeout(200);
+      await page.click("#stock-card-AAPLx .submit-trade-btn");
+      await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+
+      const newPosts = seenPreflightPosts.slice(postsBefore);
+      if (newPosts.length < 1) throw new Error("Expected exact POST /api/v1/preflight");
+      const exactPost = newPosts.find(p => {
+        try { return JSON.parse(p.postData).wallet === EXACT_ADDR; } catch { return false; }
+      });
+      if (!exactPost) throw new Error(`Exact payload must carry the address, got: ${newPosts.map(p => p.postData).join(" | ").slice(0, 300)}`);
+
+      const simTitle = await page.textContent("#stock-card-AAPLx .sim-title");
+      if (!/EXACT SIMULATION COMPLETE/i.test(simTitle)) throw new Error(`Exact banner mismatch: ${simTitle}`);
+      const evLevel = await page.textContent("#stock-card-AAPLx .ev-preflight-level");
+      if (!evLevel.includes("EXACT_SIMULATION")) throw new Error(`Evidence level mismatch: ${evLevel}`);
+
+      await page.unroute("**/api/v1/preflight");
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "14f_manual_exact_result.png") });
+    });
+
+    // 013.7F: fresh walletless session still succeeds as Quote Check
+    await test("14h. Walletless Fresh Session: USDC 500 succeeds with wallet null", async () => {
+      const freshContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+      const freshPage = await freshContext.newPage();
+      const freshPosts = [];
+      freshPage.on("request", req => {
+        if (req.method() === "POST" && req.url().endsWith("/api/v1/preflight")) {
+          freshPosts.push(req.postData());
         }
-        if (paint.card.opacity !== "1") {
-          throw new Error(`Wide Step 4 card transparent (opacity ${paint.card.opacity}): owner blank area`);
+      });
+      try {
+        await freshPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await freshPage.click("#hero-open-app-btn");
+        await freshPage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
+        await freshPage.click("#underlying-card-AAPL");
+        await freshPage.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
+        await freshPage.click("#exp-card-SELF_CUSTODY .btn-must-have");
+        await freshPage.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have");
+        await freshPage.click("#btn-submit-expectations");
+        await freshPage.waitForSelector("#rep-card-AAPLx .btn-check-trade", { timeout: 15000 });
+        await freshPage.click("#rep-card-AAPLx .btn-check-trade");
+        await freshPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await freshPage.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+        await freshPage.fill("#stock-card-AAPLx .amount-input", "500");
+        await freshPage.click("#stock-card-AAPLx .submit-trade-btn");
+        await freshPage.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+        if (freshPosts.length < 1) throw new Error("Expected walletless POST");
+        const payload = JSON.parse(freshPosts[freshPosts.length - 1]);
+        if (payload.wallet !== null && payload.wallet !== undefined) {
+          throw new Error(`Walletless check must send null wallet, got: ${payload.wallet}`);
         }
-        if (paint.submitDisabled !== true) throw new Error("Wide Step 4 CHECK TRADE must start disabled");
-
-        // And the wide path must still execute end to end.
-        await widePage.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
-        await widePage.fill("#stock-card-AAPLx .amount-input", "500");
-        await widePage.click("#stock-card-AAPLx .submit-trade-btn");
-        await widePage.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
-        const spendVal = await widePage.textContent("#stock-card-AAPLx .res-spend-val");
-        if (!spendVal.includes("$500.00")) throw new Error(`Wide spend mismatch: ${spendVal}`);
-
-        await widePage.screenshot({ path: path.join(EVIDENCE_DIR, "14d_wide_step4_painted.png") });
+        if (payload.inputAsset !== "USDC" || payload.amount !== 500) {
+          throw new Error(`Walletless payload mismatch: ${JSON.stringify(payload)}`);
+        }
       } finally {
-        await wideContext.close();
+        await freshContext.close();
+      }
+    });
+
+    // 14d. Owner-shape + exact-entry regression across desktop widths (Screenshot 14d)
+    await test("14d. Wide Desktops (1280/1600/1648): painted card, boxes, exact entry usable", async () => {
+      for (const [w, h, full] of [[1280, 900, false], [1600, 800, false], [1648, 900, true]]) {
+        const wideContext = await browser.newContext({ viewport: { width: w, height: h } });
+        const widePage = await wideContext.newPage();
+        try {
+          await widePage.goto(BASE_URL, { waitUntil: "networkidle" });
+          await widePage.click("#hero-open-app-btn");
+          await widePage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
+          await widePage.click("#underlying-card-AAPL");
+          await widePage.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
+          await widePage.click("#exp-card-SELF_CUSTODY .btn-must-have");
+          await widePage.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have");
+          await widePage.click("#btn-submit-expectations");
+          await widePage.waitForSelector("#rep-card-AAPLx .btn-check-trade", { timeout: 15000 });
+          await widePage.click("#rep-card-AAPLx .btn-check-trade");
+          await widePage.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
+          await widePage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+          await widePage.waitForTimeout(900); // pass the 0.75s reveal transition, if any
+
+          // DOM existence alone is not acceptance: assert painted boxes.
+          const paint = await widePage.evaluate(() => {
+            function box(sel, root = document) {
+              const el = root.querySelector(sel);
+              if (!el) return { exists: false };
+              const r = el.getBoundingClientRect();
+              return {
+                exists: true,
+                opacity: window.getComputedStyle(el).opacity,
+                display: window.getComputedStyle(el).display,
+                w: r.width, h: r.height
+              };
+            }
+            const card = document.getElementById("stock-card-AAPLx");
+            return {
+              card: box("#stock-card-AAPLx"),
+              usdc: box(".payment-tab[data-asset='USDC']", card),
+              sol: box(".payment-tab[data-asset='SOL']", card),
+              amount: box(".amount-input", card),
+              submit: box(".submit-trade-btn", card),
+              exactToggle: box(".exact-sim-toggle", card),
+              submitDisabled: card.querySelector(".submit-trade-btn")?.disabled ?? null
+            };
+          });
+
+          for (const key of ["card", "usdc", "sol", "amount", "submit", "exactToggle"]) {
+            const b = paint[key];
+            if (!b.exists) throw new Error(`[${w}x${h}] Step 4 missing element: ${key}`);
+            if (!(b.w > 0 && b.h > 0)) throw new Error(`[${w}x${h}] Step 4 zero box for ${key}: ${b.w}x${b.h}`);
+          }
+          if (paint.card.opacity !== "1") {
+            throw new Error(`[${w}x${h}] Step 4 card transparent (opacity ${paint.card.opacity}): owner blank area`);
+          }
+          if (paint.submitDisabled !== true) throw new Error(`[${w}x${h}] CHECK TRADE must start disabled`);
+
+          // Exact entry must be usable at every width.
+          await widePage.click("#stock-card-AAPLx .exact-sim-toggle");
+          await widePage.waitForSelector("#stock-card-AAPLx .exact-sim-body:not(.hidden)", { timeout: 15000 });
+
+          if (full) {
+            // Full end-to-end only once (widest): walletless USDC check still works.
+            await widePage.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+            await widePage.fill("#stock-card-AAPLx .amount-input", "500");
+            await widePage.click("#stock-card-AAPLx .submit-trade-btn");
+            await widePage.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+            const spendVal = await widePage.textContent("#stock-card-AAPLx .res-spend-val");
+            if (!spendVal.includes("$500.00")) throw new Error(`Wide spend mismatch: ${spendVal}`);
+            await widePage.screenshot({ path: path.join(EVIDENCE_DIR, "14d_wide_step4_painted.png") });
+          }
+        } finally {
+          await wideContext.close();
+        }
       }
     });
 

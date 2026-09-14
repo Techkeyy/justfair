@@ -1251,6 +1251,85 @@ body {
   text-align: center;
 }
 
+/* Optional Exact Simulation disclosure (013.7): quiet secondary entry */
+.exact-sim-wrap {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.exact-sim-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.exact-sim-body {
+  margin-top: 10px;
+}
+
+.exact-sim-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.exact-sim-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+
+.exact-sim-connected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.exact-sim-connect-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.exact-sim-manual-box {
+  margin-top: 10px;
+}
+
+.exact-address-error {
+  font-size: 12.5px;
+  color: var(--status-bad-text);
+  margin-top: 6px;
+}
+
+.exact-upsell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-card-subtle);
+}
+
+.exact-upsell-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 @keyframes stockFormSlideIn {
   from {
     opacity: 0;

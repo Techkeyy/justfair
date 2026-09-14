@@ -320,6 +320,7 @@ let currentSolPrice = null; // Authoritative live price from /api/v1/prices
 let solPriceTimestamp = null;
 let solPriceStatus = "LOADING";
 let activeWalletAddress = null;
+let activeWalletConnected = false; // true only when the address came from a wallet connection
 let currentSearchQuery = "";
 let currentCategoryFilter = "all";
 
@@ -1880,24 +1881,6 @@ function renderCardBodyMarkup(symbol) {
         </div>
       </div>
 
-      <!-- Wallet Row -->
-      <div class="wallet-section">
-        <div class="wallet-info-bar">
-          <div class="wallet-status-group">
-            <span class="wallet-dot ${activeWalletAddress ? 'connected' : ''}"></span>
-            <span class="wallet-status-label">${activeWalletAddress ? `Mode: Exact Simulation (${activeWalletAddress.slice(0, 4)}...${activeWalletAddress.slice(-4)})` : "Mode: Quote Precheck (No wallet required)"}</span>
-          </div>
-          <button type="button" class="btn-link manual-key-toggle" aria-expanded="false">
-            Enter address manually
-          </button>
-        </div>
-        <div class="manual-key-input-box hidden">
-          <label class="form-label">Solana Public Address for Exact RPC Simulation</label>
-          <input type="text" class="form-input font-mono wallet-input" placeholder="e.g. 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM" value="${activeWalletAddress || ''}">
-          <p class="form-hint">Only your public address is used for non-broadcast simulation. Never enter a seed phrase or private key.</p>
-        </div>
-      </div>
-
       <!-- Submit Row -->
       <div class="form-actions">
         <button type="submit" class="btn btn-primary btn-block btn-lg submit-trade-btn" disabled>
@@ -1905,6 +1888,33 @@ function renderCardBodyMarkup(symbol) {
           <span class="btn-spinner hidden" aria-hidden="true"></span>
         </button>
         <p class="form-hint submit-gating-hint">Select USDC or SOL and enter an amount to check this trade.</p>
+      </div>
+
+      <!-- Optional Exact Simulation (advanced, never required for CHECK TRADE) -->
+      <div class="exact-sim-wrap">
+        <button type="button" class="btn-link exact-sim-toggle" aria-expanded="false">
+          <span>Want a more exact check? Run exact transaction simulation</span>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="exact-sim-body hidden">
+          <h4 class="exact-sim-title">Exact transaction simulation</h4>
+          <p class="exact-sim-desc">Use your public Solana address to simulate the transaction more precisely. Nothing is signed or sent.</p>
+          <div class="exact-sim-connected ${activeWalletAddress && activeWalletConnected ? '' : 'hidden'}">
+            <span class="wallet-dot connected"></span>
+            <span class="exact-sim-connected-label">Wallet connected <span class="font-mono exact-sim-addr">${activeWalletAddress ? `${activeWalletAddress.slice(0, 4)}...${activeWalletAddress.slice(-4)}` : ''}</span></span>
+            <button type="button" class="btn-link exact-sim-disconnect">Disconnect</button>
+          </div>
+          <div class="exact-sim-connect-row ${activeWalletAddress && activeWalletConnected ? 'hidden' : ''}">
+            <button type="button" class="btn btn-secondary btn-sm exact-sim-connect-btn">Connect Wallet</button>
+            <button type="button" class="btn-link exact-sim-manual-toggle" aria-expanded="false">Paste public address instead</button>
+          </div>
+          <div class="exact-sim-manual-box ${activeWalletAddress && !activeWalletConnected ? '' : 'hidden'}">
+            <label class="form-label">Public Solana address</label>
+            <input type="text" class="form-input font-mono exact-address-input" placeholder="e.g. 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM" value="${activeWalletAddress || ''}" autocomplete="off" spellcheck="false">
+            <p class="form-hint">Only your public Solana address is used. Nothing is signed or sent. Never enter a seed phrase or private key.</p>
+            <p class="exact-address-error hidden">That doesn't look like a valid Solana public address.</p>
+          </div>
+        </div>
       </div>
     </form>
 
@@ -2051,9 +2061,15 @@ function renderCardBodyMarkup(symbol) {
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
         </div>
         <div class="sim-content">
-          <strong class="sim-title">Exact Transaction Simulation: Passed</strong>
-          <span class="sim-desc">Simulated via Solana RPC with err: null. Zero funds moved.</span>
+          <strong class="sim-title">Exact simulation complete</strong>
+          <span class="sim-desc">Transaction simulated successfully. Nothing was signed or sent.</span>
         </div>
+      </div>
+
+      <!-- Exact Simulation upsell (only after a walletless quote check) -->
+      <div class="exact-upsell hidden">
+        <span class="exact-upsell-text">Want a more exact check?</span>
+        <button type="button" class="btn btn-secondary btn-sm exact-upsell-btn">Run exact simulation</button>
       </div>
 
       <!-- Safe Exit to Jupiter -->
@@ -2308,9 +2324,15 @@ function setupCardInteractivity(card, symbol) {
   const amountPrefix = form.querySelector(".amount-prefix");
   const amountUsdEquiv = form.querySelector(".amount-usd-equivalent");
   const presetsContainer = form.querySelector(".amount-presets");
-  const manualKeyToggle = form.querySelector(".manual-key-toggle");
-  const manualKeyBox = form.querySelector(".manual-key-input-box");
-  const walletInput = form.querySelector(".wallet-input");
+  const manualKeyToggle = form.querySelector(".exact-sim-manual-toggle");
+  const manualKeyBox = form.querySelector(".exact-sim-manual-box");
+  const walletInput = form.querySelector(".exact-address-input");
+  const exactSimToggle = form.querySelector(".exact-sim-toggle");
+  const exactSimBody = form.querySelector(".exact-sim-body");
+  const exactConnectBtn = form.querySelector(".exact-sim-connect-btn");
+  const exactDisconnectBtn = form.querySelector(".exact-sim-disconnect");
+  const exactAddrError = form.querySelector(".exact-address-error");
+  const exactUpsellBtn = card.querySelector(".exact-upsell-btn");
   const errorState = card.querySelector(".inline-error-state");
   const errorRetryBtn = errorState?.querySelector(".error-retry-btn");
   const refreshCheckBtn = card.querySelector(".btn-refresh-check");
@@ -2370,24 +2392,68 @@ function setupCardInteractivity(card, symbol) {
   // Presets initial click bindings
   bindPresets(presetsContainer, amountInput, amountUsdEquiv, inputAssetHidden);
 
-  // Manual key toggle
+  // Reflect any already-connected wallet in this card's optional panel
+  syncExactSimCard(card);
+
+  // Exact Simulation disclosure (optional; never gates CHECK TRADE)
+  if (exactSimToggle && exactSimBody) {
+    exactSimToggle.addEventListener("click", () => {
+      const isHidden = exactSimBody.classList.contains("hidden");
+      exactSimBody.classList.toggle("hidden", !isHidden);
+      exactSimToggle.setAttribute("aria-expanded", String(isHidden));
+    });
+  }
+
+  // Result-level upsell scrolls back to the same optional panel
+  if (exactUpsellBtn && exactSimBody) {
+    exactUpsellBtn.addEventListener("click", () => {
+      exactSimBody.classList.remove("hidden");
+      exactSimToggle?.setAttribute("aria-expanded", "true");
+      exactSimBody.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }
+
+  // Connect Wallet (primary exact-sim path; manual entry is the fallback)
+  if (exactConnectBtn) {
+    exactConnectBtn.addEventListener("click", () => {
+      connectWalletForCard(card, exactConnectBtn);
+    });
+  }
+
+  // Disconnect clears the exact-sim address everywhere
+  if (exactDisconnectBtn) {
+    exactDisconnectBtn.addEventListener("click", () => {
+      setGlobalWalletState(null);
+      document.querySelectorAll(".exact-address-input").forEach(inp => { inp.value = ""; });
+      document.querySelectorAll(".exact-address-error").forEach(el => el.classList.add("hidden"));
+      document.querySelectorAll(".stock-card-standalone").forEach(syncExactSimCard);
+    });
+  }
+
+  // Manual key toggle (secondary fallback)
   if (manualKeyToggle && manualKeyBox) {
     manualKeyToggle.addEventListener("click", () => {
       const isHidden = manualKeyBox.classList.contains("hidden");
       manualKeyBox.classList.toggle("hidden", !isHidden);
       manualKeyToggle.setAttribute("aria-expanded", String(isHidden));
-      manualKeyToggle.textContent = isHidden ? "Hide manual address" : "Enter address manually";
+      manualKeyToggle.textContent = isHidden ? "Hide manual entry" : "Paste public address instead";
     });
   }
 
-  // Wallet manual input listener
+  // Manual public-address input with consumer validation
   if (walletInput) {
     walletInput.addEventListener("input", (e) => {
       const val = e.target.value.trim();
-      if (val.length >= 32) {
-        setGlobalWalletState(val);
-      } else if (val.length === 0) {
-        setGlobalWalletState(null);
+      if (val === "") {
+        exactAddrError?.classList.add("hidden");
+        if (activeWalletAddress && !activeWalletConnected) setGlobalWalletState(null);
+        return;
+      }
+      if (isPlausibleSolanaAddress(val)) {
+        exactAddrError?.classList.add("hidden");
+        setGlobalWalletState(val, false);
+      } else if (val.length >= 32) {
+        exactAddrError?.classList.remove("hidden");
       }
     });
   }
@@ -2412,6 +2478,8 @@ function setupCardInteractivity(card, symbol) {
 
     const inputAsset = inputAssetHidden ? (inputAssetHidden.value || "").trim() : "";
     const amount = parseFloat(amountInput.value);
+    // Optional exact simulation: connected wallet first, manual entry fallback.
+    // Absent address => normal walletless quote check (never a gate).
     const userWallet = activeWalletAddress || walletInput?.value?.trim() || null;
 
     if (!inputAsset) {
@@ -2421,6 +2489,11 @@ function setupCardInteractivity(card, symbol) {
 
     if (isNaN(amount) || amount <= 0) {
       showCardError(card, "Invalid Amount", "Please enter a valid amount greater than zero.");
+      return;
+    }
+
+    if (userWallet && !isPlausibleSolanaAddress(userWallet)) {
+      showCardError(card, "Check Your Address", "That doesn't look like a valid Solana public address.");
       return;
     }
 
@@ -2451,7 +2524,7 @@ function setupCardInteractivity(card, symbol) {
         } else if (code === "INVALID_AMOUNT") {
           msg = "The entered amount is outside acceptable safety limits.";
         } else if (code === "INVALID_PUBLIC_KEY") {
-          msg = "The provided Solana wallet address is not a valid base58 address.";
+          msg = "That doesn't look like a valid Solana public address.";
         }
         showCardError(card, "We Couldn't Check This Trade", msg);
         return;
@@ -2736,23 +2809,28 @@ function renderCardResult(card, data, symbol) {
     }
   }
 
-  // 7. Simulation Banner
+  // 7. Simulation Banner (restrained; route results stand on their own)
   const simBanner = resultContainer.querySelector(".simulation-banner");
+  const exactUpsell = resultContainer.querySelector(".exact-upsell");
+  const isExact = data.preflight_level === "EXACT_SIMULATION";
   if (simBanner) {
-    if (data.preflight_level === "EXACT_SIMULATION") {
+    if (isExact) {
       simBanner.classList.remove("hidden");
       const simTitle = simBanner.querySelector(".sim-title");
       const simDesc = simBanner.querySelector(".sim-desc");
       if (sim.status === "PASS" && sim.err === null) {
-        if (simTitle) simTitle.textContent = "Exact Transaction Simulation: Passed";
-        if (simDesc) simDesc.textContent = `Simulated via Solana RPC with err: null (${sim.units_consumed?.toLocaleString() || 0} compute units). Zero funds moved.`;
+        if (simTitle) simTitle.textContent = "EXACT SIMULATION COMPLETE";
+        if (simDesc) simDesc.textContent = `Transaction simulated successfully (${sim.units_consumed?.toLocaleString() || 0} compute units). Nothing was signed or sent.`;
       } else {
-        if (simTitle) simTitle.textContent = "Exact Simulation: Failed on Upstream Route";
-        if (simDesc) simDesc.textContent = "Transaction simulation returned an error. Route economics are displayed from quote check.";
+        if (simTitle) simTitle.textContent = "Exact simulation couldn't complete";
+        if (simDesc) simDesc.textContent = "Trade route results above remain valid — only the exact simulation step failed. Nothing was signed or sent.";
       }
     } else {
       simBanner.classList.add("hidden");
     }
+  }
+  if (exactUpsell) {
+    exactUpsell.classList.toggle("hidden", isExact);
   }
 
   // 8. Jupiter Exit Link
@@ -2815,26 +2893,82 @@ function renderCardResult(card, data, symbol) {
 // ==========================================
 // 8. Global Wallet State Management
 // ==========================================
-function setGlobalWalletState(address) {
-  activeWalletAddress = address;
+// Plausible Solana public-address shape (base58, 32-44 chars). The backend
+// performs authoritative validation; this only gates consumer UX.
+function isPlausibleSolanaAddress(val) {
+  return typeof val === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(val.trim());
+}
 
-  const dots = document.querySelectorAll(".wallet-dot");
-  const labels = document.querySelectorAll(".wallet-status-label");
-  const inputs = document.querySelectorAll(".wallet-input");
+// Sync one card's Exact Simulation panel to global wallet state.
+function syncExactSimCard(card) {
+  if (!card) return;
+  const connectedRow = card.querySelector(".exact-sim-connected");
+  const connectRow = card.querySelector(".exact-sim-connect-row");
+  const addrEl = card.querySelector(".exact-sim-addr");
+  const input = card.querySelector(".exact-address-input");
+  const manualBox = card.querySelector(".exact-sim-manual-box");
+  const showConnected = !!(activeWalletAddress && activeWalletConnected);
+  if (addrEl && activeWalletAddress) {
+    addrEl.textContent = `${activeWalletAddress.slice(0, 4)}...${activeWalletAddress.slice(-4)}`;
+  }
+  if (input && activeWalletAddress && input.value !== activeWalletAddress) {
+    input.value = activeWalletAddress;
+  }
+  if (connectedRow) connectedRow.classList.toggle("hidden", !showConnected);
+  if (connectRow) connectRow.classList.toggle("hidden", showConnected);
+  // A manually entered address persists with its entry box open.
+  if (manualBox && activeWalletAddress && !activeWalletConnected && input && input.value) {
+    manualBox.classList.remove("hidden");
+  }
+}
 
-  dots.forEach(dot => {
-    if (address) dot.classList.add("connected");
-    else dot.classList.remove("connected");
-  });
+// Card-level wallet connect. Obtains ONLY the public address for optional
+// exact simulation: never signs, broadcasts, or moves funds. Falls back to
+// manual entry when no wallet provider is available.
+async function connectWalletForCard(card, connectBtn) {
+  if (activeWalletAddress && activeWalletConnected) {
+    setGlobalWalletState(null);
+    return;
+  }
+  const provider = window.solana || window.phantom?.solana || window.solflare;
+  if (!provider || typeof provider.connect !== "function") {
+    const body = card.querySelector(".exact-sim-body");
+    const box = card.querySelector(".exact-sim-manual-box");
+    if (body) body.classList.remove("hidden");
+    if (box) {
+      box.classList.remove("hidden");
+      box.querySelector(".exact-address-input")?.focus();
+    }
+    return;
+  }
+  const originalText = connectBtn ? connectBtn.textContent : "";
+  try {
+    if (connectBtn) {
+      connectBtn.disabled = true;
+      connectBtn.textContent = "Connecting...";
+    }
+    const resp = await provider.connect();
+    const pubkey = resp.publicKey ? resp.publicKey.toString() : (provider.publicKey ? provider.publicKey.toString() : null);
+    if (pubkey) {
+      setGlobalWalletState(pubkey, true);
+    } else {
+      throw new Error("No public key returned");
+    }
+  } catch (err) {
+    setGlobalWalletState(null);
+  } finally {
+    if (connectBtn) {
+      connectBtn.disabled = false;
+      connectBtn.textContent = originalText;
+    }
+  }
+}
 
-  labels.forEach(lbl => {
-    if (address) lbl.textContent = `Mode: Exact Simulation (${address.slice(0, 4)}...${address.slice(-4)})`;
-    else lbl.textContent = "Mode: Quote Precheck (No wallet required)";
-  });
+function setGlobalWalletState(address, viaProvider = false) {
+  activeWalletAddress = address || null;
+  activeWalletConnected = !!address && !!viaProvider;
 
-  inputs.forEach(inp => {
-    if (address && inp.value !== address) inp.value = address;
-  });
+  document.querySelectorAll(".stock-card-standalone").forEach(syncExactSimCard);
 
   if (walletBtnLabel) {
     walletBtnLabel.textContent = address ? `Disconnect (${address.slice(0, 4)}...${address.slice(-4)})` : "Connect Wallet";
