@@ -375,6 +375,13 @@ async function runBrowserTests() {
         throw new Error("CHECK TRADE must start disabled until asset + amount are explicit");
       }
 
+      // 013.6: the handed-off card must be actually painted, not just in DOM.
+      // (Scroll-reveal leaves dynamically created cards at opacity 0.)
+      const paintedOpacity = await page.$eval("#stock-card-AAPLx", el => window.getComputedStyle(el).opacity);
+      if (paintedOpacity !== "1") {
+        throw new Error(`Step 4 card is transparent (opacity ${paintedOpacity}); owner sees a blank area`);
+      }
+
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "13_desktop_product_to_execution.png") });
     });
 
@@ -533,6 +540,73 @@ async function runBrowserTests() {
 
       await page.unroute("**/api/v1/preflight");
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "14c_desktop_market_closed.png") });
+    });
+
+    // 14d. Owner-shape regression at wide desktop (Screenshot 14d)
+    await test("14d. Wide Desktop (1648x900): AAPLx Step 4 card truly painted with positive boxes", async () => {
+      const wideContext = await browser.newContext({ viewport: { width: 1648, height: 900 } });
+      const widePage = await wideContext.newPage();
+      try {
+        await widePage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await widePage.click("#hero-open-app-btn");
+        await widePage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
+        await widePage.click("#underlying-card-AAPL");
+        await widePage.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
+        await widePage.click("#exp-card-SELF_CUSTODY .btn-must-have");
+        await widePage.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have");
+        await widePage.click("#btn-submit-expectations");
+        await widePage.waitForSelector("#rep-card-AAPLx .btn-check-trade", { timeout: 15000 });
+        await widePage.click("#rep-card-AAPLx .btn-check-trade");
+        await widePage.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
+        await widePage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await widePage.waitForTimeout(900); // pass the 0.75s reveal transition, if any
+
+        // DOM existence alone is not acceptance: assert painted boxes.
+        const paint = await widePage.evaluate(() => {
+          function box(sel, root = document) {
+            const el = root.querySelector(sel);
+            if (!el) return { exists: false };
+            const r = el.getBoundingClientRect();
+            return {
+              exists: true,
+              opacity: window.getComputedStyle(el).opacity,
+              display: window.getComputedStyle(el).display,
+              w: r.width, h: r.height
+            };
+          }
+          const card = document.getElementById("stock-card-AAPLx");
+          return {
+            card: box("#stock-card-AAPLx"),
+            usdc: box(".payment-tab[data-asset='USDC']", card),
+            sol: box(".payment-tab[data-asset='SOL']", card),
+            amount: box(".amount-input", card),
+            submit: box(".submit-trade-btn", card),
+            submitDisabled: card.querySelector(".submit-trade-btn")?.disabled ?? null
+          };
+        });
+
+        for (const key of ["card", "usdc", "sol", "amount", "submit"]) {
+          const b = paint[key];
+          if (!b.exists) throw new Error(`Wide Step 4 missing element: ${key}`);
+          if (!(b.w > 0 && b.h > 0)) throw new Error(`Wide Step 4 zero box for ${key}: ${b.w}x${b.h}`);
+        }
+        if (paint.card.opacity !== "1") {
+          throw new Error(`Wide Step 4 card transparent (opacity ${paint.card.opacity}): owner blank area`);
+        }
+        if (paint.submitDisabled !== true) throw new Error("Wide Step 4 CHECK TRADE must start disabled");
+
+        // And the wide path must still execute end to end.
+        await widePage.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+        await widePage.fill("#stock-card-AAPLx .amount-input", "500");
+        await widePage.click("#stock-card-AAPLx .submit-trade-btn");
+        await widePage.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+        const spendVal = await widePage.textContent("#stock-card-AAPLx .res-spend-val");
+        if (!spendVal.includes("$500.00")) throw new Error(`Wide spend mismatch: ${spendVal}`);
+
+        await widePage.screenshot({ path: path.join(EVIDENCE_DIR, "14d_wide_step4_painted.png") });
+      } finally {
+        await wideContext.close();
+      }
     });
 
     // 15. Mobile Viewport: Dashboard Hero (Screenshot 15)

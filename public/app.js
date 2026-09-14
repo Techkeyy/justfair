@@ -1787,7 +1787,11 @@ export function renderSingleStockCard(symbol) {
   };
 
   const cardEl = document.createElement("div");
-  cardEl.className = "stock-card-standalone is-expanded";
+  // is-revealed: this card is created dynamically after initScrollReveal ran,
+  // so the IntersectionObserver never sees it. Without this class the global
+  // scroll-reveal rule (.stock-card-standalone { opacity: 0 }) leaves the
+  // handed-off Step 4 card permanently invisible (owner Check 6 failure).
+  cardEl.className = "stock-card-standalone is-expanded is-revealed";
   cardEl.id = `stock-card-${symbol}`;
   cardEl.setAttribute("data-symbol", symbol);
   cardEl.setAttribute("data-category", meta.category);
