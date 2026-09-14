@@ -303,10 +303,13 @@ export const EXPECTATIONS_CONFIG = {
 // Global App & Product Preflight State
 export const appState = {
   currentStep: 1,
+  entryPath: null, // 'QUICK_TRADE' | 'PRODUCT_PREFLIGHT' | null
+  uiView: "entry", // 'entry' | 'product' | 'quick' | 'execution'
   selectedUnderlying: "AAPL",
   expectations: {}, // capability -> 'MUST_HAVE' | 'NICE_TO_HAVE'
   productPreflightResult: null,
   selectedRepresentation: null,
+  productPreflightVerified: false,
   executionHandoff: null,
   searchQuery: "",
   categoryFilter: "ALL"
@@ -693,6 +696,7 @@ export function switchView(viewName, targetSymbol = null) {
 export function navigateToSection(target, targetStock = null) {
   if (target === "app") {
     switchView("app", targetStock);
+    startFreshFlow();
     window.scrollTo({ top: 0, behavior: "smooth" });
     if (window.location.hash !== "#app") {
       history.pushState(null, "", "#app");
@@ -814,6 +818,7 @@ function handleRoute() {
   const hash = window.location.hash.toLowerCase();
   if (hash === "#app") {
     switchView("app");
+    showAppCurrent();
   } else if (hash === "#why-justfair") {
     switchView("dashboard");
     setTimeout(() => {
@@ -862,7 +867,9 @@ export function goToStep(step) {
     activeRouteScheduler.stop();
   }
 
-  // Update Tracker Items
+  // Update Tracker Items (product journey only; hidden on quick/entry screens)
+  const tracker = document.querySelector(".preflight-step-tracker");
+  if (tracker) tracker.classList.toggle("hidden", appState.entryPath === "QUICK_TRADE");
   for (let i = 1; i <= 4; i++) {
     const item = document.getElementById(`tracker-step-${i}`);
     if (item) {
@@ -878,12 +885,187 @@ export function goToStep(step) {
       container.classList.toggle("hidden", i !== step);
     }
   }
+  hideEntryScreens();
 
   // Smooth scroll to top of app workspace
   const appWorkspace = document.querySelector(".app-workspace");
   if (appWorkspace) {
     appWorkspace.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+}
+
+function hideEntryScreens() {
+  for (const id of ["entry-choice-container", "quick-container"]) {
+    document.getElementById(id)?.classList.add("hidden");
+  }
+}
+
+function hideStepContainers() {
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById(`step-${i}-container`)?.classList.add("hidden");
+  }
+}
+
+// Fresh entry: every primary CTA starts at the journey choice.
+export function startFreshFlow() {
+  appState.entryPath = null;
+  appState.uiView = "entry";
+  appState.productPreflightResult = null;
+  appState.selectedRepresentation = null;
+  appState.productPreflightVerified = false;
+  appState.executionHandoff = null;
+  activeRouteScheduler.stop();
+  showEntryChoice();
+}
+
+export function showEntryChoice() {
+  appState.uiView = "entry";
+  activeRouteScheduler.stop();
+  hideStepContainers();
+  document.getElementById("quick-container")?.classList.add("hidden");
+  document.getElementById("entry-choice-container")?.classList.remove("hidden");
+  document.querySelector(".preflight-step-tracker")?.classList.add("hidden");
+  document.querySelector(".app-workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+export function showAppCurrent() {
+  if (appState.uiView === "quick") {
+    showQuickSelector();
+  } else if (appState.uiView === "execution") {
+    renderExecutionStrip();
+    hideEntryScreens();
+    for (let i = 1; i <= 4; i++) {
+      document.getElementById(`step-${i}-container`)?.classList.toggle("hidden", i !== 4);
+    }
+    document.querySelector(".preflight-step-tracker")?.classList.toggle("hidden", appState.entryPath === "QUICK_TRADE");
+  } else if (appState.uiView === "product") {
+    goToStep(appState.currentStep);
+  } else {
+    showEntryChoice();
+  }
+}
+
+export function chooseQuickTrade() {
+  appState.entryPath = "QUICK_TRADE";
+  appState.selectedRepresentation = null;
+  appState.productPreflightVerified = false;
+  appState.executionHandoff = null;
+  showQuickSelector();
+}
+
+export function chooseProductPath() {
+  appState.entryPath = "PRODUCT_PREFLIGHT";
+  appState.uiView = "product";
+  goToStep(1);
+}
+
+export function showQuickSelector() {
+  appState.uiView = "quick";
+  activeRouteScheduler.stop();
+  hideStepContainers();
+  document.getElementById("entry-choice-container")?.classList.add("hidden");
+  document.getElementById("quick-container")?.classList.remove("hidden");
+  document.querySelector(".preflight-step-tracker")?.classList.add("hidden");
+  renderQuickSelector();
+  document.querySelector(".app-workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Quick selector: exact representations grouped by underlying. Only
+// STOCK_META members have Execution Preflight support; Ondo rows are
+// truthfully disabled with a path into Product Preflight. No substitution.
+export function renderQuickSelector() {
+  const container = document.getElementById("quick-groups-container");
+  if (!container) return;
+  container.innerHTML = "";
+
+  Object.keys(UNDERLYING_CATALOG).forEach(canonical => {
+    const data = UNDERLYING_CATALOG[canonical];
+    const group = document.createElement("div");
+    group.className = "quick-underlying-group";
+    group.id = `quick-group-${canonical}`;
+
+    const rows = data.representations.map(symbol => {
+      const supported = !!STOCK_META[symbol];
+      const issuer = supported ? "Backed Assets (JE) Limited" : "Ondo Global Markets (BVI) Limited";
+      const isSelected = appState.selectedRepresentation === symbol;
+      return `
+        <div class="quick-rep-row ${isSelected ? "is-selected" : ""}" id="quick-rep-${symbol}">
+          <span class="quick-rep-symbol">${symbol}</span>
+          <span class="quick-rep-issuer">${issuer}</span>
+          ${supported ? `
+            <button type="button" class="btn btn-primary btn-sm quick-check-trade-btn" data-symbol="${symbol}" data-underlying="${canonical}">
+              <span>Check Trade</span>
+            </button>
+          ` : `
+            <span class="quick-rep-note">Trade Check not yet supported for this representation</span>
+            <button type="button" class="btn-link quick-product-details-btn" data-underlying="${canonical}">Check product details</button>
+          `}
+        </div>
+      `;
+    }).join("");
+
+    group.innerHTML = `
+      <h3 class="quick-underlying-title">${data.name} (${data.canonical})</h3>
+      ${rows}
+    `;
+    container.appendChild(group);
+  });
+
+  container.querySelectorAll(".quick-check-trade-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      quickSelectRepresentation(btn.getAttribute("data-symbol"), btn.getAttribute("data-underlying"));
+    });
+  });
+  container.querySelectorAll(".quick-product-details-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      appState.entryPath = "PRODUCT_PREFLIGHT";
+      selectUnderlying(btn.getAttribute("data-underlying"));
+    });
+  });
+}
+
+// Explicit exact-representation selection. Never verified, never substituted.
+export function quickSelectRepresentation(symbol, underlying) {
+  if (!STOCK_META[symbol] || !UNDERLYING_CATALOG[underlying]) return;
+  appState.entryPath = "QUICK_TRADE";
+  appState.uiView = "execution";
+  appState.selectedUnderlying = underlying;
+  appState.selectedRepresentation = symbol;
+  appState.productPreflightVerified = false;
+  appState.executionHandoff = {
+    representation: symbol,
+    canonical: UNDERLYING_CATALOG[underlying].canonical || underlying,
+    entryPath: "QUICK_TRADE",
+    timestamp: new Date().toISOString()
+  };
+  renderSingleStockCard(symbol);
+  renderExecutionStrip();
+  hideEntryScreens();
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById(`step-${i}-container`)?.classList.toggle("hidden", i !== 4);
+  }
+  document.querySelector(".preflight-step-tracker")?.classList.add("hidden");
+  document.querySelector(".app-workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Compact context strip. "Verified" appears ONLY for the guided product flow.
+export function renderExecutionStrip() {
+  const symbol = appState.selectedRepresentation;
+  if (!symbol) return;
+  const verified = appState.entryPath === "PRODUCT_PREFLIGHT" && appState.productPreflightVerified === true;
+  const title = document.getElementById("handoff-title");
+  const badge = document.getElementById("handoff-badge");
+  const sub = document.getElementById("handoff-sub");
+  const quickLink = document.getElementById("quick-product-link");
+  const meta = STOCK_META[symbol];
+  const issuer = meta ? "Backed Assets (JE) Limited · Token-2022 Verified on Solana" : "Ondo Global Markets (BVI) Limited · Token-2022 Verified on Solana";
+  if (title) title.textContent = symbol;
+  if (badge) {
+    badge.textContent = verified ? "Product verified ✓" : "";
+    badge.classList.toggle("hidden", !verified);
+  }
+  if (sub) sub.textContent = issuer;
+  if (quickLink) quickLink.classList.toggle("hidden", verified);
 }
 
 // Step 1: Render Company Grid
@@ -935,9 +1117,12 @@ export function selectUnderlying(canonical) {
   if (!UNDERLYING_CATALOG[canonical]) return;
 
   // State isolation: changing company resets old product results, representation selection & handoff
+  appState.entryPath = "PRODUCT_PREFLIGHT";
+  appState.uiView = "product";
   appState.selectedUnderlying = canonical;
   appState.productPreflightResult = null;
   appState.selectedRepresentation = null;
+  appState.productPreflightVerified = false;
   appState.executionHandoff = null;
 
   // Highlight selected card
@@ -1095,7 +1280,10 @@ export async function submitProductPreflight() {
   productPreflightAbortController = new AbortController();
 
   // Reset representation selection and handoff until user explicitly selects
+  appState.entryPath = "PRODUCT_PREFLIGHT";
+  appState.uiView = "product";
   appState.selectedRepresentation = null;
+  appState.productPreflightVerified = false;
   appState.executionHandoff = null;
 
   let expectationsPayload = Object.entries(appState.expectations).map(([capability, priority]) => ({
@@ -1551,26 +1739,55 @@ export function handoffToExecutionPreflight(symbol) {
   appState.executionHandoff = {
     representation: symbol,
     canonical: repMeta.canonical || appState.selectedUnderlying,
+    entryPath: appState.entryPath || "PRODUCT_PREFLIGHT",
     timestamp: new Date().toISOString()
   };
-
-  const handoffTitle = document.getElementById("handoff-title");
-  const handoffSub = document.getElementById("handoff-sub");
-
-  if (handoffTitle) handoffTitle.textContent = `Checking Fill for ${symbol}`;
-  if (handoffSub) {
-    const isBacked = symbol.endsWith("x");
-    handoffSub.textContent = isBacked
-      ? `Backed Assets (JE) Limited · Token-2022 Verified on Solana`
-      : `Ondo Global Markets (BVI) Limited · Token-2022 Verified on Solana`;
-  }
+  // Verified ONLY when this handoff follows a real Product Preflight result.
+  appState.productPreflightVerified = !!(
+    appState.entryPath === "PRODUCT_PREFLIGHT" && appState.productPreflightResult
+  );
+  appState.uiView = "execution";
 
   // Activate single execution card for symbol in Step 4 with empty amount input
   renderSingleStockCard(symbol);
+  renderExecutionStrip();
   goToStep(4);
 }
 
 export function initStepNavigation() {
+  // Entry choice buttons
+  const entryQuickBtn = document.getElementById("entry-quick-btn");
+  if (entryQuickBtn) entryQuickBtn.addEventListener("click", () => chooseQuickTrade());
+  const entryProductBtn = document.getElementById("entry-product-btn");
+  if (entryProductBtn) entryProductBtn.addEventListener("click", () => chooseProductPath());
+
+  // Quick selector buttons
+  const quickBackBtn = document.getElementById("btn-quick-back");
+  if (quickBackBtn) quickBackBtn.addEventListener("click", () => showEntryChoice());
+  const quickToProductBtn = document.getElementById("btn-quick-to-product");
+  if (quickToProductBtn) {
+    quickToProductBtn.addEventListener("click", () => {
+      appState.entryPath = "PRODUCT_PREFLIGHT";
+      appState.uiView = "product";
+      goToStep(1);
+    });
+  }
+  const quickProductLink = document.getElementById("quick-product-link");
+  if (quickProductLink) {
+    quickProductLink.addEventListener("click", () => {
+      const underlying = appState.selectedUnderlying;
+      appState.entryPath = "PRODUCT_PREFLIGHT";
+      appState.uiView = "product";
+      appState.selectedRepresentation = null;
+      appState.productPreflightVerified = false;
+      appState.executionHandoff = null;
+      if (UNDERLYING_CATALOG[underlying]) {
+        selectUnderlying(underlying);
+      } else {
+        goToStep(1);
+      }
+    });
+  }
   // Step tracker clicks
   for (let i = 1; i <= 4; i++) {
     const btn = document.getElementById(`tracker-step-${i}`);
@@ -1586,6 +1803,7 @@ export function initStepNavigation() {
   if (changeCompBtn) {
     changeCompBtn.addEventListener("click", () => {
       appState.selectedRepresentation = null;
+      appState.productPreflightVerified = false;
       appState.executionHandoff = null;
       appState.productPreflightResult = null;
       goToStep(1);
@@ -1596,6 +1814,7 @@ export function initStepNavigation() {
   if (backToStep1Btn) {
     backToStep1Btn.addEventListener("click", () => {
       appState.selectedRepresentation = null;
+      appState.productPreflightVerified = false;
       appState.executionHandoff = null;
       appState.productPreflightResult = null;
       goToStep(1);
@@ -1620,6 +1839,7 @@ export function initStepNavigation() {
   if (editExpBtn) {
     editExpBtn.addEventListener("click", () => {
       appState.selectedRepresentation = null;
+      appState.productPreflightVerified = false;
       appState.executionHandoff = null;
       goToStep(2);
     });
@@ -1629,14 +1849,26 @@ export function initStepNavigation() {
   if (backToStep2Btn) {
     backToStep2Btn.addEventListener("click", () => {
       appState.selectedRepresentation = null;
+      appState.productPreflightVerified = false;
       appState.executionHandoff = null;
       goToStep(2);
     });
   }
 
-  // Step 4 buttons
+  // Step 4 buttons: Change Product returns to the originating selector.
   const backToStep3Btn = document.getElementById("btn-back-to-step3");
-  if (backToStep3Btn) backToStep3Btn.addEventListener("click", () => goToStep(3));
+  if (backToStep3Btn) {
+    backToStep3Btn.addEventListener("click", () => {
+      if (appState.entryPath === "QUICK_TRADE") {
+        appState.selectedRepresentation = null;
+        appState.productPreflightVerified = false;
+        appState.executionHandoff = null;
+        showQuickSelector();
+      } else {
+        goToStep(3);
+      }
+    });
+  }
 }
 
 // Handle initial load & hash changes

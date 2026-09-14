@@ -179,10 +179,26 @@ async function runBrowserTests() {
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "07_desktop_final_cta.png") });
     });
 
+    // 7b. Dual entry choice (013.8A)
+    await test("7b. Entry Choice: Check a Trade vs Check the Product", async () => {
+      await page.click("#hero-open-app-btn");
+      await page.waitForSelector("#entry-choice-container:not(.hidden)", { timeout: 15000 });
+
+      const tradeBtn = await page.$("#entry-quick-btn");
+      const productBtn = await page.$("#entry-product-btn");
+      if (!tradeBtn || !productBtn) throw new Error("Both entry options must exist");
+      const tradeText = await page.textContent(".entry-card:nth-child(1)");
+      const productText = await page.textContent(".entry-card:nth-child(2)");
+      if (!tradeText.includes("Check a Trade")) throw new Error("Quick entry copy missing");
+      if (!productText.includes("Check the Product")) throw new Error("Product entry copy missing");
+
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "07b_entry_choice.png") });
+    });
+
     // 8. App Step 1: Company Grid & Filters (Screenshot 08)
     await test("8. App Step 1: 12 Canonical Companies, Search, and Category Filtering", async () => {
-      await page.click("#hero-open-app-btn");
-      await page.waitForTimeout(300);
+      await page.click("#entry-product-btn");
+      await page.waitForSelector("#step-1-container:not(.hidden)", { timeout: 15000 });
 
       const isAppVisible = await page.isVisible("#app-view");
       if (!isAppVisible) throw new Error("App view not visible after clicking start preflight");
@@ -337,9 +353,18 @@ async function runBrowserTests() {
       if (!isStep4Visible) throw new Error("Step 4 container not visible");
 
       const handoffTitle = await page.textContent("#handoff-title");
-      if (!handoffTitle.includes("Checking Fill for AAPLx")) {
-        throw new Error(`Handoff title mismatch: ${handoffTitle}`);
+      if (handoffTitle.trim() !== "AAPLx") {
+        throw new Error(`Compact strip must show only the symbol, got: ${handoffTitle}`);
       }
+      if (await page.$eval("#handoff-badge", el => el.classList.contains("hidden"))) {
+        throw new Error("Product path must show the verified strip");
+      }
+      const handoffBadge = await page.textContent("#handoff-badge");
+      if (!handoffBadge.includes("Product verified")) {
+        throw new Error(`Verified strip mismatch: ${handoffBadge}`);
+      }
+      const giantBanner = await page.$(".handoff-tag");
+      if (giantBanner) throw new Error("Large purple handoff banner must be removed");
 
       // Assert amount input starts empty
       const amountInputVal = await page.$eval("#stock-card-AAPLx .amount-input", el => el.value);
@@ -727,6 +752,8 @@ async function runBrowserTests() {
       try {
         await freshPage.goto(BASE_URL, { waitUntil: "networkidle" });
         await freshPage.click("#hero-open-app-btn");
+        await freshPage.waitForSelector("#entry-choice-container:not(.hidden)", { timeout: 15000 });
+        await freshPage.click("#entry-product-btn");
         await freshPage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
         await freshPage.click("#underlying-card-AAPL");
         await freshPage.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
@@ -761,6 +788,8 @@ async function runBrowserTests() {
         try {
           await widePage.goto(BASE_URL, { waitUntil: "networkidle" });
           await widePage.click("#hero-open-app-btn");
+          await widePage.waitForSelector("#entry-choice-container:not(.hidden)", { timeout: 15000 });
+          await widePage.click("#entry-product-btn");
           await widePage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
           await widePage.click("#underlying-card-AAPL");
           await widePage.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
@@ -828,6 +857,186 @@ async function runBrowserTests() {
       }
     });
 
+    // 21-23. Quick Trade path (013.8 B/C/G/H + F)
+    await test("21. Quick Trade: AAPLx execution without questionnaire, no false verified claim", async () => {
+      const quickContext = await browser.newContext({ viewport: { width: 1600, height: 800 } });
+      const quickPage = await quickContext.newPage();
+      const quickPosts = [];
+      quickPage.on("request", req => {
+        if (req.method() === "POST" && req.url().endsWith("/api/v1/preflight")) quickPosts.push(req.postData());
+      });
+      try {
+        await quickPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await quickPage.click("#hero-open-app-btn");
+        await quickPage.waitForSelector("#entry-choice-container:not(.hidden)", { timeout: 15000 });
+        await quickPage.click("#entry-quick-btn");
+        await quickPage.waitForSelector("#quick-container:not(.hidden)", { timeout: 15000 });
+
+        const groups = await quickPage.$$(".quick-underlying-group");
+        if (groups.length !== 12) throw new Error(`Expected 12 quick groups, found: ${groups.length}`);
+        const aaplxBtn = await quickPage.$("#quick-rep-AAPLx .quick-check-trade-btn");
+        if (!aaplxBtn) throw new Error("AAPLx must offer Check Trade in quick path");
+        const aaplonBtn = await quickPage.$("#quick-rep-AAPLon .quick-check-trade-btn");
+        if (aaplonBtn) throw new Error("AAPLon must not offer Check Trade (unsupported)");
+
+        await aaplxBtn.click();
+        await quickPage.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
+        await quickPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await quickPage.waitForTimeout(900);
+
+        const qs = await quickPage.evaluate(() => ({
+          entryPath: window.appState?.entryPath,
+          verified: window.appState?.productPreflightVerified,
+          selRep: window.appState?.selectedRepresentation,
+          step2Hidden: document.getElementById("step-2-container")?.classList.contains("hidden"),
+          step3Hidden: document.getElementById("step-3-container")?.classList.contains("hidden"),
+          badgeHidden: document.getElementById("handoff-badge")?.classList.contains("hidden"),
+          badgeText: document.getElementById("handoff-badge")?.textContent,
+          titleText: document.getElementById("handoff-title")?.textContent,
+          quickLink: !document.getElementById("quick-product-link")?.classList.contains("hidden"),
+          opacity: window.getComputedStyle(document.getElementById("stock-card-AAPLx")).opacity,
+          hidden: document.querySelector("#stock-card-AAPLx input[name='inputAsset']")?.value,
+          amount: document.querySelector("#stock-card-AAPLx .amount-input")?.value,
+          disabled: document.querySelector("#stock-card-AAPLx .submit-trade-btn")?.disabled
+        }));
+        if (qs.entryPath !== "QUICK_TRADE") throw new Error(`entryPath must be QUICK_TRADE, got ${qs.entryPath}`);
+        if (qs.verified !== false) throw new Error("Quick path must never claim product verification");
+        if (qs.selRep !== "AAPLx") throw new Error(`Expected AAPLx selected, got ${qs.selRep}`);
+        if (!qs.step2Hidden || !qs.step3Hidden) throw new Error("Quick path must skip the questionnaire");
+        if (qs.badgeHidden !== true) throw new Error(`Quick path must hide verified badge, shows: ${qs.badgeText}`);
+        if (qs.titleText.trim() !== "AAPLx") throw new Error(`Strip must show only symbol, got: ${qs.titleText}`);
+        if (!qs.quickLink) throw new Error("Quick path must offer the product-first link");
+        if (qs.opacity !== "1") throw new Error(`Quick card transparent (opacity ${qs.opacity})`);
+        if (qs.hidden !== "" || qs.amount !== "" || qs.disabled !== true) {
+          throw new Error(`Quick gating violated: asset='${qs.hidden}' amount='${qs.amount}' disabled=${qs.disabled}`);
+        }
+
+        const postsBefore = quickPosts.length;
+        await quickPage.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+        await quickPage.fill("#stock-card-AAPLx .amount-input", "500");
+        await quickPage.click("#stock-card-AAPLx .submit-trade-btn");
+        await quickPage.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+        const match = quickPosts.slice(postsBefore).map(p => { try { return JSON.parse(p); } catch { return null; } })
+          .find(p => p && p.inputAsset === "USDC" && p.stock === "AAPLx" && p.amount === 500 && (p.wallet === null || p.wallet === undefined));
+        if (!match) throw new Error("Quick USDC payload missing or not walletless");
+        const spendVal = await quickPage.textContent("#stock-card-AAPLx .res-spend-val");
+        if (!spendVal.includes("$500.00")) throw new Error(`Quick spend mismatch: ${spendVal}`);
+
+        await quickPage.screenshot({ path: path.join(EVIDENCE_DIR, "21_quick_execution.png") });
+        await quickContext.close();
+      } catch (e) {
+        await quickContext.close();
+        throw e;
+      }
+    });
+
+    await test("22. Quick AAPLon: unsupported truth, product-details path, never substituted", async () => {
+      const loneContext = await browser.newContext({ viewport: { width: 1600, height: 800 } });
+      const lonePage = await loneContext.newPage();
+      const lonePosts = [];
+      lonePage.on("request", req => {
+        if (req.method() === "POST" && req.url().endsWith("/api/v1/preflight")) lonePosts.push(req.postData());
+      });
+      try {
+        await lonePage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await lonePage.click("#hero-open-app-btn");
+        await lonePage.waitForSelector("#entry-choice-container:not(.hidden)", { timeout: 15000 });
+        await lonePage.click("#entry-quick-btn");
+        await lonePage.waitForSelector("#quick-rep-AAPLon", { timeout: 15000 });
+
+        const rowText = await lonePage.textContent("#quick-rep-AAPLon");
+        if (!/not yet supported/i.test(rowText)) throw new Error(`AAPLon must state unsupported truth, got: ${rowText.slice(0, 200)}`);
+        if (lonePosts.length !== 0) throw new Error("Viewing AAPLon must fire zero execution POSTs");
+
+        await lonePage.click("#quick-rep-AAPLon .quick-product-details-btn");
+        await lonePage.waitForSelector("#step-2-container:not(.hidden)", { timeout: 15000 });
+        const st = await lonePage.evaluate(() => ({
+          entryPath: window.appState?.entryPath,
+          selUnd: window.appState?.selectedUnderlying,
+          selRep: window.appState?.selectedRepresentation
+        }));
+        if (st.entryPath !== "PRODUCT_PREFLIGHT" || st.selUnd !== "AAPL") {
+          throw new Error(`Product-details path broken: ${JSON.stringify(st)}`);
+        }
+        if (st.selRep !== null) throw new Error("No silent AAPLx substitution on the AAPLon path");
+        await lonePage.screenshot({ path: path.join(EVIDENCE_DIR, "22_quick_aaplon_truth.png") });
+      } finally {
+        await loneContext.close();
+      }
+    });
+
+    await test("23. Quick Exact: manual address exact simulation from quick path", async () => {
+      const exactContext = await browser.newContext({ viewport: { width: 1600, height: 800 } });
+      const exactPage = await exactContext.newPage();
+      const exactPosts = [];
+      exactPage.on("request", req => {
+        if (req.method() === "POST" && req.url().endsWith("/api/v1/preflight")) exactPosts.push(req.postData());
+      });
+      try {
+        await exactPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await exactPage.click("#hero-open-app-btn");
+        await exactPage.waitForSelector("#entry-choice-container:not(.hidden)", { timeout: 15000 });
+        await exactPage.click("#entry-quick-btn");
+        await exactPage.waitForSelector("#quick-rep-AAPLx .quick-check-trade-btn", { timeout: 15000 });
+        await exactPage.click("#quick-rep-AAPLx .quick-check-trade-btn");
+        await exactPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+
+        await exactPage.route("**/api/v1/preflight", async route => {
+          const req = route.request();
+          if (req.method() !== "POST") { await route.continue(); return; }
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              request_status: "SUCCESS", verification_status: "UNABLE_TO_VERIFY", verdict: "UNABLE_TO_VERIFY",
+              preflight_level: "EXACT_SIMULATION", reason_codes: ["STALE_REFERENCE"], reason: "Underlying reference is stale.",
+              trade: {
+                input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+                input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+                input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+                input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+                token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+                token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+              },
+              benchmark: {
+                symbol: "AAPLx", price: 332.27, source: "Nasdaq", source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+                provider: "Last known Nasdaq reference, not eligible", timestamp: "2026-09-11T00:00:00.000Z",
+                freshness_status: "STALE", is_real_time: false,
+                market_context: { session: "OVERNIGHT", underlying_reference_available: false, reference_eligibility: "INELIGIBLE_STALE" }
+              },
+              economics: {
+                raw_out_amount: "151127287", expected_stock_shares: 1.514192, underlying_benchmark_price: 332.27,
+                expected_stock_exposure_usd: 503.12, effective_price_per_share: 329.77, difference_usd: 3.12, difference_pct: 0.62,
+                multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+              },
+              dex_route: { router: "Jupiter Swap V2", mode: "EXACT_SIMULATION", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+              alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+              simulation: { status: "PASS", err: null, units_consumed: 42000 }
+            })
+          });
+        });
+
+        const EXACT_ADDR = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
+        await exactPage.click("#stock-card-AAPLx .exact-sim-toggle");
+        await exactPage.click("#stock-card-AAPLx .exact-sim-manual-toggle");
+        await exactPage.fill("#stock-card-AAPLx .exact-address-input", EXACT_ADDR);
+        await exactPage.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+        await exactPage.fill("#stock-card-AAPLx .amount-input", "500");
+        await exactPage.click("#stock-card-AAPLx .submit-trade-btn");
+        await exactPage.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+
+        const hit = exactPosts.map(p => { try { return JSON.parse(p); } catch { return null; } })
+          .find(p => p && p.wallet === EXACT_ADDR && p.stock === "AAPLx");
+        if (!hit) throw new Error("Quick exact payload must carry the address for AAPLx");
+        const simTitle = await exactPage.textContent("#stock-card-AAPLx .sim-title");
+        if (!/EXACT SIMULATION COMPLETE/i.test(simTitle)) throw new Error(`Quick exact banner mismatch: ${simTitle}`);
+        await exactPage.screenshot({ path: path.join(EVIDENCE_DIR, "23_quick_exact_result.png") });
+      } finally {
+        await exactContext.close();
+      }
+    });
+
     // 15. Mobile Viewport: Dashboard Hero (Screenshot 15)
     // 16. Mobile Viewport: Dashboard Story (Screenshot 16)
     // 17. Mobile Viewport: App Step 1 (Screenshot 17)
@@ -855,9 +1064,19 @@ async function runBrowserTests() {
       if (isOverflow) throw new Error("Mobile Dashboard Story exhibits horizontal overflow");
       await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "16_mobile_story_section.png") });
 
-      // 17. Mobile App Step 1
+      // 17. Mobile Entry + Step 1 (013.8L: entry and quick screens included)
       await mobilePage.click("#hero-open-app-btn");
-      await mobilePage.waitForTimeout(400);
+      await mobilePage.waitForSelector("#entry-choice-container:not(.hidden)", { timeout: 15000 });
+      isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      if (isOverflow) throw new Error("Mobile Entry Choice exhibits horizontal overflow");
+      await mobilePage.click("#entry-quick-btn");
+      await mobilePage.waitForSelector("#quick-container:not(.hidden)", { timeout: 15000 });
+      isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      if (isOverflow) throw new Error("Mobile Quick Selector exhibits horizontal overflow");
+      await mobilePage.click("#btn-quick-back");
+      await mobilePage.waitForSelector("#entry-choice-container:not(.hidden)", { timeout: 15000 });
+      await mobilePage.click("#entry-product-btn");
+      await mobilePage.waitForSelector("#step-1-container:not(.hidden)", { timeout: 15000 });
       isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       if (isOverflow) throw new Error("Mobile Step 1 exhibits horizontal overflow");
       await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "17_mobile_step1.png") });

@@ -534,6 +534,68 @@
           </div>
 
           <!-- ======================================================== -->
+          <!-- ENTRY CHOICE: QUICK TRADE VS PRODUCT PREFLIGHT        -->
+          <!-- ======================================================== -->
+          <div id="entry-choice-container" class="step-content-container hidden">
+            <div class="app-feed-header">
+              <div class="step-eyebrow">TWO WAYS TO CHECK</div>
+              <h2 class="app-feed-title">What do you want to check?</h2>
+              <p class="app-feed-subtitle">Check a trade fill directly, or compare verified products first. Nothing is bought, signed, or sent either way.</p>
+            </div>
+
+            <div class="entry-choice-grid">
+              <div class="entry-card">
+                <h3 class="entry-title">Check a Trade</h3>
+                <p class="entry-desc">Know the tokenized stock you want? Check the proposed fill.</p>
+                <button type="button" class="btn btn-primary btn-md" id="entry-quick-btn">
+                  <span>Check a Trade</span>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14"></path>
+                    <path d="M12 5l7 7-7 7"></path>
+                  </svg>
+                </button>
+              </div>
+              <div class="entry-card">
+                <h3 class="entry-title">Check the Product</h3>
+                <p class="entry-desc">Not sure what the token actually gives you? Compare verified representations first.</p>
+                <button type="button" class="btn btn-outline btn-md" id="entry-product-btn">
+                  <span>Check the Product</span>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14"></path>
+                    <path d="M12 5l7 7-7 7"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ======================================================== -->
+          <!-- QUICK TRADE REPRESENTATION SELECTOR                     -->
+          <!-- ======================================================== -->
+          <div id="quick-container" class="step-content-container hidden">
+            <div class="app-feed-header">
+              <div class="step-eyebrow">QUICK TRADE CHECK</div>
+              <h2 class="app-feed-title">Choose the exact tokenized stock</h2>
+              <p class="app-feed-subtitle">Only representations with Execution Preflight support can be checked. No questionnaire — pick the exact token you intend to trade.</p>
+            </div>
+
+            <div id="quick-groups-container">
+              <!-- Dynamically populated via app.js -->
+            </div>
+
+            <div class="step-actions-bar">
+              <button type="button" class="btn btn-outline btn-md" id="btn-quick-back">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 12H5"></path>
+                  <path d="M12 19l-7-7 7-7"></path>
+                </svg>
+                <span>Start Over</span>
+              </button>
+              <button type="button" class="btn-link" id="btn-quick-to-product">Not sure which version matches what you expect? Check the product first.</button>
+            </div>
+          </div>
+
+          <!-- ======================================================== -->
           <!-- STEP 1 CONTAINER: CHOOSE THE COMPANY                    -->
           <!-- ======================================================== -->
           <div id="step-1-container" class="step-content-container">
@@ -779,29 +841,23 @@
           <!-- STEP 4 CONTAINER: CHECK THE TRADE (EXECUTION PREFLIGHT)  -->
           <!-- ======================================================== -->
           <div id="step-4-container" class="step-content-container hidden">
-            <!-- Handoff Context Banner -->
-            <div class="execution-handoff-banner">
-              <div class="handoff-content">
-                <div class="handoff-tag">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                    <polyline points="9 12 11 14 15 10"></polyline>
-                  </svg>
-                  <span>LAYER 2: EXECUTION PREFLIGHT</span>
-                </div>
-                <div class="handoff-title-row">
-                  <h3 class="handoff-title" id="handoff-title">Checking Fill for AAPLx</h3>
-                  <span class="handoff-badge" id="handoff-badge">Product Preflight: Verified Match</span>
-                </div>
-                <p class="handoff-sub" id="handoff-sub">Backed Assets (JE) Limited · Token-2022 Verified on Solana</p>
+            <!-- Compact Handoff Context Strip -->
+            <div class="execution-handoff-banner execution-strip">
+              <div class="handoff-strip-main">
+                <span class="handoff-title" id="handoff-title">AAPLx</span>
+                <span class="handoff-badge" id="handoff-badge">Product verified ✓</span>
+                <span class="handoff-sub" id="handoff-sub">Backed Assets (JE) Limited · Token-2022 Verified on Solana</span>
               </div>
-              <button type="button" class="btn btn-outline btn-sm" id="btn-back-to-step3">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M19 12H5"></path>
-                  <path d="M12 19l-7-7 7-7"></path>
-                </svg>
-                <span>Change Product</span>
-              </button>
+              <div class="handoff-strip-actions">
+                <button type="button" class="btn-link hidden" id="quick-product-link">Not sure what this gives you? Check the product first.</button>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-back-to-step3">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5"></path>
+                    <path d="M12 19l-7-7 7-7"></path>
+                  </svg>
+                  <span>Change Product</span>
+                </button>
+              </div>
             </div>
 
             <!-- Standalone Stock Cards Feed for Execution Preflight -->
