@@ -995,6 +995,197 @@ async function runBrowserTests() {
       await page.waitForTimeout(300);
     });
 
+    // 31-33. Market-context truth (013.11 A-D)
+    await test("31. Form Helper mirrors live form state, never stale", async () => {
+      await page.click("#tracker-step-4");
+      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+      await page.click("#stock-card-AAPLx .stock-card-header");
+      await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+      const hint = () => page.evaluate(() => {
+        const el = document.querySelector("#stock-card-AAPLx .submit-gating-hint");
+        return { hidden: el?.classList.contains("hidden"), text: el?.textContent || "" };
+      });
+
+      let h = await hint();
+      if (h.hidden || !h.text.includes("Select USDC or SOL and enter an amount")) {
+        throw new Error(`Fresh helper must carry the full instruction, got: ${JSON.stringify(h)}`);
+      }
+      await page.fill("#stock-card-AAPLx .amount-input", "2");
+      await page.waitForTimeout(200);
+      h = await hint();
+      if (h.hidden || !h.text.includes("Select USDC or SOL to check this trade")) {
+        throw new Error(`Amount-only helper must request an asset, got: ${JSON.stringify(h)}`);
+      }
+      await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
+      await page.waitForTimeout(200);
+      h = await hint();
+      if (!h.hidden) throw new Error(`Valid SOL+2 must hide the gating helper, got: ${JSON.stringify(h)}`);
+      await page.fill("#stock-card-AAPLx .amount-input", "");
+      await page.waitForTimeout(200);
+      h = await hint();
+      if (h.hidden || !h.text.includes("Enter an amount to check this trade")) {
+        throw new Error(`Asset-only helper must request an amount, got: ${JSON.stringify(h)}`);
+      }
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "31_form_helper_states.png") });
+    });
+
+    await test("32. Post-Market Truth: live route separated from stale benchmark, no weekday invented", async () => {
+      const MONDAY_TS = "2026-09-14T00:00:00.000Z";
+      const stubBench = (over = {}) => ({
+        request_status: "SUCCESS", verification_status: "UNABLE_TO_VERIFY", verdict: "UNABLE_TO_VERIFY",
+        preflight_level: "QUOTE_CHECK", reason_codes: ["STALE_REFERENCE"], reason: "Underlying reference is stale.",
+        trade: {
+          input_asset: "SOL", input_amount: 2, input_usd_value: 206.18,
+          input_mint: "So11111111111111111111111111111111111111112",
+          input_asset_price_usd: 103.09, input_asset_price_timestamp: new Date().toISOString(),
+          input_asset_price_source: "CoinGecko Real-Time Spot Feed", input_asset_price_provider: "CoinGecko Real-Time Spot Feed",
+          input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+          token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+          token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          ...over.trade
+        },
+        benchmark: {
+          symbol: "AAPLx", price: 332.27, source: "Nasdaq Official Public Equity Quote API (api.nasdaq.com)",
+          source_type: "OFFICIAL_MARKET_DATA_PROVIDER", provider: "Last known Nasdaq reference, not eligible",
+          timestamp: MONDAY_TS, freshness_status: "STALE", is_real_time: false,
+          market_context: { session: "POST_MARKET", underlying_reference_available: false, reference_eligibility: "INELIGIBLE_STALE" },
+          ...over.benchmark
+        },
+        economics: {
+          raw_out_amount: "61918", expected_stock_shares: 0.619188, underlying_benchmark_price: 332.27,
+          expected_stock_exposure_usd: 205.74, effective_price_per_share: 332.99, difference_usd: -0.44, difference_pct: -0.21,
+          multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+        },
+        dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["SOL", "AAPLx"], price_impact_pct: "0.0100" },
+        alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+        simulation: { status: "NOT_RUN", err: null, units_consumed: 0 }
+      });
+      await page.route("**/api/v1/preflight", async route => {
+        const req = route.request();
+        if (req.method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(stubBench()) });
+      });
+      try {
+        await page.click("#tracker-step-4");
+        await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .stock-card-header");
+        await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
+        await page.fill("#stock-card-AAPLx .amount-input", "2");
+        // Scheduler poll must render route-live status with separated session context.
+        await page.waitForFunction(() => {
+          const el = document.querySelector("#stock-card-AAPLx .live-benchmark-context");
+          return el && !el.classList.contains("hidden") && el.textContent.includes("Post-market");
+        }, { timeout: 15000 });
+        const badge = await page.textContent("#stock-card-AAPLx .live-route-status");
+        if (!badge.includes("Route Live")) throw new Error(`Route badge must read live, got: ${badge}`);
+        const ctx = await page.textContent("#stock-card-AAPLx .live-benchmark-context");
+        if (!/Post-market/.test(ctx) || !/stale/i.test(ctx)) throw new Error(`Preview context must separate session/benchmark: ${ctx}`);
+
+        await page.click("#stock-card-AAPLx .submit-trade-btn");
+        await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+        const cardText = await page.textContent("#stock-card-AAPLx .inline-result-container");
+        if (/Market Closed/.test(cardText)) throw new Error("Live route must never be labeled Market Closed");
+        if (/Friday/.test(cardText)) throw new Error(`Monday reference must not render Friday: ${cardText.slice(0, 300)}`);
+        for (const phrase of ["TRADE CHECK COMPLETE", "Monday", "Sep 14, 2026", "post-market"]) {
+          if (!cardText.includes(phrase)) throw new Error(`Result must contain '${phrase}': ${cardText.slice(0, 400)}`);
+        }
+        const diffPct = await page.textContent("#stock-card-AAPLx .res-diff-pct");
+        if (!diffPct.includes("vs Monday close")) throw new Error(`Diff must derive Monday close: ${diffPct}`);
+        const evRef = await page.textContent("#stock-card-AAPLx .ev-reference-status");
+        if (!evRef.includes("Sep 14, 2026")) throw new Error(`Evidence must agree on reference date: ${evRef}`);
+        const evSess = await page.textContent("#stock-card-AAPLx .ev-session");
+        if (!evSess.includes("POST_MARKET")) throw new Error(`Evidence must keep raw session enum: ${evSess}`);
+        await page.screenshot({ path: path.join(EVIDENCE_DIR, "32_postmarket_truth.png") });
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("33. Reference Weekday derives from timestamp: Friday, Monday, unknown", async () => {
+      const econ = {
+        raw_out_amount: "61918", expected_stock_shares: 0.619188, underlying_benchmark_price: 332.27,
+        expected_stock_exposure_usd: 205.74, effective_price_per_share: 332.99, difference_usd: -0.44, difference_pct: -0.21,
+        multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+      };
+      const queue = [
+        { amount: 500, ts: "2026-09-11T00:00:00.000Z", want: "Friday", date: "Sep 11, 2026" },
+        { amount: 501, ts: "2026-09-14T00:00:00.000Z", want: "Monday", date: "Sep 14, 2026" },
+        { amount: 502, ts: null, want: null, date: null }
+      ];
+      const byAmount = Object.fromEntries(queue.map(q => [q.amount, q]));
+      const buildBody = ts => JSON.stringify({
+        request_status: "SUCCESS", verification_status: "UNABLE_TO_VERIFY", verdict: "UNABLE_TO_VERIFY",
+        preflight_level: "QUOTE_CHECK", reason_codes: ts ? ["STALE_REFERENCE"] : ["REFERENCE_UNAVAILABLE"],
+        trade: {
+          input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+          input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+          input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+          input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+          token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+          token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        benchmark: {
+          symbol: "AAPLx", price: 332.27, source: "Nasdaq", source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+          provider: "Last known Nasdaq reference, not eligible", timestamp: ts, freshness_status: ts ? "STALE" : "UNKNOWN",
+          is_real_time: false,
+          market_context: { session: "OVERNIGHT", underlying_reference_available: false, reference_eligibility: ts ? "INELIGIBLE_STALE" : "INELIGIBLE_UNKNOWN" }
+        },
+        economics: econ,
+        dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+        alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+        simulation: { status: "NOT_RUN", err: null, units_consumed: 0 }
+      });
+      await page.route("**/api/v1/preflight", async route => {
+        const req = route.request();
+        if (req.method() !== "POST") { await route.continue(); return; }
+        let amount = 500;
+        try { amount = JSON.parse(req.postData() || "{}").amount || 500; } catch {}
+        const entry = byAmount[amount] || queue[0];
+        await route.fulfill({ status: 200, contentType: "application/json", body: buildBody(entry.ts) });
+      });
+      try {
+        await page.click("#tracker-step-4");
+        await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .stock-card-header");
+        await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+        for (const { amount, want } of queue) {
+          await page.fill("#stock-card-AAPLx .amount-input", String(amount));
+          await page.waitForTimeout(200);
+          const prevDiff = await page.textContent("#stock-card-AAPLx .res-diff-pct");
+          await page.click("#stock-card-AAPLx .submit-trade-btn");
+          // Diff text must advance: proves this submit (not a stale render) completed.
+          await page.waitForFunction(prev => {
+            const el = document.querySelector("#stock-card-AAPLx .res-diff-pct");
+            return el && el.textContent !== prev;
+          }, prevDiff, { timeout: 35000 });
+          await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+          const diff = await page.textContent("#stock-card-AAPLx .res-diff-pct");
+          const expl = await page.textContent("#stock-card-AAPLx .res-explanation");
+          const evRef = await page.textContent("#stock-card-AAPLx .ev-reference-status");
+          if (want) {
+            if (!diff.includes(`vs ${want} close`)) throw new Error(`Diff must derive ${want}: ${diff}`);
+            if (!expl.includes(want)) throw new Error(`Explanation must agree on ${want}`);
+            if (!evRef.includes(want === "Friday" ? "Sep 11, 2026" : "Sep 14, 2026")) {
+              throw new Error(`Evidence must agree on date: ${evRef}`);
+            }
+          } else {
+            if (/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/.test(diff + expl + evRef)) {
+              throw new Error(`Unknown timestamp must not invent a weekday: ${diff} | ${evRef}`);
+            }
+            if (!/timestamp unavailable/i.test(expl + evRef)) {
+              throw new Error("Unknown timestamp must say so honestly");
+            }
+          }
+          await page.waitForTimeout(400);
+        }
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
     // 28-29. Tracker truth (013.9A)
     await test("28. Tracker Truth Direct: fresh Step 4 leaves Steps 1-3 neutral", async () => {
       const truthContext = await browser.newContext({ viewport: { width: 1600, height: 800 } });

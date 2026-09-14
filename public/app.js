@@ -582,14 +582,16 @@ export class ActiveTradeRouteScheduler {
       freshnessVal.textContent = `Updated <1s ago (${route?.steps?.join(" → ") || "Jupiter"})`;
     }
     if (statusBadge) {
-      const isClosed = bench?.market_context?.reference_eligibility !== "ELIGIBLE";
-      if (isClosed) {
-        statusBadge.className = "live-status-badge badge-closed live-route-status";
-        statusBadge.textContent = "Market Closed";
-      } else {
-        statusBadge.className = "live-status-badge badge-live live-route-status";
-        statusBadge.textContent = "● Live Route Active";
-      }
+      // Route status only: a returned route is live even when the equity
+      // benchmark is stale. Session/benchmark state renders separately below.
+      statusBadge.className = "live-status-badge badge-live live-route-status";
+      statusBadge.textContent = "● Route Live";
+    }
+    const benchCtx = card.querySelector(".live-benchmark-context");
+    if (benchCtx) {
+      const ref = describeReference(bench);
+      benchCtx.textContent = `Equity session: ${describeMarketSession(ref.session)} · Fairness benchmark: ${describeEligibility(ref.eligibility).toLowerCase()}${ref.hasTimestamp ? ` (${ref.refDateLabel})` : ""}`;
+      benchCtx.classList.remove("hidden");
     }
   }
 
@@ -1971,6 +1973,7 @@ function renderCardBodyMarkup(symbol) {
         </div>
       </div>
       <p class="live-preview-hint">Live indicative DEX preview. Click <strong>CHECK TRADE</strong> above to freeze an immutable preflight snapshot.</p>
+      <p class="live-benchmark-context hidden"></p>
     </div>
 
     <!-- Inline Loading -->
@@ -2337,15 +2340,87 @@ function collapseCard(card, symbol) {
 // ==========================================
 // CHECK TRADE gating (Director Order 013.5): enabled only with an explicit
 // payment asset AND a valid positive amount. Never enabled by defaults.
+// The gating helper always mirrors live form state (Director Order 013.11).
 function updateSubmitState(card) {
   if (!card) return;
   const form = card.querySelector(".stock-trade-form");
   if (!form) return;
   const asset = (form.querySelector("input[name='inputAsset']")?.value || "").trim();
   const amount = parseFloat(form.querySelector(".amount-input")?.value || "");
+  const hasAsset = asset !== "";
+  const hasAmount = !isNaN(amount) && amount > 0;
   const submitBtn = card.querySelector(".submit-trade-btn");
   if (submitBtn && !submitBtn.dataset.checking) {
-    submitBtn.disabled = !(asset !== "" && !isNaN(amount) && amount > 0);
+    submitBtn.disabled = !(hasAsset && hasAmount);
+  }
+  const hint = card.querySelector(".submit-gating-hint");
+  if (hint) {
+    if (hasAsset && hasAmount) {
+      hint.classList.add("hidden");
+    } else {
+      hint.classList.remove("hidden");
+      hint.textContent = !hasAsset && !hasAmount
+        ? "Select USDC or SOL and enter an amount to check this trade."
+        : !hasAsset
+          ? "Select USDC or SOL to check this trade."
+          : "Enter an amount to check this trade.";
+    }
+  }
+}
+
+// Market-context truth helpers (Director Order 013.11): single source of
+// truth for reference copy. Weekday/date always derive from the backend
+// benchmark timestamp (UTC) — never invented, never hardcoded.
+const REF_WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const REF_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export function describeMarketSession(session) {
+  switch (session) {
+    case "REGULAR": return "Regular trading";
+    case "PRE_MARKET": return "Pre-market";
+    case "POST_MARKET": return "Post-market";
+    case "OVERNIGHT": return "Overnight";
+    case "CLOSED": return "Market closed";
+    default: return "Unknown";
+  }
+}
+
+export function describeEligibility(eligibility) {
+  switch (eligibility) {
+    case "ELIGIBLE": return "Current";
+    case "INELIGIBLE_STALE": return "Stale";
+    case "INELIGIBLE_CLOSED": return "Closed-market reference";
+    case "INELIGIBLE_UNKNOWN": return "Unavailable";
+    default: return eligibility || "Unavailable";
+  }
+}
+
+export function describeReference(bench) {
+  const mkt = bench?.market_context || {};
+  const ts = bench?.timestamp || null;
+  const d = ts ? new Date(ts) : null;
+  const valid = d instanceof Date && !isNaN(d);
+  const weekday = valid ? REF_WEEKDAYS[d.getUTCDay()] : null;
+  const dateLabel = valid ? `${REF_MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}` : null;
+  return {
+    timestamp: valid ? ts : null,
+    hasTimestamp: valid,
+    weekday,
+    dateLabel,
+    vsCloseLabel: valid ? `vs ${weekday} close` : "vs last available reference",
+    refDateLabel: valid ? `${dateLabel} close` : "last available reference",
+    session: mkt.session || bench?.current_market_session || null,
+    eligibility: mkt.reference_eligibility || null
+  };
+}
+
+export function sessionClosureReason(session) {
+  switch (session) {
+    case "CLOSED": return "the traditional market is closed";
+    case "POST_MARKET": return "US equities are in post-market trading";
+    case "PRE_MARKET": return "US equities are in pre-market trading";
+    case "OVERNIGHT": return "US equities are in overnight trading";
+    default: return "the underlying equity reference is not current";
   }
 }
 
@@ -2754,8 +2829,9 @@ function renderCardResult(card, data, symbol) {
   }
   if (diffVal) diffVal.textContent = `${diffPrefix}$${Math.abs(econ.difference_usd).toFixed(2)}`;
   if (diffPctEl) {
+    const ref = describeReference(bench);
     diffPctEl.textContent = isClosed
-      ? `(${diffPrefix}${Math.abs(diffPct).toFixed(2)}% vs Friday close)`
+      ? `(${diffPrefix}${Math.abs(diffPct).toFixed(2)}% ${ref.vsCloseLabel})`
       : `(${econ.difference_usd >= 0 ? "+" : ""}${diffPct.toFixed(2)}%)`;
   }
 
@@ -2771,7 +2847,10 @@ function renderCardResult(card, data, symbol) {
       verdictBanner.classList.add("verdict-closed");
       if (verdictIcon) verdictIcon.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
       if (verdictTitle) verdictTitle.textContent = "TRADE CHECK COMPLETE";
-      if (verdictSubtitle) verdictSubtitle.textContent = `Live route found. Fairness verdict unavailable — the underlying stock reference ($${bench.price}) is stale because the traditional market is closed. Not a current fairness verdict.`;
+      if (verdictSubtitle) {
+        const refV = describeReference(bench);
+        verdictSubtitle.textContent = `Live route found. Fairness verdict unavailable — underlying reference ($${bench.price}) is stale (${sessionClosureReason(refV.session)}). Not a current fairness verdict.`;
+      }
     } else {
       verdictBanner.classList.add("verdict-measured");
       if (verdictIcon) verdictIcon.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"></path><path d="M4 7l8-4 8 4"></path><path d="M6 18l-3-6h6l-3 6z"></path><path d="M18 18l-3-6h6l-3 6z"></path></svg>`;
@@ -2784,7 +2863,11 @@ function renderCardResult(card, data, symbol) {
   const resExplanation = resultContainer.querySelector(".res-explanation");
   if (resExplanation) {
     if (isClosed) {
-      resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. Note that traditional stock markets are closed right now, so the underlying reference price ($${bench.price}) is from the previous market close. Not a current fairness verdict.`;
+      const refE = describeReference(bench);
+      const refNote = refE.hasTimestamp
+        ? `from the ${refE.weekday} close (${refE.dateLabel})`
+        : "from the last available reference (timestamp unavailable)";
+      resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. The $${bench.price} reference is ${refNote} (${sessionClosureReason(refE.session)}). Not a current fairness verdict.`;
     } else {
       resExplanation.textContent = `This trade route would spend $${trade.input_usd_value.toFixed(2)} to acquire approximately ${econ.expected_stock_shares} shares of ${stockMeta.name} on Solana, delivering $${econ.expected_stock_exposure_usd.toFixed(2)} of underlying exposure (difference: ${diffPrefix}$${econ.difference_usd.toFixed(2)} or ${diffPrefix}${diffPct.toFixed(2)}%).`;
     }
@@ -2916,10 +2999,20 @@ function renderCardResult(card, data, symbol) {
   }
   if (evImpact) evImpact.textContent = `${(parseFloat(data.dex_route.price_impact_pct || 0)).toFixed(4)}%`;
   if (evBenchmarkSource) evBenchmarkSource.textContent = `${bench.provider} (${bench.source})`;
-  if (evSession) evSession.textContent = mkt.session || bench.current_market_session || (isClosed ? "CLOSED" : "REGULAR");
-  if (evReferenceStatus) evReferenceStatus.textContent = mkt.reference_eligibility === "ELIGIBLE" ? "Eligible Live Tape" : "Previous market reference, not eligible";
+  if (evSession) {
+    const sess = mkt.session || bench.current_market_session;
+    evSession.textContent = sess ? `${sess} (${describeMarketSession(sess)})` : (isClosed ? "CLOSED" : "REGULAR");
+  }
+  if (evReferenceStatus) {
+    if (mkt.reference_eligibility === "ELIGIBLE") {
+      evReferenceStatus.textContent = "Eligible Live Tape";
+    } else {
+      const refEv = describeReference(bench);
+      evReferenceStatus.textContent = `${describeEligibility(mkt.reference_eligibility)}${refEv.hasTimestamp ? ` — ${refEv.refDateLabel}` : " — timestamp unavailable"}`;
+    }
+  }
   if (evPreflightLevel) evPreflightLevel.textContent = data.preflight_level;
-  if (evSimulation) evSimulation.textContent = sim.status === "PASS" ? `PASS (err: null, ${sim.units_consumed} CU)` : sim.status === "NOT_RUN" ? "NOT RUN (Quote Precheck Mode)" : `FAIL (${sim.err})`;
+  if (evSimulation) evSimulation.textContent = sim.status === "PASS" ? `PASS (err: null, ${sim.units_consumed} CU)` : sim.status === "NOT_RUN" ? "Not run — standard Quote Check" : `FAIL (${sim.err})`;
 
   // Smooth scroll to result
   resultContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });

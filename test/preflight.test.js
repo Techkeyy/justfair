@@ -111,16 +111,20 @@ async function runTests() {
     }
   });
 
-  // --- 4. UNAVAILABLE WEEKEND / STALE FRIDAY REFERENCE IS INELIGIBLE ---
-  await test("Stale Friday / weekend reference evaluates to INELIGIBLE_CLOSED and UNABLE_TO_VERIFY", async () => {
-    // Saturday date check
+  // --- 4. REFERENCE TAXONOMY CONTRACT IS DETERMINISTIC AND TRUTHFUL ---
+  await test("Reference taxonomy maps freshness to exactly one truthful reason code", async () => {
+    // Saturday date check (deterministic unit behavior)
     const saturdayDate = new Date("2026-09-12T12:00:00-04:00");
     const session = calculateMarketSession(saturdayDate);
     if (session !== "CLOSED") {
       throw new Error(`Expected CLOSED session on Saturday, got ${session}`);
     }
 
-    // Live preflight execution on Saturday must yield UNABLE_TO_VERIFY with MARKET_CLOSED_OR_AFTER_HOURS
+    // Live preflight: the reason code must deterministically follow the
+    // returned freshness taxonomy instead of the wall-clock weekday.
+    // AFTER_HOURS_CLOSE -> MARKET_CLOSED_OR_AFTER_HOURS
+    // STALE             -> STALE_REFERENCE
+    // anything else     -> REFERENCE_UNAVAILABLE
     let pf = await runPreflight({
       inputSymbol: "USDC",
       stockSymbol: "AAPLx",
@@ -135,14 +139,22 @@ async function runTests() {
         amount: 100
       });
     }
-    if (pf.verification_status !== "UNABLE_TO_VERIFY") {
-      throw new Error(`Expected UNABLE_TO_VERIFY on weekend, got ${pf.verification_status}`);
+    const freshness = pf.benchmark?.freshness_status;
+    const eligibility = pf.benchmark?.market_context?.reference_eligibility;
+    const expectedCode = freshness === "AFTER_HOURS_CLOSE"
+      ? "MARKET_CLOSED_OR_AFTER_HOURS"
+      : freshness === "STALE"
+        ? "STALE_REFERENCE"
+        : "REFERENCE_UNAVAILABLE";
+    if (!pf.reason_codes.includes(expectedCode)) {
+      throw new Error(`Freshness ${freshness} must yield ${expectedCode}, got ${pf.reason_codes.join(", ")}`);
     }
-    if (!pf.reason_codes.includes("MARKET_CLOSED_OR_AFTER_HOURS")) {
-      throw new Error(`Expected MARKET_CLOSED_OR_AFTER_HOURS reason code, got ${pf.reason_codes.join(", ")}`);
+    if (eligibility !== "ELIGIBLE" && pf.verification_status !== "UNABLE_TO_VERIFY") {
+      throw new Error(`Ineligible reference (${eligibility}) must yield UNABLE_TO_VERIFY, got ${pf.verification_status}`);
     }
-    if (pf.benchmark.market_context.reference_eligibility !== "INELIGIBLE_CLOSED") {
-      throw new Error(`Expected INELIGIBLE_CLOSED, got ${pf.benchmark.market_context.reference_eligibility}`);
+    const hasUnrelatedBlocker = pf.reason_codes.some(c => ["CORPORATE_ACTION_WINDOW", "SIMULATION_FAILED", "STALE_INPUT_REFERENCE", "UNKNOWN_INPUT_REFERENCE"].includes(c));
+    if (eligibility === "ELIGIBLE" && !hasUnrelatedBlocker && !pf.reason_codes.includes("ALL_PREREQUISITES_PASSED")) {
+      throw new Error(`Eligible reference must yield ALL_PREREQUISITES_PASSED, got ${pf.reason_codes.join(", ")}`);
     }
   });
 
