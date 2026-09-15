@@ -69,7 +69,7 @@ function evaluateAlternativeRoutes({
       improvement_pct: 0,
       candidates_evaluated_count: 0,
       candidates: [],
-      market_session_note: isClosed ? "Traditional equity market is closed. Route comparison evaluates real token output against previous close reference." : null
+      market_session_note: isClosed ? "Traditional equity market is closed. Route comparison evaluates real token output against the last available reference." : null
     };
   }
 
@@ -134,7 +134,7 @@ function evaluateAlternativeRoutes({
       improvement_pct: parseFloat(bestDeltaExposurePct.toFixed(2)),
       candidates_evaluated_count: evaluatedCandidates.length,
       candidates: evaluatedCandidates,
-      market_session_note: isClosed ? "Traditional equity market is closed. Route comparison evaluates real token output against previous close reference." : null
+      market_session_note: isClosed ? "Traditional equity market is closed. Route comparison evaluates real token output against the last available reference." : null
     };
   }
 

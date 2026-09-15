@@ -1,6 +1,6 @@
 # JustFair REST API Documentation (`/api/v1`)
 
-The JustFair Equity Preflight API provides pre-trade economic safety and route verification for tokenized stocks on Solana.
+The JustFair Equity Preflight API provides pre-trade product truth and execution safety checks for tokenized stocks on Solana. Read-only and non-custodial: no endpoint executes trades, moves funds, or signs transactions.
 
 ---
 
@@ -9,8 +9,16 @@ The JustFair Equity Preflight API provides pre-trade economic safety and route v
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/health` | Service health status and version |
-| `GET` | `/api/v1/stocks` | List supported payment assets and tokenized stocks registry |
-| `POST` | `/api/v1/preflight` | Primary pre-trade fairness check and simulation engine |
+| `GET` | `/api/v1/stocks` | Supported payment assets and the 12 execution-supported tokenized stocks |
+| `GET` | `/api/v1/products` | Master catalog: 12 underlyings, 24 representations (xStocks + Ondo) |
+| `GET` | `/api/v1/products/:productId` | Single product capabilities (colon-bearing IDs supported, URL-encoded) |
+| `GET` | `/api/v1/products/compare/:underlyingSymbol` | Side-by-side representation comparison, or `?a=&b=` product comparison |
+| `GET` | `/api/v1/products/:productId/verify` | Live on-chain verification (`200` VERIFIED, `503` UNABLE_TO_VERIFY, `400` MISMATCH) |
+| `POST` | `/api/v1/product-preflight` | Product Preflight: match expectations against verified representations |
+| `POST` | `/api/v1/preflight` | Execution Preflight: quote check and optional exact simulation |
+| `GET` | `/api/v1/prices`, `/api/v1/prices/sol` | Authoritative payment-asset spot prices |
+| `GET` | `/api/v1/stream/status` | Streaming health posture |
+| `GET` | `/api/v1/stream` | Live price stream (SSE; `503` without server-side key) |
 
 ---
 
@@ -27,18 +35,18 @@ The JustFair Equity Preflight API provides pre-trade economic safety and route v
 ```
 
 * `inputAsset` *(string, optional, default: "USDC")*: Payment token symbol (`USDC`, `SOL`).
-* `stock` *(string, optional, default: "AAPLx")*: Tokenized stock symbol (`AAPLx`, `NVDAx`, `SPYx`, `TSLAx`).
-* `amount` *(number, required)*: Quantity of payment asset to spend.
+* `stock` *(string, optional, default: "AAPLx")*: Tokenized stock symbol. Only the 12 execution-supported xStocks (`AAPLx`, `NVDAx`, `SPYx`, `TSLAx`, `MSFTx`, `AMZNx`, `GOOGLx`, `METAx`, `COINx`, `AMDx`, `MSTRx`, `QQQx`).
+* `amount` *(number, required, 0 < amount <= 10,000,000)*: Quantity of payment asset to spend.
 * `wallet` *(string, optional)*: User Solana public key.
-  * **Omitted (Quote Precheck)**: Analyzes DEX route and fair value without transaction assembly.
-  * **Provided (Exact Preflight)**: Assembles VersionedTransaction and executes non-broadcast RPC simulation.
+  * **Omitted (Quote Check)**: Analyzes the DEX route and reference economics without assembling any transaction.
+  * **Provided (Exact Simulation)**: Constructs an unsigned transaction and runs a non-broadcast RPC simulation. Nothing is signed, broadcast, or moved.
 
 ### Response Body Schema
 ```json
 {
   "request_status": "SUCCESS",
   "verification_status": "VERIFIED | UNABLE_TO_VERIFY",
-  "verdict": "FAIR | CAUTION | BAD_FILL | UNABLE_TO_VERIFY",
+  "verdict": "MEASURED | UNABLE_TO_VERIFY",
   "preflight_level": "QUOTE_CHECK | EXACT_SIMULATION",
   "reason_codes": [
     "ALL_PREREQUISITES_PASSED"
@@ -57,7 +65,7 @@ The JustFair Equity Preflight API provides pre-trade economic safety and route v
     "price": 332.58,
     "source": "Nasdaq Official Public Equity Quote API (api.nasdaq.com)",
     "source_type": "OFFICIAL_MARKET_DATA_PROVIDER",
-    "provider": "Nasdaq Real-Time Stock Market Tape",
+    "provider": "Nasdaq regular-session reference",
     "timestamp": "2026-09-12T00:46:51.809Z",
     "reference_session": "REGULAR",
     "current_market_session": "REGULAR",
@@ -103,8 +111,50 @@ The JustFair Equity Preflight API provides pre-trade economic safety and route v
 }
 ```
 
+Market-hours truth: outside an eligible live reference the API still returns
+`request_status: SUCCESS` with `verification_status: UNABLE_TO_VERIFY`,
+`verdict: UNABLE_TO_VERIFY`, and a truthful reason code
+(`MARKET_CLOSED_OR_AFTER_HOURS`, `STALE_REFERENCE`, or `REFERENCE_UNAVAILABLE`).
+A current fairness verdict is only produced against an eligible live tape;
+threshold calibration for graded verdicts is pending.
+
+Failure states: `400` for `INVALID_AMOUNT`, `INVALID_PUBLIC_KEY`,
+`UNSUPPORTED_PAYMENT_ASSET`, `UNSUPPORTED_STOCK_ASSET`, `MISSING_AMOUNT`;
+upstream routing failures surface as `request_status: ERROR` with
+`UPSTREAM_TIMEOUT`, `UPSTREAM_UNAVAILABLE`, or `UPSTREAM_ERROR`.
+Rate limiting returns `429` with `RATE_LIMITED`. Request bodies are capped at 1MB.
+
 ---
 
 ## 3. GET `/api/v1/stocks`
 
 Returns active identity registry for supported tokens and stock mints.
+
+---
+
+## 4. Product Preflight
+
+### POST `/api/v1/product-preflight`
+
+```json
+{
+  "underlying": "AAPL",
+  "expectations": [
+    { "key": "SELF_CUSTODY", "priority": "REQUIRED" }
+  ]
+}
+```
+
+Priorities: `REQUIRED`, `OPTIONAL`. Malformed inputs are rejected with `400`.
+Response carries `request_status: COMPLETED`, `overall_result`
+(`MULTIPLE_VERIFIED_MATCHES`, `MATCHES_REQUIRED_EXPECTATIONS`,
+`CONDITIONAL_MATCHES`, `NO_VERIFIED_PRODUCT_MATCH`, `UNABLE_TO_VERIFY_PRODUCT`)
+and per-representation `evaluation.status` of `MATCH`, `CONDITIONAL_MATCH`,
+`MISMATCH`, or `UNABLE_TO_VERIFY`. Ondo representations are product-verified
+but marked `NOT_YET_SUPPORTED` for Execution Preflight — they are never
+substituted with xStocks.
+
+### GET `/api/v1/products`, `/api/v1/products/:productId`, `/api/v1/products/compare/*`, `/api/v1/products/:productId/verify`
+
+Catalog, capability, comparison, and live on-chain verification reads.
+Unknown product IDs return `404`.

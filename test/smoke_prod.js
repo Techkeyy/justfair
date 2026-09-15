@@ -41,6 +41,26 @@ async function smokeTest() {
   console.log("Contains 12 stocks in app.js:", js.includes("MSFTx") && js.includes("QQQx") && js.includes("MSTRx"));
   console.log("Contains truthful routing state (NO BETTER ROUTE OBSERVED):", js.includes("better-option-card") && js.includes("NO BETTER ROUTE OBSERVED"));
   console.log("Contains no overclaims (OPTIMAL ROUTE CONFIRMED):", !js.includes("OPTIMAL ROUTE CONFIRMED"));
+
+  // 5. Product catalog + preflight boundary
+  const prodRes = await fetch(base + '/api/v1/products');
+  console.log('GET /api/v1/products status:', prodRes.status);
+
+  // 6. Product preflight (Apple self-custody + dividends)
+  const ppRes = await fetch(base + '/api/v1/product-preflight', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ underlying: 'AAPL', expectations: [{ key: 'SELF_CUSTODY', priority: 'REQUIRED' }] })
+  });
+  console.log('POST /api/v1/product-preflight status:', ppRes.status);
+  const ppData = await ppRes.json();
+  console.log('Product preflight overall:', ppData.overall_result);
+
+  // 7. SOL price + stream status
+  const solRes = await fetch(base + '/api/v1/prices/sol');
+  console.log('GET /api/v1/prices/sol status:', solRes.status);
+  const streamRes = await fetch(base + '/api/v1/stream/status');
+  console.log('GET /api/v1/stream/status status:', streamRes.status);
 }
 
 smokeTest().catch(err => {

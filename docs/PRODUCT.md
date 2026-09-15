@@ -9,8 +9,8 @@
      * *Core Question:* *"Does this exact tokenized-stock product actually give me what I think it gives me?"*
      * *Purpose:* Evaluates user expectation profiles (legal ownership, corporate voting, economic dividends vs wallet payouts, synthetic price exposure, redemption, and trading availability) across all verified representations of an underlying security (e.g. `AAPL` $\to$ `AAPLx`, `AAPLon`) against primary-source legal prospectuses and on-chain Token-2022 facts.
   2. **Layer 2: Execution Preflight (Existing JustFair Engine)**
-     * *Core Question:* *"Now that I chose the right product, is this exact trade giving me fair economic execution?"*
-     * *Purpose:* Simulates live DEX routes on Solana RPC and compares expected exposure against real-world canonical market benchmarks in plain dollar terms before executing.
+     * *Core Question:* *"Is this exact proposed trade/fill sensible?"*
+     * *Purpose:* Checks live DEX routes on Solana and compares expected exposure against real-world canonical market benchmarks in plain dollar terms before any money moves. Step 4 is independently accessible: it never requires Product Preflight, never preloads a representation, and never executes, signs, broadcasts, or moves funds. A current fairness verdict is only produced against an eligible live reference; otherwise the check completes truthfully as UNABLE_TO_VERIFY.
 
 ---
 
@@ -24,7 +24,7 @@ flowchart TD
     B --> D["Representation 2: AAPLon (Ondo Global Markets / Ondo Stocks)"]
     C -->|"1:1 Collateralized Debt Note · Token-2022 Multiplier"| E{"Matches User Requirements?"}
     D -->|"1:1 Regulated Broker Custody · Token-2022 Multiplier"| E
-    E -->|Single Match| F["Layer 2: Execution Preflight"]
+    E -->|Single Match| F["Layer 2: Execution Preflight (user navigates; Step 4 starts fresh)"]
     E -->|Multiple Matches| G["MULTIPLE VERIFIED MATCHES — Comparison Matrix"]
     E -->|No Match| H["REQUIREMENT MISMATCH Warning"]
 ```
@@ -59,18 +59,17 @@ Users evaluate products against a deterministic expectation profile:
   * `OPTIONAL`: Soft preference / nice-to-have. Reported as a non-blocking informational caveat.
   * `NOT_IMPORTANT`: Ignored in verdict determination.
 
-* **Per-Representation Match States:**
+* **Per-Representation Match States** (`PRODUCT_EVALUATION_STATE`):
   * `MATCH`: Representation verified to fulfill the user expectation.
+  * `CONDITIONAL_MATCH`: Fulfillable subject to specific conditions (e.g. transferability subject to issuer freeze authority).
   * `MISMATCH`: Representation verified NOT to fulfill the user expectation.
-  * `CONDITIONAL`: Fulfillable subject to specific conditions (e.g. transferability subject to issuer freeze authority).
-  * `UNKNOWN`: Unmodeled or unverifiable expectation.
-  * `NOT_APPLICABLE`: Preference marked not important.
+  * `UNABLE_TO_VERIFY`: Unmodeled expectation or failed on-chain verification.
 
-* **Overall Underlying Product Verdicts:**
+* **Overall Underlying Product Verdicts** (`UNDERLYING_RESULT_STATE`):
   * `MATCHES_REQUIRED_EXPECTATIONS`: Exactly one verified representation satisfies all required constraints.
   * `MULTIPLE_VERIFIED_MATCHES`: Multiple representations satisfy all required constraints. FinePrint presents the factual trade-offs without arbitrarily declaring a winner.
-  * `REQUIREMENT_MISMATCH`: No available representation satisfies all required constraints.
-  * `NO_VERIFIED_PRODUCT_MATCH`: Security is unrecognized or has no verified primary-source representations.
+  * `CONDITIONAL_MATCHES`: Representations match subject to conditions.
+  * `NO_VERIFIED_PRODUCT_MATCH`: No available representation satisfies all required constraints.
   * `UNABLE_TO_VERIFY_PRODUCT`: Fact authority data temporarily unreachable.
 
 ---
@@ -89,7 +88,7 @@ Users evaluate products against a deterministic expectation profile:
    * *Trading Availability:* Market trading is session-dependent. Off-hours and weekend trading are subject to wider spreads and liquidity risk controls when underlying US exchanges are closed.
 
 4. **Can I redeem this token for physical company shares?**
-   * *Mechanism:* Direct primary redemption for cash or shares with either issuer is restricted to KYC-verified Qualified / Whitelisted Investors (non-US). Everyday retail traders buy and sell via secondary liquidity pools on Solana DEXs.
+   * *Mechanism:* xStocks direct primary redemption is retail-eligible subject to KYC and a $5,000 minimum. Ondo direct primary redemption requires non-US Regulation S institutional onboarding. Everyday retail traders buy and sell via secondary liquidity pools on Solana DEXs.
 
 5. **What happens if the issuer goes bankrupt?**
    * *xStocks:* Collateral shares are held in segregated Swiss custody pledged to a security trustee for tokenholders.
@@ -131,7 +130,7 @@ JustFair maintains a deterministic, provenance-backed catalog mapping 12 underly
 2. **Never Ranks or Scores:** No percentage scores, arbitrary weights, or subjective "Best / Worst" badges.
 3. **On-Chain Exact Verification Gate:** Representations must be verified on Solana Token-2022; failure forces `UNABLE_TO_VERIFY`.
 4. **Protective Advice:** When a `REQUIRED` expectation mismatches, plain-language consumer advice is provided.
-5. **Execution Handoff:** Successful evaluations produce an immutable handoff structure for Layer 2 Execution Preflight.
+5. **Step 3 → Step 4 Navigation:** A representation's Check Trade action only navigates to the independent Step-4 trade checker. No product state, badge, or selection is preloaded; the user explicitly chooses the representation to inspect inside Step 4.
 
 ### Canonical Consumer Expectations (Phase 13 / Order 012.1)
 1. `SELF_CUSTODY`: "I want to hold it in my own wallet."

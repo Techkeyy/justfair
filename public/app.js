@@ -1480,12 +1480,12 @@ export function renderProductPreflightResults(data) {
         card.classList.add("is-selected-rep");
       });
 
-      // Attach Trade Handoff button
+      // Attach Trade navigation button (Step 4 opens fresh; nothing carried over)
       const tradeBtn = card.querySelector(".btn-check-trade");
       if (tradeBtn) {
         tradeBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          handoffToExecutionPreflight(rep.symbol);
+          goToTradeFromProduct(rep.symbol);
         });
       }
 
@@ -1598,7 +1598,7 @@ export function renderScenariosAccordion(data) {
   });
 }
 
-export function handoffToExecutionPreflight(symbol) {
+export function goToTradeFromProduct(symbol) {
   // Navigation only (013.9): Step 3 findings stay in Step 3. Step 4 always
   // starts fresh — the user explicitly selects the representation there,
   // so no selected product, badge, or handoff state is carried over.
@@ -1849,10 +1849,16 @@ function renderTradeCard(symbol, isExpanded) {
       </div>
     `;
 
-    // Attach Header Toggle Event
+    // Attach Header Toggle Event (pointer + keyboard: headers are role=button)
     const header = cardEl.querySelector(".stock-card-header");
     header.addEventListener("click", () => {
       toggleStockCard(symbol);
+    });
+    header.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleStockCard(symbol);
+      }
     });
 
     stockCardsContainer.appendChild(cardEl);
@@ -2376,13 +2382,30 @@ function updateSubmitState(card) {
 const REF_WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const REF_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+// Provider calendar-date parts from an ISO timestamp prefix, with a generic
+// UTC fallback for non-ISO shapes. Never invents precision beyond a date.
+function referenceDateParts(ts) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ts || "");
+  if (m) return { y: +m[1], mo: +m[2], d: +m[3] };
+  const dt = ts ? new Date(ts) : null;
+  if (dt instanceof Date && !isNaN(dt)) {
+    return { y: dt.getUTCFullYear(), mo: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+  }
+  return null;
+}
+
 export function describeBenchmarkState(benchmark, reasonCodes = []) {
   const mkt = benchmark?.market_context || {};
   const ts = benchmark?.timestamp || null;
-  const d = ts ? new Date(ts) : null;
-  const hasTimestamp = d instanceof Date && !isNaN(d);
-  const weekday = hasTimestamp ? REF_WEEKDAYS[d.getUTCDay()] : null;
-  const dateLabel = hasTimestamp ? `${REF_MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}` : null;
+  // Reference-date semantics (014 §5): upstream timestamps are date
+  // granularity ("Sep 14, 2026" normalized to UTC midnight), not exact trade
+  // instants. Derive weekday/date from the provider calendar date parts so a
+  // UTC/ET midnight boundary can never shift the displayed reference date.
+  // "Close" is never inferred: the source proves a dated last-sale reference.
+  const parts = referenceDateParts(ts);
+  const hasTimestamp = parts !== null;
+  const weekday = hasTimestamp ? REF_WEEKDAYS[new Date(Date.UTC(parts.y, parts.mo - 1, parts.d)).getUTCDay()] : null;
+  const dateLabel = hasTimestamp ? `${REF_MONTHS[parts.mo - 1]} ${parts.d}, ${parts.y}` : null;
   const freshness = benchmark?.freshness_status || null;
   const eligibility = mkt.reference_eligibility || null;
   const codes = Array.isArray(reasonCodes) ? reasonCodes : [];
@@ -2419,8 +2442,8 @@ export function describeBenchmarkState(benchmark, reasonCodes = []) {
 
   let benchmarkDisplay = "unavailable";
   if (eligibility === "ELIGIBLE") benchmarkDisplay = "current";
-  else if (stale) benchmarkDisplay = hasTimestamp ? `stale (${dateLabel} close)` : "stale";
-  else if (closed) benchmarkDisplay = hasTimestamp ? `last close (${dateLabel})` : "last close";
+  else if (stale) benchmarkDisplay = hasTimestamp ? `stale (${dateLabel} reference)` : "stale";
+  else if (closed) benchmarkDisplay = hasTimestamp ? `last reference (${dateLabel})` : "last reference";
   else if (!unknown && eligibility) benchmarkDisplay = eligibilityDisplay.toLowerCase();
 
   return {
@@ -2438,8 +2461,8 @@ export function describeBenchmarkState(benchmark, reasonCodes = []) {
     sessionSentence,
     eligibilityDisplay,
     benchmarkDisplay,
-    vsCloseLabel: hasTimestamp ? `vs ${weekday} close` : "vs last available reference",
-    refDateLabel: hasTimestamp ? `${dateLabel} close` : "last available reference"
+    vsRefLabel: hasTimestamp ? `vs ${weekday} reference` : "vs last available reference",
+    refDateLabel: hasTimestamp ? `${dateLabel} reference` : "last available reference"
   };
 }
 
@@ -2458,7 +2481,7 @@ export function describeReference(bench) {
     hasTimestamp: ref.hasTimestamp,
     weekday: ref.weekday,
     dateLabel: ref.dateLabel,
-    vsCloseLabel: ref.vsCloseLabel,
+    vsRefLabel: ref.vsRefLabel,
     refDateLabel: ref.refDateLabel,
     session: ref.session,
     eligibility: ref.eligibility
@@ -2885,7 +2908,7 @@ function renderCardResult(card, data, symbol) {
   if (diffPctEl) {
     const ref = describeReference(bench);
     diffPctEl.textContent = isClosed
-      ? `(${diffPrefix}${Math.abs(diffPct).toFixed(2)}% ${ref.vsCloseLabel})`
+      ? `(${diffPrefix}${Math.abs(diffPct).toFixed(2)}% ${ref.vsRefLabel})`
       : `(${econ.difference_usd >= 0 ? "+" : ""}${diffPct.toFixed(2)}%)`;
   }
 
@@ -2906,7 +2929,7 @@ function renderCardResult(card, data, symbol) {
         if (refV.unknown) {
           verdictSubtitle.textContent = `Live route found. A current fairness verdict cannot be certified because the equity benchmark's freshness could not be verified. ${refV.sessionSentence}`;
         } else if (refV.closed) {
-          const closedRef = refV.hasTimestamp ? `underlying reference ($${bench.price}) is from the ${refV.weekday} close (${refV.dateLabel})` : `underlying reference ($${bench.price}) reflects the last market close`;
+          const closedRef = refV.hasTimestamp ? `underlying reference ($${bench.price}) is the ${refV.dateLabel} reference (${refV.weekday})` : `underlying reference ($${bench.price}) reflects the last available market reference`;
           verdictSubtitle.textContent = `Live route found. Fairness verdict unavailable — ${closedRef}. ${refV.sessionSentence} Not a current fairness verdict.`;
         } else {
           verdictSubtitle.textContent = `Live route found. Fairness verdict unavailable — underlying reference ($${bench.price}) is stale (${sessionClosureReason(refV.session)}). Not a current fairness verdict.`;
@@ -2929,8 +2952,8 @@ function renderCardResult(card, data, symbol) {
         resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. An equity reference was available, but its timestamp could not be verified, so JustFair cannot certify a current fairness verdict. ${refE.sessionSentence}`;
       } else {
         const refNote = refE.hasTimestamp
-          ? `from the ${refE.weekday} close (${refE.dateLabel})`
-          : "from the last available reference (timestamp unavailable)";
+          ? `the ${refE.dateLabel} reference (${refE.weekday})`
+          : "the last available reference (timestamp unavailable)";
         resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. The $${bench.price} reference is ${refNote}; ${sessionClosureReason(refE.session)}. Not a current fairness verdict.`;
       }
     } else {
