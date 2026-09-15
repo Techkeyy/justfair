@@ -176,7 +176,9 @@ export const API_ENDPOINTS = {
   XSTOCKS_PRICE_DATA_BASE: "https://api.xstocks.fi/api/v2/public/assets",
   // Official Stock Reference Sources
   NASDAQ_QUOTE_BASE: "https://api.nasdaq.com/api/quote",
-  COINGECKO_SIMPLE_PRICE: "https://api.coingecko.com/api/v3/simple/price"
+  COINGECKO_SIMPLE_PRICE: "https://api.coingecko.com/api/v3/simple/price",
+  // Official Alpaca Market Data (authenticated server-side only)
+  ALPACA_DATA_BASE: "https://data.alpaca.markets"
 };
 
 export const TIMEOUTS = {
