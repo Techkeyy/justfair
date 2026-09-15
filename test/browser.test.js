@@ -2061,6 +2061,7 @@ async function runBrowserTests() {
             title: t(".verdict-title"), ctx: t(".live-benchmark-context"), expl: t(".res-explanation"),
             bid: t(".ev-ref-bid"), ask: t(".ev-ref-ask"), mid: t(".ev-ref-mid"),
             type: t(".ev-ref-type"), time: t(".ev-ref-time"), spread: t(".ev-spread-pos"),
+            refStatus: t(".ev-reference-status"),
             all: c.querySelector(".inline-result-container").innerText
           };
         });
@@ -2083,6 +2084,7 @@ async function runBrowserTests() {
           throw new Error(`Evidence bid/ask/mid missing: ${box.bid}/${box.ask}/${box.mid}`);
         }
         if (box.type.trim() !== "ASK") throw new Error(`Reference type must be ASK, got: ${box.type}`);
+        if (box.refStatus.trim() !== "Eligible live reference") throw new Error(`Reference status must not claim a tape: ${box.refStatus}`);
         if (/\bFAIR\b|\bCAUTION\b|BAD FILL/.test(box.all)) throw new Error("No calibrated verdict words allowed");
         if (/\bstale\b/i.test(box.all)) throw new Error("Current overnight must not read stale");
         // Revalidation compat (§31): same shared renderer handles Alpaca Snapshot B.
@@ -2178,6 +2180,7 @@ async function runBrowserTests() {
           if (!box.includes(n)) throw new Error(`Quote comparison must show "${n}"`);
         }
         if (/exposure/i.test(box)) throw new Error("No exposure valuation allowed in quote comparison");
+        if (!box.includes("JustFair does not execute this route")) throw new Error("Comparison must carry non-execution disclosure");
         if (/more value/i.test(box)) throw new Error("No dollar value claims allowed in quote comparison");
         if (/Reference difference/i.test(box)) throw new Error("No reference-difference language allowed in quote comparison");
         if (/\bFAIR\b|\bCAUTION\b|BAD FILL/.test(box)) throw new Error("No calibrated verdict words allowed");

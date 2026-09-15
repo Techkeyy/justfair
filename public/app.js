@@ -2094,7 +2094,7 @@ function renderCardBodyMarkup(symbol) {
               <span class="improvement-label">IMPROVEMENT:</span>
               <span class="improvement-value alternative-improvement-val">+$0.00 (+0.00%)</span>
             </div>
-            <p class="better-option-note">JustFair provides non-custodial pre-trade intelligence. Choose direct routing or the specific venue in your wallet if desired.</p>
+            <p class="better-option-note">JustFair does not execute this route. Revalidate before continuing; Jupiter generates the final live route and it may differ.</p>
           </div>
         </div>
       </div>
@@ -2138,7 +2138,7 @@ function renderCardBodyMarkup(symbol) {
             <div class="reval-row"><span class="reval-label">Original check</span><strong class="reval-orig-shares"></strong></div>
             <div class="reval-row"><span class="reval-label">Revalidated</span><strong class="reval-new-shares"></strong></div>
             <div class="reval-row reval-change-row"><span class="reval-label">Change</span><strong class="reval-change"></strong></div>
-            <div class="reval-row"><span class="reval-label">Latest exposure</span><strong class="reval-exposure"></strong></div>
+            <div class="reval-row"><span class="reval-label">Latest comparison</span><strong class="reval-exposure"></strong></div>
             <div class="reval-row"><span class="reval-label">Route</span><strong class="reval-route"></strong></div>
             <div class="reval-row"><span class="reval-label">Fairness benchmark</span><strong class="reval-bench"></strong></div>
           </div>
@@ -3297,7 +3297,7 @@ function renderCardResult(card, data, symbol) {
   if (evReferenceStatus) {
     const refEv = describeBenchmarkState(bench, data?.reason_codes);
     if (refEv.eligibility === "ELIGIBLE" && !refEv.unknown && !refEv.indicative) {
-      evReferenceStatus.textContent = "Eligible Live Tape";
+      evReferenceStatus.textContent = "Eligible live reference";
     } else if (refEv.unknown) {
       evReferenceStatus.textContent = "Unavailable — timestamp unavailable";
     } else if (refEv.indicative) {
