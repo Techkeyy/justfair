@@ -2108,13 +2108,51 @@ function renderCardBodyMarkup(symbol) {
         <button type="button" class="btn btn-secondary btn-sm exact-upsell-btn">Run exact simulation</button>
       </div>
 
-      <!-- Safe Exit to Jupiter -->
-      <div class="jupiter-exit-card">
-        <a href="https://jup.ag/swap?buy=${stock.mint}&sell=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm jupiter-exit-link">
-          <span>GET A FRESH JUPITER QUOTE</span>
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-        </a>
-        <span class="jupiter-disclaimer">Jupiter will generate a fresh quote when opened. It may differ from the route JustFair inspected.</span>
+      <!-- Handoff Revalidation (Director Order 015): re-check before leaving -->
+      <div class="handoff-revalidate-box">
+        <button type="button" class="btn btn-primary btn-md revalidate-btn">
+          <span class="btn-text">REVALIDATE &amp; CONTINUE</span>
+          <span class="btn-spinner hidden" aria-hidden="true"></span>
+        </button>
+        <p class="form-hint revalidate-hint">Refresh this exact trade before leaving JustFair.</p>
+
+        <div class="revalidation-loading hidden">
+          <div class="loading-spinner"></div>
+          <p class="loading-step-text">Requesting the same trade again…</p>
+        </div>
+
+        <div class="revalidation-result hidden">
+          <div class="reval-header">
+            <span class="reval-title">HANDOFF REVALIDATION</span>
+            <span class="reval-timestamp"></span>
+          </div>
+          <div class="reval-grid">
+            <div class="reval-row"><span class="reval-label">Original check</span><strong class="reval-orig-shares"></strong></div>
+            <div class="reval-row"><span class="reval-label">Revalidated</span><strong class="reval-new-shares"></strong></div>
+            <div class="reval-row reval-change-row"><span class="reval-label">Change</span><strong class="reval-change"></strong></div>
+            <div class="reval-row"><span class="reval-label">Latest exposure</span><strong class="reval-exposure"></strong></div>
+            <div class="reval-row"><span class="reval-label">Route</span><strong class="reval-route"></strong></div>
+            <div class="reval-row"><span class="reval-label">Fairness benchmark</span><strong class="reval-bench"></strong></div>
+          </div>
+          <p class="reval-warning hidden"></p>
+          <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm jupiter-continue-link">
+            <span>CONTINUE TO JUPITER</span>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </a>
+          <p class="form-hint reval-amount-note"></p>
+          <button type="button" class="btn-link reval-copy-amount-btn">Copy amount</button>
+          <p class="form-hint reval-disclosure">JustFair revalidated this trade moments ago. Jupiter generates the final live quote when opened, so route and output may change again.</p>
+        </div>
+
+        <div class="revalidation-error hidden">
+          <h4 class="error-title">Couldn't revalidate this trade</h4>
+          <p class="error-message">The route you inspected earlier may no longer be current.</p>
+          <button type="button" class="btn btn-secondary btn-sm revalidate-retry-btn">Try again</button>
+          <div class="reval-fallback-row">
+            <a href="#" target="_blank" rel="noopener noreferrer" class="btn-link jupiter-exit-link">Open Jupiter without revalidation</a>
+          </div>
+          <p class="form-hint">JustFair could not revalidate this trade. Jupiter will generate its own fresh quote.</p>
+        </div>
       </div>
 
       <!-- Technical Evidence Drawer -->
@@ -3039,15 +3077,8 @@ function renderCardResult(card, data, symbol) {
     exactUpsell.classList.toggle("hidden", isExact);
   }
 
-  // 8. Jupiter Exit Link
-  const jupiterExitLink = resultContainer.querySelector(".jupiter-exit-link");
-  if (jupiterExitLink) {
-    const inputMint = trade.input_mint || (trade.input_asset === "SOL"
-      ? "So11111111111111111111111111111111111111112"
-      : "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-    const outputMint = trade.token_mint;
-    jupiterExitLink.href = `https://jup.ag/swap?buy=${encodeURIComponent(outputMint)}&sell=${encodeURIComponent(inputMint)}`;
-  }
+  // 8. Handoff revalidation state (fresh per checked snapshot)
+  initRevalidation(card, data);
 
   // 9. Technical Evidence Accordion
   const evInputPrice = resultContainer.querySelector(".ev-input-price");
@@ -3108,6 +3139,198 @@ function renderCardResult(card, data, symbol) {
 
   // Smooth scroll to result
   resultContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+// ==========================================
+// Handoff Revalidation (Director Order 015)
+// ==========================================
+// Per-card state: the checked snapshot stays immutable; revalidation builds
+// a second frozen snapshot only after explicit user intent. Statuses:
+// IDLE | CHECKING | SUCCESS | FAILED.
+const cardRevalidations = new WeakMap();
+
+function jupiterPairUrl(inputMint, outputMint) {
+  return `https://jup.ag/swap?buy=${encodeURIComponent(outputMint)}&sell=${encodeURIComponent(inputMint)}`;
+}
+
+function tradeMints(trade) {
+  const inputMint = trade.input_mint || (trade.input_asset === "SOL"
+    ? "So11111111111111111111111111111111111111112"
+    : "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+  return { inputMint, outputMint: trade.token_mint };
+}
+
+// Deterministic route identity from real returned route information only:
+// router + venue steps + input/output mints. Amounts excluded. Returns null
+// when identity cannot be proven (never guessed).
+export function frontendRouteIdentity(dexRoute, trade) {
+  const router = (dexRoute?.router || "").toLowerCase().trim();
+  const steps = Array.isArray(dexRoute?.steps) ? dexRoute.steps.filter(s => typeof s === "string" && s.trim().length > 0) : [];
+  const { inputMint, outputMint } = tradeMints(trade || {});
+  if (!router || steps.length === 0 || !inputMint || !outputMint) return null;
+  return `${router}|${steps.join(">")}|${inputMint}>${outputMint}`;
+}
+
+function setRevalidateBtn(box, label, disabled) {
+  const btn = box.querySelector(".revalidate-btn");
+  if (!btn) return;
+  const textEl = btn.querySelector(".btn-text");
+  if (textEl) textEl.textContent = label;
+  const spinner = btn.querySelector(".btn-spinner");
+  if (spinner) spinner.classList.toggle("hidden", !disabled);
+  btn.disabled = !!disabled;
+}
+
+function initRevalidation(card, data) {
+  const box = card.querySelector(".handoff-revalidate-box");
+  if (!box) return;
+  cardRevalidations.set(card, { status: "IDLE", snapshotA: data, snapshotB: null });
+
+  box.querySelector(".revalidation-loading")?.classList.add("hidden");
+  box.querySelector(".revalidation-result")?.classList.add("hidden");
+  box.querySelector(".revalidation-error")?.classList.add("hidden");
+  setRevalidateBtn(box, "REVALIDATE & CONTINUE", false);
+
+  // Pair-only Jupiter URL (amount preload is not officially supported).
+  // Fallback link points at the checked snapshot's pair until revalidation.
+  const { inputMint, outputMint } = tradeMints(data.trade || {});
+  const pairUrl = jupiterPairUrl(inputMint, outputMint);
+  const fallbackLink = box.querySelector(".revalidation-error .jupiter-exit-link");
+  if (fallbackLink) fallbackLink.href = pairUrl;
+
+  if (box.dataset.bound) return;
+  box.dataset.bound = "1";
+  box.querySelector(".revalidate-btn")?.addEventListener("click", () => handleRevalidate(card));
+  box.querySelector(".revalidate-retry-btn")?.addEventListener("click", () => handleRevalidate(card));
+  box.querySelector(".reval-copy-amount-btn")?.addEventListener("click", (e) => {
+    const st = cardRevalidations.get(card);
+    const t = st?.snapshotA?.trade;
+    const val = t ? String(t.input_amount) : "";
+    const btn = e.currentTarget;
+    const done = () => {
+      const orig = "Copy amount";
+      btn.textContent = "Copied";
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    };
+    if (val && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(val).then(done).catch(done);
+    } else {
+      done();
+    }
+  });
+}
+
+async function handleRevalidate(card) {
+  const box = card.querySelector(".handoff-revalidate-box");
+  const st = cardRevalidations.get(card);
+  if (!box || !st || st.status === "CHECKING") return; // single in-flight request
+  const intent = st.snapshotA?.trade;
+  if (!intent) return;
+
+  st.status = "CHECKING";
+  setRevalidateBtn(box, "REVALIDATING...", true);
+  box.querySelector(".revalidation-result")?.classList.add("hidden");
+  box.querySelector(".revalidation-error")?.classList.add("hidden");
+  box.querySelector(".revalidation-loading")?.classList.remove("hidden");
+
+  // Same explicit intent as the checked snapshot. Walletless by default:
+  // normal handoff revalidation is a Quote Check refresh.
+  activeRouteScheduler.stopTimer();
+  if (activeRouteScheduler.abortController) {
+    try { activeRouteScheduler.abortController.abort(); } catch {}
+  }
+
+  let fresh = null;
+  try {
+    const res = await fetch("/api/v1/preflight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        inputAsset: intent.input_asset,
+        stock: intent.stock_symbol,
+        amount: intent.input_amount,
+        wallet: null
+      })
+    });
+    fresh = await res.json();
+  } catch (err) {
+    fresh = null;
+  }
+
+  box.querySelector(".revalidation-loading")?.classList.add("hidden");
+  if (fresh && fresh.request_status === "SUCCESS") {
+    st.status = "SUCCESS";
+    st.snapshotB = fresh;
+    renderRevalidation(card, st.snapshotA, fresh);
+    setRevalidateBtn(box, "REVALIDATE AGAIN", false);
+  } else {
+    st.status = "FAILED";
+    box.querySelector(".revalidation-error")?.classList.remove("hidden");
+    setRevalidateBtn(box, "TRY AGAIN", false);
+  }
+}
+
+function renderRevalidation(card, snapA, snapB) {
+  const box = card.querySelector(".handoff-revalidate-box");
+  if (!box) return;
+  const tradeA = snapA.trade;
+  const econA = snapA.economics;
+  const tradeB = snapB.trade;
+  const econB = snapB.economics;
+  const canonical = tradeB.canonical_stock || tradeA.canonical_stock;
+
+  const sharesA = Number(econA.expected_stock_shares) || 0;
+  const sharesB = Number(econB.expected_stock_shares) || 0;
+  const dShares = sharesB - sharesA;
+  const pctShares = sharesA !== 0 ? (dShares / sharesA) * 100 : null;
+  const expA = Number(econA.expected_stock_exposure_usd) || 0;
+  const expB = Number(econB.expected_stock_exposure_usd) || 0;
+  const dExp = expB - expA;
+
+  const fmtSigned = (v, digits) => `${v >= 0 ? "+" : "-"}${Math.abs(v).toFixed(digits)}`;
+  const set = (sel, text) => {
+    const el = box.querySelector(sel);
+    if (el) el.textContent = text;
+  };
+  set(".reval-orig-shares", `${sharesA} ${canonical}`);
+  set(".reval-new-shares", `${sharesB} ${canonical}`);
+  set(".reval-change", `${fmtSigned(dShares, 6)} ${canonical} (${pctShares === null ? "—" : fmtSigned(pctShares, 2) + "%"})`);
+  set(".reval-exposure", `$${expB.toFixed(2)} (${fmtSigned(dExp, 2)} vs original)`);
+
+  const idA = frontendRouteIdentity(snapA.dex_route, tradeA);
+  const idB = frontendRouteIdentity(snapB.dex_route, tradeB);
+  set(".reval-route", !idA || !idB ? "Fresh route received" : idA === idB ? "Same route observed" : "Route updated");
+
+  const refB = describeBenchmarkState(snapB.benchmark, snapB.reason_codes);
+  set(".reval-bench", `Fairness benchmark: ${refB.benchmarkDisplay}`);
+  const warnEl = box.querySelector(".reval-warning");
+  if (warnEl) {
+    if (snapB.verdict === "UNABLE_TO_VERIFY" || snapB.verification_status === "UNABLE_TO_VERIFY") {
+      let reason = "the equity reference is not current";
+      if (refB.unknown) reason = "the benchmark freshness could not be verified";
+      else if (refB.stale) reason = "the equity reference is stale";
+      else if (refB.closed) reason = "the market is closed";
+      warnEl.textContent = `Route revalidated. Current fairness verdict remains unavailable because ${reason}.`;
+      warnEl.classList.remove("hidden");
+    } else {
+      warnEl.classList.add("hidden");
+    }
+  }
+
+  const timeStr = new Date().toISOString().replace("T", " ").slice(11, 19);
+  set(".reval-timestamp", `REVALIDATED AT ${timeStr} UTC`);
+
+  const mintsB = tradeMints(tradeB);
+  const continueLink = box.querySelector(".jupiter-continue-link");
+  if (continueLink) continueLink.href = jupiterPairUrl(mintsB.inputMint, mintsB.outputMint);
+  // Amount preload is not officially supported: pair only, with an explicit note.
+  const amountNote = box.querySelector(".reval-amount-note");
+  if (amountNote) {
+    amountNote.textContent = `Enter ${tradeB.input_amount} ${tradeB.input_asset} on Jupiter to reproduce this trade intent.`;
+  }
+
+  box.querySelector(".revalidation-result")?.classList.remove("hidden");
+  box.querySelector(".revalidation-result")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 // ==========================================

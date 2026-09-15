@@ -11,6 +11,84 @@ const __dirname = path.dirname(__filename);
 const EVIDENCE_DIR = path.resolve(__dirname, "../docs/evidence/ui");
 const VIDEOS_DIR = path.resolve(__dirname, "../docs/evidence/ui/videos");
 
+// Revalidation fixtures (015): deterministic QUOTE_CHECK snapshots.
+// A = checked snapshot, B variants = revalidation responses.
+const REVAL_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const REVAL_AAPLX_MINT = "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp";
+const REVAL_TOKEN_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+
+function revalQuoteFixture(over = {}) {
+  const trade = {
+    input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+    input_mint: REVAL_USDC_MINT,
+    input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+    input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+    input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+    token_mint: REVAL_AAPLX_MINT, token_program: REVAL_TOKEN_PROGRAM,
+    ...(over.trade || {})
+  };
+  const benchmark = {
+    symbol: "AAPLx", price: 332.27, source: "Nasdaq", source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+    provider: "Last known Nasdaq reference, not eligible", timestamp: "2026-09-14T00:00:00.000Z",
+    freshness_status: "STALE", is_real_time: false,
+    market_context: { session: "OVERNIGHT", underlying_reference_available: false, reference_eligibility: "INELIGIBLE_STALE" },
+    ...(over.benchmark || {})
+  };
+  if (over.benchmark?.market_context) {
+    benchmark.market_context = { ...benchmark.market_context, ...over.benchmark.market_context };
+  }
+  return {
+    request_status: "SUCCESS", verification_status: "UNABLE_TO_VERIFY", verdict: "UNABLE_TO_VERIFY",
+    preflight_level: "QUOTE_CHECK", reason_codes: ["STALE_REFERENCE"],
+    trade,
+    benchmark,
+    economics: {
+      raw_out_amount: "150000000", expected_stock_shares: 1.5,
+      underlying_benchmark_price: 332.27, expected_stock_exposure_usd: 498.41,
+      effective_price_per_share: 333.33, difference_usd: -1.59, difference_pct: -0.32,
+      multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 },
+      ...(over.economics || {})
+    },
+    dex_route: {
+      router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100",
+      ...(over.dex_route || {})
+    },
+    alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+    simulation: { status: "NOT_RUN", err: null, units_consumed: 0 },
+    ...(over.top || {})
+  };
+}
+
+function revalBenchUnknown() {
+  return {
+    benchmark: {
+      symbol: "AAPLx", price: 332.27, source: "Nasdaq", source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+      provider: "Last known Nasdaq reference, not eligible", timestamp: null, freshness_status: "UNKNOWN",
+      is_real_time: false,
+      market_context: { session: "POST_MARKET", underlying_reference_available: false, reference_eligibility: "INELIGIBLE_UNKNOWN" }
+    },
+    top: { reason_codes: ["REFERENCE_UNAVAILABLE"] }
+  };
+}
+
+// Fresh Step-4 AAPLx card helper shared by revalidation tests.
+async function openFreshTradeCard(pg) {
+  await pg.click("#tracker-step-4");
+  await pg.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
+  await pg.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+  await pg.click("#stock-card-AAPLx .stock-card-header");
+  await pg.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+}
+
+async function fillTradeAndCheck(pg, asset, amount) {
+  await pg.click(`#stock-card-AAPLx .payment-tab[data-asset='${asset}']`);
+  await pg.fill("#stock-card-AAPLx .amount-input", String(amount));
+  await pg.waitForTimeout(800); // let debounce polls settle so POST accounting is exact
+  await pg.click("#stock-card-AAPLx .submit-trade-btn");
+  await pg.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+  await pg.waitForTimeout(600);
+}
+
 if (!fs.existsSync(EVIDENCE_DIR)) fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
 if (!fs.existsSync(VIDEOS_DIR)) fs.mkdirSync(VIDEOS_DIR, { recursive: true });
 
@@ -1379,6 +1457,391 @@ async function runBrowserTests() {
         const connErr = await page.textContent("#stock-card-AAPLx .inline-error-state");
         if (!/We Couldn.t Check This Trade/i.test(connErr)) {
           throw new Error(`Connection failure must render honestly: ${connErr.slice(0, 200)}`);
+        }
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    // 35-48. Handoff revalidation (015 A-M + exact-mode wallet rule)
+    await test("35. No hidden revalidation: zero POSTs until explicit click", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        const idle = seenPreflightPosts.length;
+        await page.waitForTimeout(3000);
+        if (seenPreflightPosts.length !== idle) throw new Error("Revalidation must never fire automatically");
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        if (seenPreflightPosts.length !== idle + 1) {
+          throw new Error(`Exactly one revalidation POST expected, got ${seenPreflightPosts.length - idle}`);
+        }
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("36. Revalidation preserves exact intent including wallet null", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        const before = seenPreflightPosts.length;
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const posts = seenPreflightPosts.slice(before);
+        if (posts.length !== 1) throw new Error("Expected exactly one revalidation POST");
+        const payload = JSON.parse(posts[0].postData);
+        for (const [k, v] of [["inputAsset", "USDC"], ["stock", "AAPLx"], ["amount", 500]]) {
+          if (payload[k] !== v) throw new Error(`Revalidation intent mismatch on ${k}: ${JSON.stringify(payload)}`);
+        }
+        if (payload.wallet !== null && payload.wallet !== undefined) {
+          throw new Error(`Revalidation must be walletless, got: ${payload.wallet}`);
+        }
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("37. Original snapshot stays immutable after revalidation", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        const spendBefore = await page.textContent("#stock-card-AAPLx .res-spend-val");
+        const freezeBefore = await page.textContent("#stock-card-AAPLx .res-freeze-timestamp");
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const spendAfter = await page.textContent("#stock-card-AAPLx .res-spend-val");
+        const freezeAfter = await page.textContent("#stock-card-AAPLx .res-freeze-timestamp");
+        if (spendBefore !== spendAfter || freezeBefore !== freezeAfter) {
+          throw new Error("Snapshot A must remain unchanged after revalidation");
+        }
+        await page.screenshot({ path: path.join(EVIDENCE_DIR, "35_revalidation_result.png") });
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("38. Changed output shows exact negative delta, no verdict label", async () => {
+      const bFixture = revalQuoteFixture({ economics: { expected_stock_shares: 1.49, expected_stock_exposure_usd: 495.08, difference_usd: -4.92, difference_pct: -0.98 } });
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        // Re-arm: every revalidation POST from here gets snapshot B.
+        await page.unroute("**/api/v1/preflight");
+        await page.route("**/api/v1/preflight", async route => {
+          if (route.request().method() !== "POST") { await route.continue(); return; }
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bFixture) });
+        });
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const box = await page.evaluate(() => {
+          const b = document.querySelector("#stock-card-AAPLx .handoff-revalidate-box");
+          const t = s => b.querySelector(s)?.textContent.trim() || "";
+          return { latest: t(".reval-new-shares"), change: t(".reval-change"), all: b.innerText };
+        });
+        if (!box.latest.startsWith("1.49")) throw new Error(`Latest must read 1.49, got: ${box.latest}`);
+        if (!box.change.includes("-0.010000") || !box.change.includes("-0.67%")) {
+          throw new Error(`Change must read -0.010000 (-0.67%), got: ${box.change}`);
+        }
+        if (/SAFE|looks good|BAD FILL/i.test(box.all)) throw new Error("No verdict labels allowed on deltas");
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("39. Improved output shows factual positive delta, never saved", async () => {
+      const bFixture = revalQuoteFixture({ economics: { expected_stock_shares: 1.52, expected_stock_exposure_usd: 505.05, difference_usd: 5.05, difference_pct: 1.01 } });
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        await page.unroute("**/api/v1/preflight");
+        await page.route("**/api/v1/preflight", async route => {
+          if (route.request().method() !== "POST") { await route.continue(); return; }
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bFixture) });
+        });
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const box = await page.evaluate(() => {
+          const b = document.querySelector("#stock-card-AAPLx .handoff-revalidate-box");
+          return b.innerText;
+        });
+        if (!box.includes("+0.020000") || !box.includes("+1.33%")) throw new Error(`Positive delta missing: ${box.slice(0, 300)}`);
+        if (/saved/i.test(box)) throw new Error("Must never claim savings");
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("40. Same route fingerprint reads SAME ROUTE OBSERVED", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const routeText = await page.textContent("#stock-card-AAPLx .reval-route");
+        if (!routeText.includes("Same route observed")) throw new Error(`Expected SAME ROUTE OBSERVED, got: ${routeText}`);
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("41. Changed fingerprint reads ROUTE UPDATED", async () => {
+      const bFixture = revalQuoteFixture({ dex_route: { steps: ["USDC", "Raydium", "AAPLx"] } });
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        await page.unroute("**/api/v1/preflight");
+        await page.route("**/api/v1/preflight", async route => {
+          if (route.request().method() !== "POST") { await route.continue(); return; }
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(bFixture) });
+        });
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const routeText = await page.textContent("#stock-card-AAPLx .reval-route");
+        if (!routeText.includes("Route updated")) throw new Error(`Expected ROUTE UPDATED, got: ${routeText}`);
+        const latest = await page.textContent("#stock-card-AAPLx .reval-new-shares");
+        if (!latest.includes("1.5")) throw new Error("Updated economics must still display");
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("42. Missing route identity reads FRESH ROUTE RECEIVED, never guessed", async () => {
+      let call = 0;
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        const fixture = call++ === 0
+          ? revalQuoteFixture()
+          : revalQuoteFixture({ dex_route: { router: "", steps: [] } });
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixture) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const routeText = await page.textContent("#stock-card-AAPLx .reval-route");
+        if (!routeText.includes("Fresh route received")) throw new Error(`Expected FRESH ROUTE RECEIVED, got: ${routeText}`);
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("43. Stale benchmark revalidates with warning, verdict stays unavailable", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const bench = await page.textContent("#stock-card-AAPLx .reval-bench");
+        if (!/stale/i.test(bench) || !/Sep 14, 2026/.test(bench)) {
+          throw new Error(`Benchmark line must carry stale state: ${bench}`);
+        }
+        const warn = await page.textContent("#stock-card-AAPLx .reval-warning");
+        if (!/remains unavailable/i.test(warn)) throw new Error(`Warning must persist: ${warn}`);
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("44. Unknown benchmark revalidates as unavailable, never stale", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture(revalBenchUnknown())) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const box = await page.evaluate(() => document.querySelector("#stock-card-AAPLx .handoff-revalidate-box").innerText);
+        if (!/unavailable/i.test(box)) throw new Error(`Unknown benchmark must read unavailable: ${box.slice(0, 300)}`);
+        if (/\bstale\b/i.test(box)) throw new Error(`Unknown benchmark must never read stale: ${box.slice(0, 300)}`);
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("45. Revalidation failure shows retry, hides continue, keeps old snapshot honest", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({
+          status: 503, contentType: "application/json",
+          body: JSON.stringify({ request_status: "ERROR", reason_codes: ["UPSTREAM_UNAVAILABLE"], reason: "Jupiter unavailable in fixture" })
+        });
+      });
+      try {
+        // Seed snapshot A directly with a good response first.
+        await page.unroute("**/api/v1/preflight");
+        await page.route("**/api/v1/preflight", async route => {
+          if (route.request().method() !== "POST") { await route.continue(); return; }
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+        });
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        // Now fail every revalidation attempt.
+        await page.unroute("**/api/v1/preflight");
+        await page.route("**/api/v1/preflight", async route => {
+          if (route.request().method() !== "POST") { await route.continue(); return; }
+          await route.fulfill({
+            status: 503, contentType: "application/json",
+            body: JSON.stringify({ request_status: "ERROR", reason_codes: ["UPSTREAM_UNAVAILABLE"], reason: "Jupiter unavailable in fixture" })
+          });
+        });
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-error:not(.hidden)", { timeout: 15000 });
+        const errBox = await page.evaluate(() => {
+          const card = document.getElementById("stock-card-AAPLx");
+          return {
+            text: card.querySelector(".revalidation-error")?.innerText || "",
+            continueVisible: card.querySelector(".jupiter-continue-link")?.offsetParent !== null,
+            btnLabel: card.querySelector(".revalidate-btn")?.innerText.trim() || ""
+          };
+        });
+        if (!/couldn.t revalidate/i.test(errBox.text)) throw new Error("Failure copy missing");
+        if (errBox.continueVisible) throw new Error("No CONTINUE action may show on failure");
+        if (!/try again/i.test(errBox.btnLabel)) throw new Error(`Retry must be primary, got: ${errBox.btnLabel}`);
+        // Retry through the same failing stub keeps failing honestly (no fake success).
+        await page.click("#stock-card-AAPLx .revalidate-retry-btn");
+        await page.waitForTimeout(1500);
+        const stillErr = await page.evaluate(() => !document.querySelector("#stock-card-AAPLx .revalidation-error")?.classList.contains("hidden"));
+        if (!stillErr) throw new Error("Persistent failure must keep failing honestly");
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("46. Double click issues exactly one revalidation request", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        const before = seenPreflightPosts.length;
+        await page.evaluate(() => {
+          const btn = document.querySelector("#stock-card-AAPLx .revalidate-btn");
+          btn.click();
+          btn.click();
+        });
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        if (seenPreflightPosts.length - before !== 1) {
+          throw new Error(`Double click must issue one request, got ${seenPreflightPosts.length - before}`);
+        }
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("47. Mobile revalidation stays readable with usable CTA", async () => {
+      const mobContext = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true });
+      const mobPage = await mobContext.newPage();
+      try {
+        await mobPage.route("**/api/v1/preflight", async route => {
+          if (route.request().method() !== "POST") { await route.continue(); return; }
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+        });
+        await mobPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await mobPage.click("#hero-open-app-btn");
+        await mobPage.click("#tracker-step-4");
+        await mobPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await mobPage.click("#stock-card-AAPLx .stock-card-header");
+        await mobPage.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+        await mobPage.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+        await mobPage.fill("#stock-card-AAPLx .amount-input", "500");
+        await mobPage.click("#stock-card-AAPLx .submit-trade-btn");
+        await mobPage.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+        await mobPage.click("#stock-card-AAPLx .revalidate-btn");
+        await mobPage.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const paint = await mobPage.evaluate(() => {
+          const box = (sel) => {
+            const el = document.querySelector(sel);
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            return { w: r.width, h: r.height };
+          };
+          return {
+            box: box("#stock-card-AAPLx .revalidation-result"),
+            cont: box("#stock-card-AAPLx .jupiter-continue-link"),
+            overflow: document.documentElement.scrollWidth > window.innerWidth
+          };
+        });
+        if (!paint.box || !(paint.box.w > 0 && paint.box.h > 0)) throw new Error("Mobile comparison must paint");
+        if (!paint.cont || !(paint.cont.w > 0 && paint.cont.h > 0)) throw new Error("Mobile CTA must be usable");
+        if (paint.overflow) throw new Error("Mobile revalidation must not overflow");
+        await mobPage.screenshot({ path: path.join(EVIDENCE_DIR, "35_mobile_revalidation.png") });
+      } finally {
+        await mobContext.close();
+      }
+    });
+
+    await test("48. Exact-mode revalidation stays walletless by default", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        const body = JSON.parse(reqBodyOf(route) || "{}");
+        const exact = body.wallet ? true : false;
+        const fixture = exact
+          ? { ...revalQuoteFixture(), preflight_level: "EXACT_SIMULATION", simulation: { status: "PASS", err: null, units_consumed: 42000 } }
+          : revalQuoteFixture();
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fixture) });
+      });
+      function reqBodyOf(route) {
+        try { return route.request().postData(); } catch { return null; }
+      }
+      try {
+        await openFreshTradeCard(page);
+        await page.click("#stock-card-AAPLx .exact-sim-toggle");
+        await page.waitForSelector("#stock-card-AAPLx .exact-sim-body:not(.hidden)", { timeout: 15000 });
+        // A previously entered address persists globally, leaving the
+        // fallback box already open: only toggle when actually collapsed.
+        const manualOpen = await page.$eval("#stock-card-AAPLx .exact-sim-manual-box", el => !el.classList.contains("hidden"));
+        if (!manualOpen) {
+          await page.click("#stock-card-AAPLx .exact-sim-manual-toggle");
+          await page.waitForSelector("#stock-card-AAPLx .exact-sim-manual-box:not(.hidden)", { timeout: 15000 });
+        }
+        await page.fill("#stock-card-AAPLx .exact-address-input", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM");
+        await fillTradeAndCheck(page, "USDC", 500);
+        const before = seenPreflightPosts.length;
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const posts = seenPreflightPosts.slice(before);
+        if (posts.length !== 1) throw new Error("Expected exactly one revalidation POST");
+        const payload = JSON.parse(posts[0].postData);
+        if (payload.wallet !== null && payload.wallet !== undefined) {
+          throw new Error(`Default revalidation must be walletless, got: ${payload.wallet}`);
         }
       } finally {
         await page.unroute("**/api/v1/preflight");
