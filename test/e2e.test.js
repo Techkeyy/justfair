@@ -8,6 +8,7 @@
 // Live-provider behavior belongs in test/smoke_prod.js (observational).
 import { createServer } from "../src/server.js";
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS } from "../src/config.js";
+import { clearMarketReferenceCache } from "../src/engine/benchmark.js";
 
 const FIXTURE_OUT_AMOUNT = "151127287";
 const FIXTURE_PRICE = 330.30;
@@ -64,6 +65,9 @@ function installUpstreamStubs() {
     }
     // xStocks price-data: fresh dated reference (timestamp = now)
     if (urlStr.includes("api.xstocks.fi")) {
+      if (globalThis.__E2E_XSTOCKS_BARE) {
+        return jsonResponse({ quote: 330.94 });
+      }
       return jsonResponse({
         quote: {
           price: FIXTURE_PRICE,
@@ -316,7 +320,55 @@ async function runE2ETests() {
       assertTaxonomy(data);
     });
 
-    // 5. Frontend Trade Flow 3: Wallet-Connected Exact RPC Simulation
+    // 5b. Response projection preserves benchmark provenance + split timestamps
+    await test("Benchmark projection carries upstream source and fetched/source times", async () => {
+      const res = await fetch(`${BASE_URL}/api/v1/preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inputAsset: "USDC", stock: "AAPLx", amount: 100 })
+      });
+      if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
+      const data = await res.json();
+      if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
+      if (!data.benchmark.upstream_source) throw new Error("upstream_source must be projected");
+      if (!data.benchmark.fetched_at) throw new Error("fetched_at must be projected");
+      if (!("reference_date" in data.benchmark) || !("source_timestamp" in data.benchmark)) {
+        throw new Error("reference_date/source_timestamp must be projected");
+      }
+    });
+
+    // 5c. Indicative xStocks response projects provenance with null source time
+    await test("Indicative bare-number response projects provenance, never timestamps", async () => {
+      globalThis.__E2E_XSTOCKS_BARE = true;
+      clearMarketReferenceCache();
+      try {
+        const res = await fetch(`${BASE_URL}/api/v1/preflight`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inputAsset: "USDC", stock: "AAPLx", amount: 100 })
+        });
+        if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
+        const data = await res.json();
+        if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
+        if (data.benchmark.freshness_status !== "INDICATIVE_UNVERIFIED") {
+          throw new Error(`Expected INDICATIVE_UNVERIFIED, got ${data.benchmark.freshness_status}`);
+        }
+        if (data.benchmark.timestamp !== null || data.benchmark.source_timestamp !== null || data.benchmark.reference_date !== null) {
+          throw new Error("Indicative projection must carry null source times");
+        }
+        if (!data.benchmark.fetched_at) throw new Error("Indicative projection must carry fetched_at");
+        if (!String(data.benchmark.upstream_source).includes("Blue Ocean")) {
+          throw new Error(`Indicative provenance missing: ${data.benchmark.upstream_source}`);
+        }
+        if (!data.reason_codes.includes("INDICATIVE_REFERENCE_UNVERIFIED")) {
+          throw new Error(`Expected INDICATIVE_REFERENCE_UNVERIFIED, got ${data.reason_codes.join(",")}`);
+        }
+      } finally {
+        globalThis.__E2E_XSTOCKS_BARE = false;
+        clearMarketReferenceCache();
+      }
+    });
+    // 5d. Frontend Trade Flow 3: Wallet-Connected Exact RPC Simulation
     await test("Frontend trade flow: Wallet Exact Simulation mode simulates on Solana RPC with err: null", async () => {
       const testWallet = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
       const res = await fetch(`${BASE_URL}/api/v1/preflight`, {
