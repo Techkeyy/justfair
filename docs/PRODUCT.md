@@ -148,20 +148,23 @@ JustFair maintains a deterministic, provenance-backed catalog mapping 12 underly
 
 ---
 
-## 11. Session-Aware Execution Benchmark (Benchmark V2)
+## 11. Session-Aware Execution Benchmark (Benchmark V2/V3)
 
 Execution Preflight selects the strongest truthful equity reference available:
 
 1. Current regular-session reference (Nasdaq direct preferred for independence)
-2. Current extended-hours reference (pre/post-market, freshness proven)
-3. Current overnight reference (freshness proven)
-4. Latest indicative reference (live xStocks number, source timestamp unverified — displayed, never certified)
-5. Last available dated reference (stale/closed truthfully labeled)
-6. Unavailable (route-only mode)
+2. Current timestamped Alpaca session quote — IEX for pre/post-market, overnight feed for overnight (buy-side reference is the ask; bid/ask/midpoint shown)
+3. Latest indicative reference (live xStocks number, source timestamp unverified — displayed, never certified)
+4. Last available dated reference (stale/closed truthfully labeled)
+5. Unavailable (route-only mode)
 
 Session and freshness are separate facts. An indicative price is labeled with
 upstream provenance (on-chain providers plus Nasdaq/Blue Ocean) and can never
-produce an eligible fairness comparison. True closed/outage periods degrade to
-route-only mode with the last known reference. Each response carries
-`source_timestamp` (provider market time, possibly null), `fetched_at` (when
-JustFair fetched it), and `reference_date` (provider calendar date, if known).
+produce an eligible fairness comparison. Free Alpaca/IEX coverage is
+real-time single-exchange data, not full SIP consolidated tape. True
+closed/outage periods degrade to route-only mode with the last known
+reference. Each response carries `source_timestamp` (provider market time,
+possibly null), `fetched_at` (when JustFair fetched it), and
+`reference_date` (provider calendar date, if known). Alpaca quotes additionally
+carry `bid_price`, `ask_price`, `midpoint` (derived), `feed`, and
+`reference_price_type` (`ASK` for buy-side checks).

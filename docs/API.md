@@ -40,6 +40,7 @@ The JustFair Equity Preflight API provides pre-trade product truth and execution
 * `wallet` *(string, optional)*: User Solana public key.
   * **Omitted (Quote Check)**: Analyzes the DEX route and reference economics without assembling any transaction.
   * **Provided (Exact Simulation)**: Constructs an unsigned transaction and runs a non-broadcast RPC simulation. Nothing is signed, broadcast, or moved.
+* `refreshBenchmark` *(boolean, optional)*: Bypass the 60s benchmark cache and resolve a fresh reference. Used by REVALIDATE & CONTINUE; normal checks share the cache.
 
 ### Response Body Schema
 ```json
@@ -116,6 +117,9 @@ Market-hours truth: outside an eligible live reference the API still returns
 `verdict: UNABLE_TO_VERIFY`, and a truthful reason code
 (`MARKET_CLOSED_OR_AFTER_HOURS`, `STALE_REFERENCE`,
 `INDICATIVE_REFERENCE_UNVERIFIED`, or `REFERENCE_UNAVAILABLE`).
+Eligible references may come from the Nasdaq direct tape or from timestamped
+Alpaca session quotes (buy-side reference is the ask; `bid_price`,
+`ask_price`, `midpoint`, `feed`, and `reference_price_type` are returned).
 A current fairness verdict is only produced against an eligible live tape;
 threshold calibration for graded verdicts is pending.
 

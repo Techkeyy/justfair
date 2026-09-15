@@ -9,6 +9,7 @@
 import { createServer } from "../src/server.js";
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS } from "../src/config.js";
 import { clearMarketReferenceCache } from "../src/engine/benchmark.js";
+import { calculateMarketSession } from "../src/preflight.js";
 
 const FIXTURE_OUT_AMOUNT = "151127287";
 const FIXTURE_PRICE = 330.30;
@@ -42,7 +43,8 @@ function installUpstreamStubs() {
   const EXTERNAL_HOSTS = [
     "api.jup.ag", "quote-api.jup.ag", "api.xstocks.fi", "api.nasdaq.com",
     "api.coingecko.com", "publicnode.com", "mainnet-beta.solana.com",
-    "solana.com", "hermes.pyth.network", "pyth.network", "douro"
+    "solana.com", "hermes.pyth.network", "pyth.network", "douro",
+    "data.alpaca.markets"
   ];
   globalThis.fetch = async (url, options = {}) => {
     const urlStr = typeof url === "string" ? url : String(url?.url || url);
@@ -76,6 +78,15 @@ function installUpstreamStubs() {
           isRealTime: false
         }
       });
+    }
+    // Alpaca latest quote: 401 by default (credential-absent mode);
+    // per-test fixture when __E2E_ALPACA is set (never real credentials).
+    if (urlStr.includes("data.alpaca.markets")) {
+      const fixture = globalThis.__E2E_ALPACA;
+      if (fixture && fixture.ok) {
+        return jsonResponse({ quote: fixture.quote });
+      }
+      return jsonResponse({ message: "forbidden" }, 401);
     }
     // Nasdaq fallback: no usable quote (xStocks fixture wins deterministically)
     if (urlStr.includes("api.nasdaq.com")) {
@@ -368,7 +379,63 @@ async function runE2ETests() {
         clearMarketReferenceCache();
       }
     });
-    // 5d. Frontend Trade Flow 3: Wallet-Connected Exact RPC Simulation
+    // 5d. Alpaca session quote drives buy-side ask economics (session-aware branch)
+    await test("Alpaca quote selects ask reference with exact derived math", async () => {
+      const nowIso = new Date().toISOString();
+      // Fixture credentials (dummy values): prove the adapter reads env only,
+      // while all network responses remain stubbed fixtures.
+      process.env.ALPACA_API_KEY_ID = "e2e-fixture-key-id";
+      process.env.ALPACA_API_SECRET_KEY = "e2e-fixture-secret";
+      globalThis.__E2E_ALPACA = {
+        ok: true,
+        quote: {
+          t: nowIso, bp: 330.50, bs: 100, bx: "V", ap: 330.70, as: 200, ax: "V", c: [], z: "Z"
+        }
+      };
+      globalThis.__E2E_XSTOCKS_BARE = true;
+      clearMarketReferenceCache();
+      try {
+        const res = await fetch(`${BASE_URL}/api/v1/preflight`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inputAsset: "USDC", stock: "AAPLx", amount: 500 })
+        });
+        if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
+        const data = await res.json();
+        if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
+        const session = calculateMarketSession(new Date());
+        if (session === "CLOSED") {
+          // No Alpaca fetch when closed: indicative fallback, honestly uncertified.
+          if (data.benchmark.freshness_status !== "INDICATIVE_UNVERIFIED") {
+            throw new Error("Closed session must not certify Alpaca");
+          }
+          return;
+        }
+        if (data.benchmark.source !== "Alpaca Market Data") throw new Error(`Alpaca must win, got: ${data.benchmark.source}`);
+        if (data.benchmark.reference_price_type !== "ASK") throw new Error("Buy-side reference must be ASK");
+        if (data.benchmark.ask_price !== 330.70 || data.benchmark.bid_price !== 330.50) {
+          throw new Error("Bid/ask must echo fixture");
+        }
+        if (data.benchmark.midpoint !== 330.60) throw new Error(`Midpoint must derive: ${data.benchmark.midpoint}`);
+        if (data.benchmark.price !== 330.70) throw new Error("Reference price must be the ask");
+        const shares = parseInt(FIXTURE_OUT_AMOUNT, 10) / Math.pow(10, 8);
+        const expectedExposure = parseFloat((shares * 330.70).toFixed(2));
+        if (data.economics.expected_stock_exposure_usd !== expectedExposure) {
+          throw new Error(`Exposure must derive from ask: ${data.economics.expected_stock_exposure_usd} vs ${expectedExposure}`);
+        }
+        const effExpected = parseFloat((500 / shares).toFixed(2));
+        if (data.economics.effective_price_per_share !== effExpected) throw new Error("Effective price mismatch");
+        if (data.verification_status !== "VERIFIED" || data.verdict !== "MEASURED") {
+          throw new Error("Fresh session-aligned Alpaca must verify and measure");
+        }
+      } finally {
+        globalThis.__E2E_ALPACA = null;
+        globalThis.__E2E_XSTOCKS_BARE = false;
+        delete process.env.ALPACA_API_KEY_ID;
+        delete process.env.ALPACA_API_SECRET_KEY;
+        clearMarketReferenceCache();
+      }
+    });
     await test("Frontend trade flow: Wallet Exact Simulation mode simulates on Solana RPC with err: null", async () => {
       const testWallet = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
       const res = await fetch(`${BASE_URL}/api/v1/preflight`, {

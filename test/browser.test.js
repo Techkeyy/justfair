@@ -1505,6 +1505,9 @@ async function runBrowserTests() {
         if (payload.wallet !== null && payload.wallet !== undefined) {
           throw new Error(`Revalidation must be walletless, got: ${payload.wallet}`);
         }
+        if (payload.refreshBenchmark !== true) {
+          throw new Error("Revalidation must force a fresh Benchmark V3 resolution");
+        }
       } finally {
         await page.unroute("**/api/v1/preflight");
       }
@@ -1914,7 +1917,7 @@ async function runBrowserTests() {
     });
 
     await test("50. Eligible session labels render per session without enum text", async () => {
-      for (const [session, label] of [["REGULAR", "Current regular-session reference"], ["OVERNIGHT", "Current overnight reference"]]) {
+      for (const [session, label] of [["REGULAR", "Current market reference"], ["OVERNIGHT", "Current market reference"]]) {
         await page.route("**/api/v1/preflight", async route => {
           if (route.request().method() !== "POST") { await route.continue(); return; }
           const nowIso = new Date().toISOString();
@@ -1997,6 +2000,84 @@ async function runBrowserTests() {
         const bench = await page.textContent("#stock-card-AAPLx .reval-bench");
         if (!/indicative/i.test(bench)) throw new Error(`Revalidation must carry indicative truth: ${bench}`);
         if (/\bstale\b/i.test(bench)) throw new Error("Indicative revalidation must not read stale");
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("52. Alpaca overnight eligible UI: bid/ask, reference ask, measured", async () => {
+      const alpacaBody = (ts) => JSON.stringify({
+        request_status: "SUCCESS", verification_status: "VERIFIED", verdict: "MEASURED",
+        preflight_level: "QUOTE_CHECK", reason_codes: ["ALL_PREREQUISITES_PASSED"],
+        trade: {
+          input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+          input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+          input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+          input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+          token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+          token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        benchmark: {
+          symbol: "AAPLx", price: 330.28, reference_price_type: "ASK",
+          bid_price: 330.10, ask_price: 330.28, midpoint: 330.19, currency: "USD", feed: "overnight",
+          source: "Alpaca Market Data", source_type: "ALPACA_QUOTE", provider: "Alpaca Overnight",
+          upstream_source: "Alpaca Market Data (overnight derived feed)",
+          timestamp: ts, source_timestamp: ts, fetched_at: new Date().toISOString(), reference_date: ts.slice(0, 10),
+          age_ms: 12000, reference_session: "OVERNIGHT", current_market_session: "OVERNIGHT",
+          freshness_status: "FRESH", is_real_time: true,
+          market_context: { session: "OVERNIGHT", underlying_reference_available: true, reference_eligibility: "ELIGIBLE" }
+        },
+        economics: {
+          raw_out_amount: "151419200", expected_stock_shares: 1.514192,
+          underlying_benchmark_price: 330.28, expected_stock_exposure_usd: 500.11,
+          effective_price_per_share: 330.21, difference_usd: 0.11, difference_pct: 0.02,
+          multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+        },
+        dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+        alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+        simulation: { status: "NOT_RUN", err: null, units_consumed: 0 }
+      });
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: alpacaBody(new Date().toISOString()) });
+      });
+      try {
+        await page.click("#tracker-step-4");
+        await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .stock-card-header");
+        await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+        await page.fill("#stock-card-AAPLx .amount-input", "500");
+        await page.click("#stock-card-AAPLx .submit-trade-btn");
+        await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+        const box = await page.evaluate(() => {
+          const c = document.getElementById("stock-card-AAPLx");
+          const t = s => c.querySelector(s)?.textContent || "";
+          return {
+            title: t(".verdict-title"), ctx: t(".live-benchmark-context"), expl: t(".res-explanation"),
+            bid: t(".ev-ref-bid"), ask: t(".ev-ref-ask"), mid: t(".ev-ref-mid"),
+            type: t(".ev-ref-type"), time: t(".ev-ref-time"), all: c.querySelector(".inline-result-container").innerText
+          };
+        });
+        if (box.title.trim() !== "MEASURED") throw new Error(`Eligible Alpaca must read MEASURED, got: ${box.title}`);
+        if (!box.ctx.includes("Current overnight indicative quote")) throw new Error(`Overnight label mismatch: ${box.ctx}`);
+        if (!box.expl.includes("Reference ask $330.28") || !box.expl.includes("bid $330.10")) {
+          throw new Error(`Explanation must carry bid/ask: ${box.expl.slice(0, 300)}`);
+        }
+        if (!box.expl.includes("between the reference bid and ask")) throw new Error("Spread position missing");
+        if (!box.bid.includes("330.10") || !box.ask.includes("330.28") || !box.mid.includes("330.19")) {
+          throw new Error(`Evidence bid/ask/mid missing: ${box.bid}/${box.ask}/${box.mid}`);
+        }
+        if (box.type.trim() !== "ASK") throw new Error(`Reference type must be ASK, got: ${box.type}`);
+        if (/\bFAIR\b|\bCAUTION\b|BAD FILL/.test(box.all)) throw new Error("No calibrated verdict words allowed");
+        if (/\bstale\b/i.test(box.all)) throw new Error("Current overnight must not read stale");
+        // Revalidation compat (§31): same shared renderer handles Alpaca Snapshot B.
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const bench = await page.textContent("#stock-card-AAPLx .reval-bench");
+        if (!/overnight/i.test(bench)) throw new Error(`Revalidation must carry overnight truth: ${bench}`);
+        await page.screenshot({ path: path.join(EVIDENCE_DIR, "37_alpaca_overnight.png") });
       } finally {
         await page.unroute("**/api/v1/preflight");
       }

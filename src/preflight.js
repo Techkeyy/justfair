@@ -160,6 +160,9 @@ export async function runPreflight(params = {}) {
   const stockSymbol = params.stockSymbol || params.stock;
   const amount = params.amount;
   const userPublicKey = params.userPublicKey || params.wallet || null;
+  // Explicit fresh benchmark resolution (REVALIDATE & CONTINUE). Normal
+  // checks share the 60s benchmark cache; revalidation bypasses it.
+  const forceFreshBenchmark = params.forceRefreshBenchmark === true || params.refreshBenchmark === true;
 
   // 1. Validate Input Asset
   const inputAsset = SUPPORTED_PAYMENTS[inputSymbol];
@@ -236,7 +239,7 @@ export async function runPreflight(params = {}) {
 
     const [onChainMultiplierData, stockBenchmark, inputBenchmark] = await Promise.all([
       fetchOnChainTokenMultiplier(stockAsset.mint),
-      fetchMarketReference(stockAsset.symbol, stockAsset.assetClass),
+      fetchMarketReference(stockAsset.symbol, stockAsset.assetClass, forceFreshBenchmark),
       inputAsset.isStable
         ? Promise.resolve({
             price: 1.0,
@@ -395,6 +398,12 @@ export async function runPreflight(params = {}) {
       benchmark: {
         symbol: stockBenchmark.symbol,
         price: stockBenchmark.price,
+        reference_price_type: stockBenchmark.reference_price_type || "LAST_REFERENCE",
+        bid_price: stockBenchmark.bid_price ?? null,
+        ask_price: stockBenchmark.ask_price ?? null,
+        midpoint: stockBenchmark.midpoint ?? null,
+        currency: stockBenchmark.currency || "USD",
+        feed: stockBenchmark.feed || null,
         source: stockBenchmark.source,
         source_type: stockBenchmark.source_type,
         provider: stockBenchmark.provider,

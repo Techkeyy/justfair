@@ -2174,6 +2174,11 @@ function renderCardBodyMarkup(symbol) {
             <div class="evidence-item"><span class="ev-label">Price Impact</span><span class="ev-val ev-impact">0.00%</span></div>
             <div class="evidence-item"><span class="ev-label">Benchmark Provider</span><span class="ev-val ev-benchmark-source">Stock Market Tape</span></div>
             <div class="evidence-item"><span class="ev-label">Underlying Market Source</span><span class="ev-val ev-upstream-source">—</span></div>
+            <div class="evidence-item"><span class="ev-label">Reference Bid</span><span class="ev-val ev-ref-bid">—</span></div>
+            <div class="evidence-item"><span class="ev-label">Reference Ask</span><span class="ev-val ev-ref-ask">—</span></div>
+            <div class="evidence-item"><span class="ev-label">Reference Midpoint</span><span class="ev-val ev-ref-mid">—</span></div>
+            <div class="evidence-item"><span class="ev-label">Reference Type</span><span class="ev-val ev-ref-type">—</span></div>
+            <div class="evidence-item"><span class="ev-label">Reference Time</span><span class="ev-val ev-ref-time">—</span></div>
             <div class="evidence-item"><span class="ev-label">Current Market Session</span><span class="ev-val ev-session">CLOSED</span></div>
             <div class="evidence-item"><span class="ev-label">Reference Status</span><span class="ev-val ev-reference-status">Previous market reference</span></div>
             <div class="evidence-item"><span class="ev-label">Preflight Level</span><span class="ev-val ev-preflight-level">QUOTE_CHECK</span></div>
@@ -2485,11 +2490,12 @@ export function describeBenchmarkState(benchmark, reasonCodes = []) {
   else if (eligibility) eligibilityDisplay = eligibility;
 
   let benchmarkDisplay = "unavailable";
+  const isAlpaca = benchmark?.source_type === "ALPACA_QUOTE";
+  const feed = benchmark?.feed || null;
   if (eligibility === "ELIGIBLE") {
-    if (session === "REGULAR") benchmarkDisplay = "Current regular-session reference";
-    else if (session === "PRE_MARKET") benchmarkDisplay = "Current pre-market reference";
-    else if (session === "POST_MARKET") benchmarkDisplay = "Current after-hours reference";
-    else if (session === "OVERNIGHT") benchmarkDisplay = "Current overnight reference";
+    if (isAlpaca && session === "OVERNIGHT") benchmarkDisplay = "Current overnight indicative quote";
+    else if (isAlpaca && session === "PRE_MARKET") benchmarkDisplay = "Current IEX pre-market reference";
+    else if (isAlpaca && session === "POST_MARKET") benchmarkDisplay = "Current IEX after-hours reference";
     else benchmarkDisplay = "Current market reference";
   }
   else if (indicative) {
@@ -3023,6 +3029,22 @@ function renderCardResult(card, data, symbol) {
       }
     } else {
       resExplanation.textContent = `This trade route would spend $${trade.input_usd_value.toFixed(2)} to acquire approximately ${econ.expected_stock_shares} shares of ${stockMeta.name} on Solana, delivering $${econ.expected_stock_exposure_usd.toFixed(2)} of underlying exposure (difference: ${diffPrefix}$${econ.difference_usd.toFixed(2)} or ${diffPrefix}${diffPct.toFixed(2)}%).`;
+      // Factual spread position when the reference carries a real quote.
+      // Observational only: never a good/bad verdict.
+      const hasQuoteHere = typeof bench.bid_price === "number" && typeof bench.ask_price === "number"
+        && bench.bid_price > 0 && bench.ask_price > 0;
+      if (hasQuoteHere) {
+        const eff = Number(econ.effective_price_per_share);
+        const bid = Number(bench.bid_price);
+        const ask = Number(bench.ask_price);
+        if (isFinite(eff) && isFinite(bid) && isFinite(ask) && bid > 0 && ask > 0) {
+          let relation;
+          if (eff < bid) relation = `is $${(bid - eff).toFixed(2)} below the reference bid`;
+          else if (eff > ask) relation = `is $${(eff - ask).toFixed(2)} above the reference ask`;
+          else relation = "falls between the reference bid and ask";
+          resExplanation.textContent += ` Reference ask $${ask.toFixed(2)} (bid $${bid.toFixed(2)}); DEX effective price $${eff.toFixed(2)} ${relation}.`;
+        }
+      }
     }
   }
 
@@ -3119,6 +3141,11 @@ function renderCardResult(card, data, symbol) {
   const evImpact = resultContainer.querySelector(".ev-impact");
   const evBenchmarkSource = resultContainer.querySelector(".ev-benchmark-source");
   const evUpstreamSource = resultContainer.querySelector(".ev-upstream-source");
+  const evRefBid = resultContainer.querySelector(".ev-ref-bid");
+  const evRefAsk = resultContainer.querySelector(".ev-ref-ask");
+  const evRefMid = resultContainer.querySelector(".ev-ref-mid");
+  const evRefType = resultContainer.querySelector(".ev-ref-type");
+  const evRefTime = resultContainer.querySelector(".ev-ref-time");
   const evSession = resultContainer.querySelector(".ev-session");
   const evReferenceStatus = resultContainer.querySelector(".ev-reference-status");
   const evPreflightLevel = resultContainer.querySelector(".ev-preflight-level");
@@ -3147,6 +3174,13 @@ function renderCardResult(card, data, symbol) {
   if (evImpact) evImpact.textContent = `${(parseFloat(data.dex_route.price_impact_pct || 0)).toFixed(4)}%`;
   if (evBenchmarkSource) evBenchmarkSource.textContent = `${bench.provider} (${bench.source})`;
   if (evUpstreamSource) evUpstreamSource.textContent = bench.upstream_source || "—";
+  const hasQuote = typeof bench.bid_price === "number" && typeof bench.ask_price === "number"
+    && bench.bid_price > 0 && bench.ask_price > 0;
+  if (evRefBid) evRefBid.textContent = hasQuote ? `$${bench.bid_price.toFixed(2)}` : "—";
+  if (evRefAsk) evRefAsk.textContent = hasQuote ? `$${bench.ask_price.toFixed(2)}` : "—";
+  if (evRefMid) evRefMid.textContent = (hasQuote && typeof bench.midpoint === "number") ? `$${bench.midpoint.toFixed(2)}` : "—";
+  if (evRefType) evRefType.textContent = bench.reference_price_type || "—";
+  if (evRefTime) evRefTime.textContent = bench.source_timestamp || bench.timestamp || "—";
   if (evSession) {
     const sess = mkt.session || bench.current_market_session;
     evSession.textContent = sess ? `${sess} (${describeMarketSession(sess)})` : (isClosed ? "CLOSED" : "REGULAR");
@@ -3265,7 +3299,8 @@ async function handleRevalidate(card) {
   box.querySelector(".revalidation-loading")?.classList.remove("hidden");
 
   // Same explicit intent as the checked snapshot. Walletless by default:
-  // normal handoff revalidation is a Quote Check refresh.
+  // normal handoff revalidation is a Quote Check refresh. refreshBenchmark
+  // forces a fresh Benchmark V3 resolution for Snapshot B (015 §30 / 017).
   activeRouteScheduler.stopTimer();
   if (activeRouteScheduler.abortController) {
     try { activeRouteScheduler.abortController.abort(); } catch {}
@@ -3280,7 +3315,8 @@ async function handleRevalidate(card) {
         inputAsset: intent.input_asset,
         stock: intent.stock_symbol,
         amount: intent.input_amount,
-        wallet: null
+        wallet: null,
+        refreshBenchmark: true
       })
     });
     fresh = await res.json();

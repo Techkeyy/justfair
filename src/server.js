@@ -575,7 +575,8 @@ export async function handleRequest(req, res) {
         inputSymbol,
         stockSymbol,
         amount,
-        userPublicKey: wallet
+        userPublicKey: wallet,
+        refreshBenchmark: payload.refreshBenchmark === true
       });
 
       const httpStatus = result.request_status === "SUCCESS" ? 200 : 400;

@@ -1,5 +1,6 @@
 // Independent Market Benchmark & Source-Aware Verification Engine
 import { API_ENDPOINTS, TIMEOUTS } from "../config.js";
+import { fetchAlpacaLatestQuote, ALPACA_FEEDS } from "./alpaca.js";
 
 /**
  * Calculate canonical US equity market session for a given Date object (US Eastern Time)
@@ -113,6 +114,8 @@ export async function fetchMarketReference(symbol, assetClass = "stocks", forceF
 
   let xStocksQuote = null;
   let nasdaqQuote = null;
+  let alpacaQuote = null;
+  const canonicalSymbol = symbol.replace(/x$/i, "");
 
   // 1. Attempt xStocks V2 price-data endpoint
   try {
@@ -131,7 +134,6 @@ export async function fetchMarketReference(symbol, assetClass = "stocks", forceF
 
   // 2. Query official Nasdaq API
   try {
-    const canonicalSymbol = symbol.replace(/x$/i, "");
     const nUrl = `${API_ENDPOINTS.NASDAQ_QUOTE_BASE}/${canonicalSymbol}/info?assetclass=${assetClass}`;
     const nRes = await fetch(nUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) JustFair/1.0" },
@@ -157,7 +159,19 @@ export async function fetchMarketReference(symbol, assetClass = "stocks", forceF
     // Nasdaq fetch error
   }
 
-  const selection = selectEquityBenchmark({ currentSession, xstocksQuote: xStocksQuote, nasdaqQuote });
+  // 2b. Alpaca session quote (session-appropriate feed; skipped when CLOSED
+  // to preserve rate limit, and inert without credentials). Any failure —
+  // 401/403/429/timeout/missing fields — falls through truthfully.
+  if (currentSession !== "CLOSED") {
+    const feed = currentSession === "OVERNIGHT" ? ALPACA_FEEDS.OVERNIGHT : ALPACA_FEEDS.IEX;
+    try {
+      alpacaQuote = await fetchAlpacaLatestQuote(canonicalSymbol, feed);
+    } catch (e) {
+      alpacaQuote = null;
+    }
+  }
+
+  const selection = selectEquityBenchmark({ currentSession, xstocksQuote: xStocksQuote, nasdaqQuote, alpacaQuote });
   const fetchedAt = new Date(now).toISOString();
 
   if (selection.kind === "none") {
@@ -170,6 +184,8 @@ export async function fetchMarketReference(symbol, assetClass = "stocks", forceF
   let built;
   if (selection.kind === "indicative") {
     built = buildIndicativeBenchmark({ symbol, price: selection.price, currentSession, fetchedAt });
+  } else if (selection.kind === "alpaca") {
+    built = buildAlpacaBenchmark({ symbol, candidate: selection.candidate, currentSession, fetchedAt });
   } else {
     built = buildDatedBenchmark({ symbol, candidate: selection.candidate, currentSession, fetchedAt, nowMs: now });
   }
@@ -209,6 +225,12 @@ export function buildDatedBenchmark({ symbol, candidate, currentSession, fetched
   const result = {
     symbol,
     price,
+    reference_price_type: "LAST_REFERENCE",
+    bid_price: null,
+    ask_price: null,
+    midpoint: null,
+    currency: "USD",
+    feed: null,
     source,
     source_type: isNasdaq ? "OFFICIAL_MARKET_DATA_PROVIDER" : (quote.source_type || "UNDERLYING_EQUITY_FEED"),
     provider,
@@ -243,6 +265,52 @@ export function buildDatedBenchmark({ symbol, candidate, currentSession, fetched
 }
 
 /**
+ * Assemble an Alpaca session-quote benchmark. Buy-side reference price is
+ * the ASK (the quoted price to acquire the underlying); midpoint is derived
+ * math, never an upstream price. Session-qualified, timestamp-proven.
+ */
+export function buildAlpacaBenchmark({ symbol, candidate, currentSession, fetchedAt }) {
+  const q = candidate.quote;
+  const midpoint = (q.bid_price + q.ask_price) / 2;
+  const feedLabel = q.feed === "overnight" ? "Overnight" : "IEX";
+  const provider = `Alpaca ${feedLabel}`;
+  const result = {
+    symbol,
+    price: q.ask_price,
+    reference_price_type: "ASK",
+    bid_price: q.bid_price,
+    ask_price: q.ask_price,
+    midpoint,
+    currency: "USD",
+    source: "Alpaca Market Data",
+    source_type: "ALPACA_QUOTE",
+    provider,
+    upstream_source: q.upstream,
+    timestamp: q.source_timestamp,
+    source_timestamp: q.source_timestamp,
+    fetched_at: fetchedAt,
+    reference_date: q.source_timestamp.slice(0, 10),
+    age_ms: candidate.ageMs,
+    reference_session: candidate.quoteSession,
+    current_market_session: currentSession,
+    freshness_status: "FRESH",
+    is_real_time: true,
+    market_context: {
+      session: currentSession,
+      underlying_reference_available: true,
+      underlying_reference_provider: provider,
+      underlying_reference_timestamp: q.source_timestamp,
+      underlying_reference_age_ms: candidate.ageMs,
+      reference_eligibility: "ELIGIBLE"
+    }
+  };
+  return {
+    result,
+    parts: { kind: "alpaca", feed: q.feed, source_timestamp: q.source_timestamp, refTimeMs: candidate.refTimeMs, provider, isRealTime: true }
+  };
+}
+
+/**
  * Assemble an indicative benchmark result: truthful number, uncertifiable
  * freshness. Never ELIGIBLE, never timestamped.
  */
@@ -251,6 +319,12 @@ export function buildIndicativeBenchmark({ symbol, price, currentSession, fetche
   const result = {
     symbol,
     price,
+    reference_price_type: "INDICATIVE_PRICE",
+    bid_price: null,
+    ask_price: null,
+    midpoint: null,
+    currency: "USD",
+    feed: null,
     source: "xStocks Public Price Data",
     source_type: "INDICATIVE_ASSET_PRICE",
     provider,
@@ -284,6 +358,29 @@ export function refreshCachedReference(cached, currentSession, nowMs) {
   if (!cached || !cached.parts) return cached?.result;
   if (cached.parts.kind === "indicative") {
     return { ...cached.result };
+  }
+  if (cached.parts.kind === "alpaca") {
+    const p = cached.parts;
+    const ageMs = p.refTimeMs ? Math.max(0, nowMs - p.refTimeMs) : null;
+    const quoteSession = p.refTimeMs ? calculateMarketSession(new Date(p.refTimeMs)) : null;
+    // Session match + technical freshness, else truthfully degraded (never refetched here).
+    const stillCurrent = ageMs !== null && ageMs <= 900000 && quoteSession === currentSession;
+    const freshness = stillCurrent ? "FRESH" : "STALE";
+    const eligibility = stillCurrent ? "ELIGIBLE" : "INELIGIBLE_STALE";
+    return {
+      ...cached.result,
+      age_ms: ageMs,
+      freshness_status: freshness,
+      is_real_time: stillCurrent,
+      current_market_session: currentSession,
+      market_context: {
+        ...cached.result.market_context,
+        session: currentSession,
+        underlying_reference_available: stillCurrent,
+        underlying_reference_age_ms: ageMs,
+        reference_eligibility: eligibility
+      }
+    };
   }
   const p = cached.parts;
   const ageMs = p.refTimeMs ? Math.max(0, nowMs - p.refTimeMs) : null;
@@ -351,13 +448,15 @@ export function labelReferenceProvider({ chosenProvider, currentSession, referen
 }
 
 /**
- * Pure source selection (Director Order 016): strongest truthful reference wins.
- * 1. ELIGIBLE dated reference (Nasdaq direct preferred for independence).
- * 2. xStocks indicative price (unverified freshness, never ELIGIBLE).
- * 3. Freshest dated fallback (legacy xStocks-then-Nasdaq order preserved).
- * Returns { kind: "dated", candidate } | { kind: "indicative", price } | { kind: "none" }.
+ * Pure source selection (Director Orders 016/017): strongest truthful
+ * reference wins. Alpaca candidates carry requireSession: the quote's own
+ * session must equal the current session, else they cannot certify it.
+ * Precedence per session:
+ *   REGULAR: Nasdaq eligible, Alpaca eligible, indicative, dated fallback.
+ *   PRE/POST/OVERNIGHT: Alpaca eligible, Nasdaq eligible, indicative, fallback.
+ * Returns { kind: "dated"|"alpaca", candidate } | { kind: "indicative", price } | { kind: "none" }.
  */
-export function selectEquityBenchmark({ currentSession, xstocksQuote, nasdaqQuote }) {
+export function selectEquityBenchmark({ currentSession, xstocksQuote, nasdaqQuote, alpacaQuote = null }) {
   const dated = [];
   if (xstocksQuote && !xstocksQuote.is_indicative && xstocksQuote.price > 0) {
     dated.push({ kind: "xstocks", quote: xstocksQuote });
@@ -374,17 +473,42 @@ export function selectEquityBenchmark({ currentSession, xstocksQuote, nasdaqQuot
     c.referenceEligibility = evald.referenceEligibility;
     c.freshnessStatus = evald.freshnessStatus;
   }
-  // 1. Current reference: Nasdaq direct wins ties for independence.
-  const eligible = dated.filter(c => c.referenceEligibility === "ELIGIBLE");
-  if (eligible.length > 0) {
-    const nasdaqEligible = eligible.find(c => c.kind === "nasdaq");
-    return { kind: "dated", candidate: nasdaqEligible || eligible[0] };
+  // Alpaca candidate: valid bid/ask + provable timestamp + session alignment
+  // + technical freshness. Never certified otherwise.
+  let alpacaCandidate = null;
+  if (alpacaQuote && alpacaQuote.ask_price > 0 && alpacaQuote.bid_price > 0) {
+    const tsMs = alpacaQuote.source_timestamp ? Date.parse(alpacaQuote.source_timestamp) : null;
+    const validTs = tsMs && !isNaN(tsMs) ? tsMs : null;
+    const quoteSession = validTs ? calculateMarketSession(new Date(validTs)) : null;
+    const ageMs = validTs ? Math.max(0, Date.now() - validTs) : null;
+    if (validTs && quoteSession === currentSession && ageMs !== null && ageMs <= 900000) {
+      alpacaCandidate = {
+        kind: "alpaca",
+        quote: alpacaQuote,
+        refTimeMs: validTs,
+        timestampIso: new Date(validTs).toISOString(),
+        ageMs,
+        referenceEligibility: "ELIGIBLE",
+        freshnessStatus: "FRESH",
+        quoteSession
+      };
+    }
   }
-  // 2. Indicative xStocks price: truthful number, uncertifiable freshness.
+  const nasdaqEligible = dated.find(c => c.kind === "nasdaq" && c.referenceEligibility === "ELIGIBLE");
+  // 1/2. Current reference with per-session precedence.
+  if (currentSession === "REGULAR") {
+    if (nasdaqEligible) return { kind: "dated", candidate: nasdaqEligible };
+    if (alpacaCandidate) return { kind: "alpaca", candidate: alpacaCandidate };
+  } else {
+    if (alpacaCandidate) return { kind: "alpaca", candidate: alpacaCandidate };
+    const anyEligible = dated.find(c => c.referenceEligibility === "ELIGIBLE");
+    if (anyEligible) return { kind: "dated", candidate: nasdaqEligible || anyEligible };
+  }
+  // 3. Indicative xStocks price: truthful number, uncertifiable freshness.
   if (xstocksQuote && xstocksQuote.is_indicative && xstocksQuote.price > 0) {
     return { kind: "indicative", price: xstocksQuote.price };
   }
-  // 3. Legacy dated fallback order.
+  // 4. Legacy dated fallback order.
   if (dated.length > 0) {
     const xstocksDated = dated.find(c => c.kind === "xstocks");
     return { kind: "dated", candidate: xstocksDated || dated[0] };

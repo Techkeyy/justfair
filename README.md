@@ -30,7 +30,7 @@ Support boundary: xStocks representations are execution-supported; Ondo represen
 
 - Backend: Node HTTP API in `src/` (`server.js`, `preflight.js`, `product/`, `engine/`).
 - Frontend: static `public/` app (no build step).
-- Data: Jupiter Swap V2 routes, Solana mainnet RPC (Token-2022 state), session-aware equity references (Nasdaq direct tape plus xStocks indicative extended-hours data), CoinGecko SOL spot, optional Pyth streaming.
+- Data: Jupiter Swap V2 routes, Solana mainnet RPC (Token-2022 state), session-aware equity references (Nasdaq direct tape, timestamped Alpaca session quotes, xStocks indicative extended-hours data), CoinGecko SOL spot, optional Pyth streaming.
 - A current fairness verdict is only produced against an eligible live reference; otherwise the check completes truthfully as `UNABLE_TO_VERIFY` (`MARKET_CLOSED_OR_AFTER_HOURS`, `STALE_REFERENCE`, `INDICATIVE_REFERENCE_UNVERIFIED`, or `REFERENCE_UNAVAILABLE`).
 
 ## Setup
@@ -99,8 +99,9 @@ curl -X POST https://justfair-theta.vercel.app/api/v1/preflight \
 ## Limitations
 
 - Execution Preflight covers the 12 xStocks representations only.
-- Equity references are session-aware extended-hours coverage where a current verifiable reference is available — never claimed 24/7. The ladder is: current regular-session reference, current extended-hours reference, current overnight reference, latest indicative reference (timestamp unverified, never certified), last available dated reference, unavailable.
+- Equity references are session-aware extended-hours coverage where a current verifiable reference is available — never claimed 24/7. The ladder is: current regular-session reference (Nasdaq direct preferred), current timestamped Alpaca session quote (IEX pre/post-market, overnight feed), latest indicative reference (timestamp unverified, never certified), last available dated reference, unavailable.
 - An indicative xStocks price (live number, no source timestamp) is shown as indicative with upstream provenance (on-chain providers plus Nasdaq/Blue Ocean); it never certifies fairness.
+- Free Alpaca/IEX data is real-time single-exchange coverage, not full SIP consolidated tape.
 - Fairness verdicts require an eligible live equity reference; off-hours checks report reference value against the last available reference without certifying fairness.
 - Graded FAIR/CAUTION/BAD_FILL verdicts are pending live-tape calibration; production returns `MEASURED` or `UNABLE_TO_VERIFY`.
 - Upstream providers (Jupiter, Nasdaq, RPC) can transiently fail; failures are reported truthfully, never filled with fake data.
