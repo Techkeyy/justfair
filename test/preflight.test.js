@@ -541,6 +541,97 @@ async function runTests() {
     }
   });
 
+  // --- Director Order 017C: quote-safe alternative comparison ---
+  const quoteBench = () => ({
+    symbol: "AAPL",
+    price: 330.70,
+    reference_price_type: "ASK",
+    bid_price: 330.50,
+    ask_price: 330.70,
+    midpoint: 330.60,
+    market_context: { reference_eligibility: "ELIGIBLE", session: "REGULAR" }
+  });
+  const altOrder = (outAmount) => ({
+    router: "jupiterz",
+    mode: "ultra",
+    outAmount,
+    priceImpactPct: "0.01",
+    routePlan: [{ swapInfo: { ammKey: "amm1", label: "Raydium CLMM" } }]
+  });
+  const altCandidate = (outAmount) => ({
+    candidate_type: "ROUTER_EXCLUSION",
+    candidate_strategy: "Router Exclusion (excludeRouters=jupiterz)",
+    candidate_label: "Competing Router (Excl. jupiterz)",
+    excluded_routers: ["jupiterz"],
+    excluded_venues: [],
+    result: {
+      orderData: {
+        router: "metis",
+        mode: "ultra",
+        outAmount,
+        priceImpactPct: "0.005",
+        routePlan: [{ swapInfo: { ammKey: "amm2", label: "Whirlpool" } }]
+      }
+    }
+  });
+  const altBase = (canonicalOut, cands) => ({
+    canonicalOrderData: altOrder(canonicalOut),
+    alternativeCandidates: cands,
+    inputUsdValue: 500,
+    multiplierData: { decimals: 8, current_multiplier: 1.0 },
+    stockBenchmark: quoteBench(),
+    inputAssetSymbol: "USDC",
+    inputAmountDisplay: 500,
+    stockSymbol: "AAPLx"
+  });
+
+  await test("017C-A. Quote ALTERNATIVE_FOUND compares shares, nulls exposure, no value claims", async () => {
+    // Canonical 500 USDC -> 1.500000 AAPL; alternative -> 1.510000 AAPL.
+    const r = evaluateAlternativeRoutes(altBase("150000000", [altCandidate("151000000")]));
+    if (r.status !== "ALTERNATIVE_FOUND") throw new Error(`Expected ALTERNATIVE_FOUND, got ${r.status}`);
+    if (r.canonical_route.expected_stock_exposure_usd !== null) throw new Error("Canonical exposure must be null for quotes");
+    if (r.canonical_route.reference_difference_usd !== null) throw new Error("Canonical reference difference must be null for quotes");
+    if (r.best_alternative.expected_stock_exposure_usd !== null) throw new Error("Alternative exposure must be null for quotes");
+    if (r.best_alternative.reference_difference_usd !== null) throw new Error("Alternative reference difference must be null for quotes");
+    if (r.best_alternative.additional_stock_shares !== 0.01) {
+      throw new Error(`Additional shares must be 0.01, got ${r.best_alternative.additional_stock_shares}`);
+    }
+    if (!(r.best_alternative.additional_stock_shares_pct > 0)) throw new Error("Shares percentage must be positive");
+    if (!(r.best_alternative.effective_price_difference_per_share > 0)) throw new Error("Alternative effective price must be lower");
+    if (r.canonical_route.effective_price_per_share !== 333.33) {
+      throw new Error(`Canonical eff must be 333.33, got ${r.canonical_route.effective_price_per_share}`);
+    }
+    if (r.best_alternative.effective_price_per_share !== 331.13) {
+      throw new Error(`Alternative eff must be 331.13, got ${r.best_alternative.effective_price_per_share}`);
+    }
+    if (/\$\d[\d,]*(\.\d+)? more value/.test(r.summary)) throw new Error(`No dollar value claims allowed: ${r.summary}`);
+    if (/exposure/i.test(r.summary)) throw new Error(`No exposure language allowed: ${r.summary}`);
+    if (!r.summary.includes("0.010000 more AAPLx")) throw new Error(`Summary must state shares: ${r.summary}`);
+    if (!r.summary.includes("for the same 500 USDC")) throw new Error(`Summary must state same input: ${r.summary}`);
+    if (r.improvement_usd !== null) throw new Error("Top-level improvement_usd must be null for quotes");
+  });
+
+  await test("017C-B. Tiny better raw output (150000001 > 150000000) is detected", async () => {
+    const r = evaluateAlternativeRoutes(altBase("150000000", [altCandidate("150000001")]));
+    if (r.status !== "ALTERNATIVE_FOUND") throw new Error(`Tiny improvement must not be suppressed, got ${r.status}`);
+    if (!r.best_alternative || r.best_alternative.raw_out_amount !== "150000001") {
+      throw new Error("Best alternative must be the +1 raw output candidate");
+    }
+  });
+
+  await test("017C-C. Identical raw output yields NO_BETTER_ALTERNATIVE_OBSERVED", async () => {
+    const r = evaluateAlternativeRoutes(altBase("150000000", [altCandidate("150000000")]));
+    if (r.status !== "NO_BETTER_ALTERNATIVE_OBSERVED") throw new Error(`Expected NO_BETTER, got ${r.status}`);
+    if (r.best_alternative !== null) throw new Error("No best alternative expected");
+    if (r.canonical_route.expected_stock_exposure_usd !== null) throw new Error("Canonical exposure must stay null for quotes");
+  });
+
+  await test("017C-D. Worse raw output yields NO_BETTER_ALTERNATIVE_OBSERVED", async () => {
+    const r = evaluateAlternativeRoutes(altBase("150000000", [altCandidate("149999999")]));
+    if (r.status !== "NO_BETTER_ALTERNATIVE_OBSERVED") throw new Error(`Expected NO_BETTER, got ${r.status}`);
+    if (r.best_alternative !== null) throw new Error("No best alternative expected");
+  });
+
   await test("Routing intelligence grammar helper handles singular and plural counts accurately", async () => {
     const formatCount = (count) => {
       const unit = count === 1 ? "distinct alternative" : "distinct alternatives";

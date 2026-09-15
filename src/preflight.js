@@ -36,12 +36,21 @@ function evaluateAlternativeRoutes({
   alternativeCandidates,
   inputUsdValue,
   multiplierData,
-  stockBenchmark
+  stockBenchmark,
+  inputAssetSymbol = null,
+  inputAmountDisplay = null,
+  stockSymbol = null
 }) {
   const canonicalVenues = extractVenuesFromRoutePlan(canonicalOrderData?.routePlan || []);
   const canonicalRawOut = parseInt(canonicalOrderData?.outAmount || "0", 10);
   const canonicalTokens = canonicalRawOut / Math.pow(10, multiplierData.decimals);
   const canonicalShares = canonicalTokens * multiplierData.current_multiplier;
+  const canonicalEff = canonicalShares > 0 ? inputUsdValue / canonicalShares : 0;
+  // Director Order 017C: for bid/ask quote references the ask is an execution
+  // reference, never an exposure valuation. Route-to-route comparison uses raw
+  // output, shares, and effective per-share price only.
+  const isQuoteRef = typeof stockBenchmark?.ask_price === "number" && stockBenchmark.ask_price > 0
+    && typeof stockBenchmark?.bid_price === "number" && stockBenchmark.bid_price > 0;
   const canonicalExposureUsd = canonicalShares * stockBenchmark.price;
 
   const canonicalRouteInfo = {
@@ -51,8 +60,9 @@ function evaluateAlternativeRoutes({
     venues: canonicalVenues,
     raw_out_amount: canonicalOrderData?.outAmount || "0",
     expected_stock_shares: parseFloat(canonicalShares.toFixed(6)),
-    expected_stock_exposure_usd: parseFloat(canonicalExposureUsd.toFixed(2)),
-    reference_difference_usd: parseFloat((canonicalExposureUsd - inputUsdValue).toFixed(2)),
+    effective_price_per_share: parseFloat(canonicalEff.toFixed(2)),
+    expected_stock_exposure_usd: isQuoteRef ? null : parseFloat(canonicalExposureUsd.toFixed(2)),
+    reference_difference_usd: isQuoteRef ? null : parseFloat((canonicalExposureUsd - inputUsdValue).toFixed(2)),
     price_impact_pct: canonicalOrderData?.priceImpactPct || "0",
     steps: canonicalOrderData?.routePlan?.map(r => r.swapInfo?.label || "DEX") || []
   };
@@ -65,7 +75,7 @@ function evaluateAlternativeRoutes({
       summary: "JustFair checked distinct executable route candidates and did not find one that improved on Jupiter's current route.",
       canonical_route: canonicalRouteInfo,
       best_alternative: null,
-      improvement_usd: 0,
+      improvement_usd: isQuoteRef ? null : 0,
       improvement_pct: 0,
       candidates_evaluated_count: 0,
       candidates: [],
@@ -74,10 +84,9 @@ function evaluateAlternativeRoutes({
   }
 
   let bestAlt = null;
-  let bestDeltaExposureUsd = 0;
-  let bestDeltaExposurePct = 0;
-  let bestDeltaTokens = 0;
-  let bestDeltaTokensPct = 0;
+  let bestRawOut = canonicalRawOut;
+  let bestAdditionalShares = 0;
+  let bestAdditionalSharesPct = 0;
 
   const evaluatedCandidates = [];
 
@@ -89,12 +98,13 @@ function evaluateAlternativeRoutes({
     const cRawOut = parseInt(cOrder.outAmount, 10);
     const cTokens = cRawOut / Math.pow(10, multiplierData.decimals);
     const cShares = cTokens * multiplierData.current_multiplier;
+    const cEff = cShares > 0 ? inputUsdValue / cShares : 0;
     const cExposureUsd = cShares * stockBenchmark.price;
 
-    const deltaExposureUsd = cExposureUsd - canonicalExposureUsd;
-    const deltaExposurePct = inputUsdValue > 0 ? (deltaExposureUsd / inputUsdValue) * 100 : 0;
-    const deltaTokens = cShares - canonicalShares;
-    const deltaTokensPct = canonicalShares > 0 ? (deltaTokens / canonicalShares) * 100 : 0;
+    // Route-to-route deltas: what the routes actually deliver.
+    const additionalShares = cShares - canonicalShares;
+    const additionalSharesPct = canonicalShares > 0 ? (additionalShares / canonicalShares) * 100 : 0;
+    const effPriceDiffPerShare = canonicalEff - cEff;
 
     const candidateSummary = {
       type: cand.candidate_type,
@@ -104,34 +114,50 @@ function evaluateAlternativeRoutes({
       venues: cVenues,
       raw_out_amount: cOrder.outAmount,
       expected_stock_shares: parseFloat(cShares.toFixed(6)),
-      expected_stock_exposure_usd: parseFloat(cExposureUsd.toFixed(2)),
-      reference_difference_usd: parseFloat((cExposureUsd - inputUsdValue).toFixed(2)),
-      improvement_usd: parseFloat(deltaExposureUsd.toFixed(2)),
-      improvement_pct: parseFloat(deltaExposurePct.toFixed(2)),
+      effective_price_per_share: parseFloat(cEff.toFixed(2)),
+      expected_stock_exposure_usd: isQuoteRef ? null : parseFloat(cExposureUsd.toFixed(2)),
+      reference_difference_usd: isQuoteRef ? null : parseFloat((cExposureUsd - inputUsdValue).toFixed(2)),
+      additional_stock_shares: parseFloat(additionalShares.toFixed(6)),
+      additional_stock_shares_pct: parseFloat(additionalSharesPct.toFixed(2)),
+      effective_price_difference_per_share: parseFloat(effPriceDiffPerShare.toFixed(2)),
+      improvement_usd: isQuoteRef ? null : parseFloat((cExposureUsd - canonicalExposureUsd).toFixed(2)),
+      improvement_pct: isQuoteRef
+        ? parseFloat(additionalSharesPct.toFixed(2))
+        : parseFloat((inputUsdValue > 0 ? ((cExposureUsd - canonicalExposureUsd) / inputUsdValue) * 100 : 0).toFixed(2)),
       price_impact_pct: cOrder.priceImpactPct || "0",
       steps: cOrder.routePlan?.map(r => r.swapInfo?.label || "DEX") || []
     };
 
     evaluatedCandidates.push(candidateSummary);
 
-    // Check if this candidate is better than canonical by at least 0.05% or $0.05
-    if (deltaTokensPct > 0.05 && deltaExposureUsd > bestDeltaExposureUsd) {
+    // A candidate is better when its exact raw output exceeds the canonical
+    // route's raw output. Integer comparison: no invented significance
+    // threshold, no floating-point noise.
+    if (cRawOut > canonicalRawOut && cRawOut > bestRawOut) {
       bestAlt = candidateSummary;
-      bestDeltaExposureUsd = deltaExposureUsd;
-      bestDeltaExposurePct = deltaExposurePct;
-      bestDeltaTokens = deltaTokens;
-      bestDeltaTokensPct = deltaTokensPct;
+      bestRawOut = cRawOut;
+      bestAdditionalShares = additionalShares;
+      bestAdditionalSharesPct = additionalSharesPct;
     }
   }
 
   if (bestAlt) {
+    const addShares = bestAlt.additional_stock_shares;
+    const addPct = bestAlt.additional_stock_shares_pct;
+    const sym = stockSymbol || stockBenchmark?.symbol || "shares";
+    const sameInput = inputAssetSymbol && inputAmountDisplay !== null
+      ? ` for the same ${inputAmountDisplay} ${inputAssetSymbol}`
+      : "";
+    const summary = isQuoteRef
+      ? `Observed an alternative route returning ${addShares.toFixed(6)} more ${sym} (+${addPct.toFixed(2)}%)${sameInput} via ${bestAlt.label}. Effective acquisition price is $${Math.abs(bestAlt.effective_price_difference_per_share).toFixed(2)}/share lower.`
+      : `Observed an alternative route delivering +$${bestAlt.improvement_usd.toFixed(2)} (+${bestAlt.improvement_pct.toFixed(2)}%) more value via ${bestAlt.label}.`;
     return {
       status: "ALTERNATIVE_FOUND",
-      summary: `Observed an alternative route delivering +$${bestAlt.improvement_usd.toFixed(2)} (+${bestAlt.improvement_pct.toFixed(2)}%) more value via ${bestAlt.label}.`,
+      summary,
       canonical_route: canonicalRouteInfo,
       best_alternative: bestAlt,
-      improvement_usd: parseFloat(bestDeltaExposureUsd.toFixed(2)),
-      improvement_pct: parseFloat(bestDeltaExposurePct.toFixed(2)),
+      improvement_usd: bestAlt.improvement_usd,
+      improvement_pct: bestAlt.improvement_pct,
       candidates_evaluated_count: evaluatedCandidates.length,
       candidates: evaluatedCandidates,
       market_session_note: isClosed ? "Traditional equity market is closed. Route comparison evaluates real token output against the last available reference." : null
@@ -143,7 +169,7 @@ function evaluateAlternativeRoutes({
     summary: "JustFair checked distinct executable route candidates and did not find one that improved on Jupiter's current route.",
     canonical_route: canonicalRouteInfo,
     best_alternative: null,
-    improvement_usd: 0,
+    improvement_usd: isQuoteRef ? null : 0,
     improvement_pct: 0,
     candidates_evaluated_count: evaluatedCandidates.length,
     candidates: evaluatedCandidates,
@@ -307,7 +333,10 @@ export async function runPreflight(params = {}) {
       alternativeCandidates,
       inputUsdValue,
       multiplierData: onChainMultiplierData,
-      stockBenchmark
+      stockBenchmark,
+      inputAssetSymbol: inputSymbol,
+      inputAmountDisplay: numAmount,
+      stockSymbol: stockSymbol
     });
 
     // 8. Handle Simulation

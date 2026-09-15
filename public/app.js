@@ -3142,26 +3142,54 @@ function renderCardResult(card, data, symbol) {
       if (betterOptionBadgeText) betterOptionBadgeText.textContent = "BETTER OBSERVED OPTION";
       if (betterOptionSummaryText) betterOptionSummaryText.textContent = altRoutes.summary;
 
-      const cExp = altRoutes.canonical_route?.expected_stock_exposure_usd ?? econ.expected_stock_exposure_usd;
-      const cDiff = altRoutes.canonical_route?.reference_difference_usd ?? econ.difference_usd;
-      const aExp = altRoutes.best_alternative.expected_stock_exposure_usd;
-      const aDiff = altRoutes.best_alternative.reference_difference_usd ?? (aExp - trade.input_usd_value);
-      const diffPrefixC = cDiff >= 0 ? "+" : "-";
-      const diffPrefixA = aDiff >= 0 ? "+" : "-";
+      const canonicalTitle = resultContainer.querySelector(".canonical-box .route-box-title");
+      const best = altRoutes.best_alternative;
+      const canon = altRoutes.canonical_route || {};
+      if (isQuote) {
+        // Quote references: shares + effective per-share price only.
+        // Never shares x ask, never dollar "value" or "exposure".
+        const cShares = Number(canon.expected_stock_shares);
+        const cEff = Number(canon.effective_price_per_share);
+        const aShares = Number(best.expected_stock_shares);
+        const aEff = Number(best.effective_price_per_share);
+        const addShares = Number(best.additional_stock_shares);
+        const addPct = Number(best.additional_stock_shares_pct);
+        const effLower = Number(best.effective_price_difference_per_share);
+        if (canonicalTitle) canonicalTitle.textContent = "CURRENT ROUTE";
+        if (canonicalExposureVal) canonicalExposureVal.textContent = isFinite(cShares) ? `${cShares.toFixed(6)} ${trade.canonical_stock}` : "—";
+        if (canonicalDiffVal) canonicalDiffVal.textContent = isFinite(cEff) && cEff > 0 ? `$${cEff.toFixed(2)}/share` : "—";
+        if (canonicalRouteVenues) canonicalRouteVenues.textContent = `Jupiter DEX Route (${canon.venues?.join(" + ") || "Standard"})`;
+        if (alternativeExposureVal) alternativeExposureVal.textContent = isFinite(aShares) ? `${aShares.toFixed(6)} ${trade.canonical_stock}` : "—";
+        if (alternativeDiffVal) alternativeDiffVal.textContent = isFinite(aEff) && aEff > 0 ? `$${aEff.toFixed(2)}/share` : "—";
+        if (alternativeRouteVenues) alternativeRouteVenues.textContent = `Via ${best.label}`;
+        if (alternativeImprovementVal) {
+          alternativeImprovementVal.textContent = (isFinite(addShares) && isFinite(addPct) && isFinite(effLower))
+            ? `+${addShares.toFixed(6)} ${trade.canonical_stock} (+${addPct.toFixed(2)}%) · $${Math.abs(effLower).toFixed(2)}/share lower`
+            : "—";
+        }
+      } else {
+        const cExp = altRoutes.canonical_route?.expected_stock_exposure_usd ?? econ.expected_stock_exposure_usd;
+        const cDiff = altRoutes.canonical_route?.reference_difference_usd ?? econ.difference_usd;
+        const aExp = best.expected_stock_exposure_usd;
+        const aDiff = best.reference_difference_usd ?? (aExp - trade.input_usd_value);
+        const diffPrefixC = cDiff >= 0 ? "+" : "-";
+        const diffPrefixA = aDiff >= 0 ? "+" : "-";
 
-      if (canonicalExposureVal) canonicalExposureVal.textContent = `$${cExp.toFixed(2)} exposure`;
-      if (canonicalDiffVal) canonicalDiffVal.textContent = `Reference difference: ${diffPrefixC}$${Math.abs(cDiff).toFixed(2)}`;
-      if (canonicalRouteVenues) canonicalRouteVenues.textContent = `Jupiter DEX Route (${altRoutes.canonical_route?.venues?.join(" + ") || "Standard"})`;
+        if (canonicalTitle) canonicalTitle.textContent = "CURRENT JUPITER ROUTE";
+        if (canonicalExposureVal) canonicalExposureVal.textContent = `$${cExp.toFixed(2)} exposure`;
+        if (canonicalDiffVal) canonicalDiffVal.textContent = `Reference difference: ${diffPrefixC}$${Math.abs(cDiff).toFixed(2)}`;
+        if (canonicalRouteVenues) canonicalRouteVenues.textContent = `Jupiter DEX Route (${altRoutes.canonical_route?.venues?.join(" + ") || "Standard"})`;
 
-      if (alternativeExposureVal) alternativeExposureVal.textContent = `$${aExp.toFixed(2)} exposure`;
-      if (alternativeDiffVal) alternativeDiffVal.textContent = `Reference difference: ${diffPrefixA}$${Math.abs(aDiff).toFixed(2)}`;
-      if (alternativeRouteVenues) alternativeRouteVenues.textContent = `Via ${altRoutes.best_alternative.label}`;
+        if (alternativeExposureVal) alternativeExposureVal.textContent = `$${aExp.toFixed(2)} exposure`;
+        if (alternativeDiffVal) alternativeDiffVal.textContent = `Reference difference: ${diffPrefixA}$${Math.abs(aDiff).toFixed(2)}`;
+        if (alternativeRouteVenues) alternativeRouteVenues.textContent = `Via ${best.label}`;
 
-      if (alternativeImprovementVal) {
-        if (isClosed) {
-          alternativeImprovementVal.textContent = `+${altRoutes.best_alternative.improvement_pct.toFixed(2)}% token output`;
-        } else {
-          alternativeImprovementVal.textContent = `+$${altRoutes.best_alternative.improvement_usd.toFixed(2)} (+${altRoutes.best_alternative.improvement_pct.toFixed(2)}%)`;
+        if (alternativeImprovementVal) {
+          if (isClosed) {
+            alternativeImprovementVal.textContent = `+${best.improvement_pct.toFixed(2)}% token output`;
+          } else {
+            alternativeImprovementVal.textContent = `+$${best.improvement_usd.toFixed(2)} (+${best.improvement_pct.toFixed(2)}%)`;
+          }
         }
       }
 

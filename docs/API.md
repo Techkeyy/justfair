@@ -127,6 +127,13 @@ and instead report per-share `dex_effective_price_per_share`,
 `difference_vs_ask_usd_per_share`, `difference_vs_ask_pct`, and a factual
 `spread_position` (`BELOW_REFERENCE_BID`, `WITHIN_REFERENCE_SPREAD`,
 `ABOVE_REFERENCE_ASK`).
+Route comparison (`alternative_routes`) is route-to-route: a candidate is
+better only when its exact raw output exceeds the canonical route's raw
+output — no significance threshold. For quote references both routes carry
+`expected_stock_exposure_usd: null` and report `expected_stock_shares`,
+`effective_price_per_share`, `additional_stock_shares`, and
+`effective_price_difference_per_share`; summaries state shares, never
+dollar "value".
 A current fairness verdict is only produced against an eligible live tape;
 threshold calibration for graded verdicts is pending.
 

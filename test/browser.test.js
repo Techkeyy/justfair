@@ -2096,6 +2096,97 @@ async function runBrowserTests() {
       }
     });
 
+    // 53. Quote-safe ALTERNATIVE_FOUND (017C): shares + $/share, no value claims
+    await test("53. Quote ALTERNATIVE_FOUND renders shares comparison without exposure valuation", async () => {
+      const altBody = JSON.stringify({
+        request_status: "SUCCESS", verification_status: "VERIFIED", verdict: "MEASURED",
+        preflight_level: "QUOTE_CHECK", reason_codes: ["ALL_PREREQUISITES_PASSED"],
+        trade: {
+          input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+          input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+          input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+          input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+          token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+          token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        benchmark: {
+          symbol: "AAPLx", price: 330.28, reference_price_type: "ASK",
+          bid_price: 330.10, ask_price: 330.28, midpoint: 330.19, currency: "USD", feed: "overnight",
+          source: "Alpaca Market Data", source_type: "ALPACA_QUOTE", provider: "Alpaca Overnight",
+          upstream_source: "Alpaca Market Data (overnight derived feed)",
+          timestamp: new Date().toISOString(), source_timestamp: new Date().toISOString(),
+          fetched_at: new Date().toISOString(), age_ms: 12000,
+          reference_session: "OVERNIGHT", current_market_session: "OVERNIGHT",
+          freshness_status: "FRESH", is_real_time: true,
+          market_context: { session: "OVERNIGHT", underlying_reference_available: true, reference_eligibility: "ELIGIBLE" }
+        },
+        economics: {
+          raw_out_amount: "151419200", expected_stock_shares: 1.514192,
+          underlying_benchmark_price: 330.28, expected_stock_exposure_usd: null,
+          effective_price_per_share: 330.21, difference_usd: null, difference_pct: null,
+          dex_effective_price_per_share: 330.21,
+          difference_vs_ask_usd_per_share: -0.07, difference_vs_ask_pct: -0.02,
+          spread_position: "WITHIN_REFERENCE_SPREAD",
+          multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+        },
+        dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+        alternative_routes: {
+          status: "ALTERNATIVE_FOUND",
+          summary: "Observed an alternative route returning 0.010000 more AAPLx (+0.66%) for the same 500 USDC via Metis Alt. Effective acquisition price is $2.17/share lower.",
+          canonical_route: {
+            label: "Current Jupiter Route", router: "jupiterz", mode: "ultra",
+            venues: ["Raydium CLMM"], raw_out_amount: "151419200",
+            expected_stock_shares: 1.514192, effective_price_per_share: 330.21,
+            expected_stock_exposure_usd: null, reference_difference_usd: null,
+            price_impact_pct: "0.0100", steps: ["Raydium CLMM"]
+          },
+          best_alternative: {
+            type: "ROUTER_EXCLUSION", label: "Metis Alt",
+            venues: ["Whirlpool"], raw_out_amount: "152419200",
+            expected_stock_shares: 1.524192, effective_price_per_share: 328.04,
+            expected_stock_exposure_usd: null, reference_difference_usd: null,
+            additional_stock_shares: 0.01, additional_stock_shares_pct: 0.66,
+            effective_price_difference_per_share: 2.17,
+            improvement_usd: null, improvement_pct: 0.66,
+            price_impact_pct: "0.005", steps: ["Whirlpool"]
+          },
+          improvement_usd: null, improvement_pct: 0.66,
+          candidates_evaluated_count: 1, candidates: []
+        },
+        simulation: { status: "NOT_RUN", err: null, units_consumed: 0 }
+      });
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: altBody });
+      });
+      try {
+        await page.click("#tracker-step-4");
+        await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .stock-card-header");
+        await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+        await page.fill("#stock-card-AAPLx .amount-input", "500");
+        await page.click("#stock-card-AAPLx .submit-trade-btn");
+        await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+        await page.waitForSelector("#stock-card-AAPLx .better-option-detail:not(.hidden)", { timeout: 15000 });
+        const box = await page.evaluate(() => {
+          const c = document.getElementById("stock-card-AAPLx");
+          return c.querySelector(".inline-result-container").innerText;
+        });
+        for (const n of ["CURRENT ROUTE", "BETTER OBSERVED OPTION", "1.514192 AAPL", "1.524192 AAPL", "$330.21/share", "$328.04/share", "+0.010000 AAPL (+0.66%)", "$2.17/share lower"]) {
+          if (!box.includes(n)) throw new Error(`Quote comparison must show "${n}"`);
+        }
+        if (/exposure/i.test(box)) throw new Error("No exposure valuation allowed in quote comparison");
+        if (/more value/i.test(box)) throw new Error("No dollar value claims allowed in quote comparison");
+        if (/Reference difference/i.test(box)) throw new Error("No reference-difference language allowed in quote comparison");
+        if (/\bFAIR\b|\bCAUTION\b|BAD FILL/.test(box)) throw new Error("No calibrated verdict words allowed");
+        await page.screenshot({ path: path.join(EVIDENCE_DIR, "38_alt_route_quote.png") });
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
     // 28-29. Tracker truth (013.9A)
     await test("28. Tracker Truth Direct: fresh Step 4 leaves Steps 1-3 neutral", async () => {
       const truthContext = await browser.newContext({ viewport: { width: 1600, height: 800 } });

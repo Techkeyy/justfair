@@ -170,4 +170,7 @@ carry `bid_price`, `ask_price`, `midpoint` (derived), `feed`, and
 `reference_price_type` (`ASK` for buy-side checks). For quote references the
 economics compare per-share acquisition (`dex_effective_price_per_share`,
 `difference_vs_ask_usd_per_share`, `spread_position`); `expected_stock_exposure_usd`
-is `null` because the ask cannot value the position.
+is `null` because the ask cannot value the position. Alternative-route
+comparison is route-to-route on exact raw output (no significance
+threshold): for quote references both routes report shares and effective
+per-share price with `additional_stock_shares` deltas, never dollar value.
