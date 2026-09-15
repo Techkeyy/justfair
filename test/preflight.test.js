@@ -8,6 +8,8 @@ import {
   createRouteFingerprint,
   evaluateAlternativeRoutes,
   isValidSolanaPublicKey,
+  simulateSolanaTransaction,
+  describeSimulationError,
   determineVerdict,
   THRESHOLD_CALIBRATION_STATUS
 } from "../src/preflight.js";
@@ -630,6 +632,66 @@ async function runTests() {
     const r = evaluateAlternativeRoutes(altBase("150000000", [altCandidate("149999999")]));
     if (r.status !== "NO_BETTER_ALTERNATIVE_OBSERVED") throw new Error(`Expected NO_BETTER, got ${r.status}`);
     if (r.best_alternative !== null) throw new Error("No best alternative expected");
+  });
+
+  // --- Simulation error normalization (owner UAT: never "[object Object]") ---
+  await test("SimErr-A. String error passes through trimmed", async () => {
+    const out = describeSimulationError("simulated transaction failed");
+    if (out !== "simulated transaction failed") throw new Error(`String must pass through: ${out}`);
+  });
+
+  await test("SimErr-B. Object with message prefers the message", async () => {
+    const out = describeSimulationError({ message: "Blockhash not found", code: -32002 });
+    if (out !== "Blockhash not found") throw new Error(`Message must win: ${out}`);
+  });
+
+  await test("SimErr-C. Nested Solana InstructionError variants read truthfully", async () => {
+    const custom = describeSimulationError({ InstructionError: [0, { Custom: 1 }] });
+    if (custom !== "Instruction 0 failed (custom program error 1)") {
+      throw new Error(`Custom variant mismatch: ${custom}`);
+    }
+    const named = describeSimulationError({ InstructionError: [2, "InsufficientFunds"] });
+    if (named !== "Instruction 2 failed: InsufficientFunds") {
+      throw new Error(`Named variant mismatch: ${named}`);
+    }
+    const borsh = describeSimulationError({ InstructionError: [1, { BorshIoError: "unexpected end" }] });
+    if (borsh !== "Instruction 1 failed (borsh IO error: unexpected end)") {
+      throw new Error(`Borsh variant mismatch: ${borsh}`);
+    }
+  });
+
+  await test("SimErr-D. Unknown/empty objects fall back without dumping", async () => {
+    for (const shape of [{}, { nested: { deep: { junk: "x".repeat(500) } } }, []]) {
+      const out = describeSimulationError(shape);
+      if (out.includes("[object Object]")) throw new Error("Must never stringify to [object Object]");
+      if (out.length > 160) throw new Error(`Fallback must stay concise (${out.length} chars)`);
+    }
+    const empty = describeSimulationError({});
+    if (empty !== "RPC simulation returned an unspecified transaction error.") {
+      throw new Error(`Empty object must use truthful fallback: ${empty}`);
+    }
+    if (describeSimulationError(null) !== null) throw new Error("Null must stay null (PASS path)");
+  });
+
+  await test("SimErr-E2E. simulateSolanaTransaction normalizes object err, keeps FAIL isolation", async () => {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        result: { value: { err: { InstructionError: [0, { Custom: 1 }] }, unitsConsumed: 1200, logs: ["a"] } }
+      })
+    });
+    try {
+      const sim = await simulateSolanaTransaction("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+      if (sim.status !== "FAIL") throw new Error("Object err must yield FAIL");
+      if (typeof sim.err !== "string") throw new Error("API err must be a string, never an object");
+      if (sim.err !== "Instruction 0 failed (custom program error 1)") {
+        throw new Error(`Normalized err mismatch: ${sim.err}`);
+      }
+      if (`FAIL (${sim.err})`.includes("[object Object]")) throw new Error("Legacy interpolation must be gone");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 
   await test("Routing intelligence grammar helper handles singular and plural counts accurately", async () => {

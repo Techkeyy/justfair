@@ -858,6 +858,64 @@ async function runBrowserTests() {
       }
     });
 
+    await test("14f3. Exact Simulation object error renders human-readable reason, never [object Object]", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        const req = route.request();
+        if (req.method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({
+          status: 200, contentType: "application/json",
+          body: JSON.stringify({
+            request_status: "SUCCESS", verification_status: "UNABLE_TO_VERIFY", verdict: "UNABLE_TO_VERIFY",
+            preflight_level: "EXACT_SIMULATION", reason_codes: ["SIMULATION_FAILED"],
+            trade: {
+              input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+              input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+              input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+              input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+              token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+              token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+            },
+            benchmark: {
+              symbol: "AAPLx", price: 332.27, source: "Nasdaq", source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+              provider: "Last known Nasdaq reference, not eligible", timestamp: "2026-09-11T00:00:00.000Z",
+              freshness_status: "STALE", is_real_time: false,
+              market_context: { session: "OVERNIGHT", underlying_reference_available: false, reference_eligibility: "INELIGIBLE_STALE" }
+            },
+            economics: {
+              raw_out_amount: "151127287", expected_stock_shares: 1.514192,
+              underlying_benchmark_price: 332.27, expected_stock_exposure_usd: 503.12,
+              effective_price_per_share: 329.77, difference_usd: 3.12, difference_pct: 0.62,
+              multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+            },
+            dex_route: { router: "Jupiter Swap V2", mode: "EXACT_SIMULATION", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+            alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+            simulation: { status: "FAIL", err: { InstructionError: [0, { Custom: 1 }] }, units_consumed: 1200 }
+          })
+        });
+      });
+      try {
+        await page.fill("#stock-card-AAPLx .exact-address-input", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM");
+        await page.click("#stock-card-AAPLx .submit-trade-btn");
+        await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+        const simDesc = await page.textContent("#stock-card-AAPLx .sim-desc");
+        if (!simDesc.includes("RPC simulation failed: Instruction 0 failed (custom program error 1)")) {
+          throw new Error(`Banner must carry readable reason: ${simDesc.slice(0, 200)}`);
+        }
+        const evSim = await page.textContent("#stock-card-AAPLx .ev-simulation");
+        if (evSim.trim() !== "FAIL — Instruction 0 failed (custom program error 1)") {
+          throw new Error(`Evidence must read FAIL with reason, got: ${evSim}`);
+        }
+        const all = await page.evaluate(() => document.querySelector("#stock-card-AAPLx .inline-result-container").innerText);
+        if (all.includes("[object Object]")) throw new Error("Raw object must never leak into UI");
+        const spendVal = await page.textContent("#stock-card-AAPLx .res-spend-val");
+        if (!spendVal.includes("$500.00")) throw new Error("Quote must remain rendered on sim failure");
+        await page.screenshot({ path: path.join(EVIDENCE_DIR, "14f3_sim_object_error.png") });
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
     // 013.7F: fresh walletless session still succeeds as Quote Check
     await test("14h. Walletless Fresh Session: USDC 500 succeeds with wallet null", async () => {
       const freshContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });

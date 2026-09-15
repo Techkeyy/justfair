@@ -2926,6 +2926,39 @@ function resetCardSubmitBtn(submitBtn) {
   updateSubmitState(submitBtn.closest(".stock-card-standalone"));
 }
 
+// Human-readable simulation failure reason. Defensive mirror of the API
+// normalizer: simulation.err must never render as "[object Object]".
+function describeSimError(err) {
+  const FALLBACK = "RPC simulation returned an unspecified transaction error.";
+  const MAX = 160;
+  const cut = (s) => s.length <= MAX ? s : s.slice(0, MAX - 1) + "…";
+  if (err === null || err === undefined) return FALLBACK;
+  if (typeof err === "string") return err.trim() ? cut(err.trim()) : FALLBACK;
+  if (typeof err === "number" || typeof err === "boolean") return String(err);
+  if (typeof err === "object") {
+    if (typeof err.message === "string" && err.message.trim()) return cut(err.message.trim());
+    if (Array.isArray(err.InstructionError) && err.InstructionError.length > 0) {
+      const [index, detail] = err.InstructionError;
+      let tail = "";
+      if (typeof detail === "string" && detail.trim()) tail = `: ${detail.trim()}`;
+      else if (typeof detail === "number") tail = ` (error code ${detail})`;
+      else if (detail && typeof detail === "object") {
+        if (typeof detail.Custom === "number") tail = ` (custom program error ${detail.Custom})`;
+        else if (typeof detail.BorshIoError === "string" && detail.BorshIoError.trim()) tail = ` (borsh IO error: ${detail.BorshIoError.trim()})`;
+      }
+      return cut(`Instruction ${index} failed${tail}`);
+    }
+    try {
+      const json = JSON.stringify(err);
+      if (json && json !== "{}" && json !== "[]") return cut(json);
+    } catch {
+      // Fall through to the truthful fallback.
+    }
+    return FALLBACK;
+  }
+  return FALLBACK;
+}
+
 function renderCardResult(card, data, symbol) {
   const loadingState = card.querySelector(".inline-loading-state");
   const errorState = card.querySelector(".inline-error-state");
@@ -3239,7 +3272,7 @@ function renderCardResult(card, data, symbol) {
         if (simDesc) simDesc.textContent = `Transaction simulated successfully (${sim.units_consumed?.toLocaleString() || 0} compute units). Nothing was signed or sent.`;
       } else {
         if (simTitle) simTitle.textContent = "Exact simulation couldn't complete";
-        if (simDesc) simDesc.textContent = "Trade route results above remain valid — only the exact simulation step failed. Nothing was signed or sent.";
+        if (simDesc) simDesc.textContent = `RPC simulation failed: ${describeSimError(sim.err)}. Trade route results above remain valid — only the exact simulation step failed. Nothing was signed or sent.`;
       }
     } else {
       simBanner.classList.add("hidden");
@@ -3330,7 +3363,7 @@ function renderCardResult(card, data, symbol) {
     }
   }
   if (evPreflightLevel) evPreflightLevel.textContent = data.preflight_level;
-  if (evSimulation) evSimulation.textContent = sim.status === "PASS" ? `PASS (err: null, ${sim.units_consumed} CU)` : sim.status === "NOT_RUN" ? "Not run — standard Quote Check" : `FAIL (${sim.err})`;
+  if (evSimulation) evSimulation.textContent = sim.status === "PASS" ? `PASS (err: null, ${sim.units_consumed} CU)` : sim.status === "NOT_RUN" ? "Not run — standard Quote Check" : `FAIL — ${describeSimError(sim.err)}`;
 
   // Smooth scroll to result
   resultContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
