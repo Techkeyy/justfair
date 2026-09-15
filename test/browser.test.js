@@ -2030,8 +2030,11 @@ async function runBrowserTests() {
         },
         economics: {
           raw_out_amount: "151419200", expected_stock_shares: 1.514192,
-          underlying_benchmark_price: 330.28, expected_stock_exposure_usd: 500.11,
-          effective_price_per_share: 330.21, difference_usd: 0.11, difference_pct: 0.02,
+          underlying_benchmark_price: 330.28, expected_stock_exposure_usd: null,
+          effective_price_per_share: 330.21, difference_usd: null, difference_pct: null,
+          dex_effective_price_per_share: 330.21,
+          difference_vs_ask_usd_per_share: -0.07, difference_vs_ask_pct: -0.02,
+          spread_position: "WITHIN_REFERENCE_SPREAD",
           multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
         },
         dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
@@ -2057,15 +2060,25 @@ async function runBrowserTests() {
           return {
             title: t(".verdict-title"), ctx: t(".live-benchmark-context"), expl: t(".res-explanation"),
             bid: t(".ev-ref-bid"), ask: t(".ev-ref-ask"), mid: t(".ev-ref-mid"),
-            type: t(".ev-ref-type"), time: t(".ev-ref-time"), all: c.querySelector(".inline-result-container").innerText
+            type: t(".ev-ref-type"), time: t(".ev-ref-time"), spread: t(".ev-spread-pos"),
+            all: c.querySelector(".inline-result-container").innerText
           };
         });
         if (box.title.trim() !== "MEASURED") throw new Error(`Eligible Alpaca must read MEASURED, got: ${box.title}`);
         if (!box.ctx.includes("Current overnight indicative quote")) throw new Error(`Overnight label mismatch: ${box.ctx}`);
-        if (!box.expl.includes("Reference ask $330.28") || !box.expl.includes("bid $330.10")) {
-          throw new Error(`Explanation must carry bid/ask: ${box.expl.slice(0, 300)}`);
+        // 017B: execution reference, never an exposure valuation.
+        if (!box.expl.includes("DEX effective price: $330.21/share")) {
+          throw new Error(`Explanation must carry effective acquisition price: ${box.expl.slice(0, 300)}`);
         }
-        if (!box.expl.includes("between the reference bid and ask")) throw new Error("Spread position missing");
+        if (!box.expl.includes("Current overnight indicative reference range: $330.10–$330.28")) {
+          throw new Error(`Explanation must carry the reference range: ${box.expl.slice(0, 300)}`);
+        }
+        if (!box.expl.includes("inside the current reference spread")) throw new Error("Spread position missing");
+        if (/exposure|valued at/i.test(box.expl)) throw new Error(`No exposure valuation allowed: ${box.expl.slice(0, 300)}`);
+        if (!box.all.includes("DIFFERENCE VS ASK")) throw new Error("Money card must compare vs ask");
+        if (!box.all.includes("SPREAD POSITION")) throw new Error("Money card must show spread position");
+        if (box.spread.trim() !== "Within reference spread") throw new Error(`Spread position evidence missing: ${box.spread}`);
+        if (!box.all.includes("Acquisition difference vs reference ask measured")) throw new Error("Subtitle must frame vs-ask comparison");
         if (!box.bid.includes("330.10") || !box.ask.includes("330.28") || !box.mid.includes("330.19")) {
           throw new Error(`Evidence bid/ask/mid missing: ${box.bid}/${box.ask}/${box.mid}`);
         }

@@ -153,7 +153,7 @@ JustFair maintains a deterministic, provenance-backed catalog mapping 12 underly
 Execution Preflight selects the strongest truthful equity reference available:
 
 1. Current regular-session reference (Nasdaq direct preferred for independence)
-2. Current timestamped Alpaca session quote — IEX for pre/post-market, overnight feed for overnight (buy-side reference is the ask; bid/ask/midpoint shown)
+2. Current timestamped Alpaca session quote — IEX for pre/post-market, overnight feed for overnight (buy-side reference is the ask; bid/ask/midpoint shown; the ask is an execution reference, never a valuation — no shares x ask exposure is computed)
 3. Latest indicative reference (live xStocks number, source timestamp unverified — displayed, never certified)
 4. Last available dated reference (stale/closed truthfully labeled)
 5. Unavailable (route-only mode)
@@ -167,4 +167,7 @@ reference. Each response carries `source_timestamp` (provider market time,
 possibly null), `fetched_at` (when JustFair fetched it), and
 `reference_date` (provider calendar date, if known). Alpaca quotes additionally
 carry `bid_price`, `ask_price`, `midpoint` (derived), `feed`, and
-`reference_price_type` (`ASK` for buy-side checks).
+`reference_price_type` (`ASK` for buy-side checks). For quote references the
+economics compare per-share acquisition (`dex_effective_price_per_share`,
+`difference_vs_ask_usd_per_share`, `spread_position`); `expected_stock_exposure_usd`
+is `null` because the ask cannot value the position.

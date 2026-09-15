@@ -328,7 +328,11 @@ async function runTests() {
       const data = await res.json();
       if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
       if (data.trade.stock_symbol !== "AAPLx") throw new Error("Stock symbol mismatch");
-      if (typeof data.economics.expected_stock_exposure_usd !== "number") throw new Error("Exposure missing");
+      if (typeof data.economics.expected_stock_shares !== "number") throw new Error("Shares missing");
+      // Exposure is a number for single-price references, null for bid/ask
+      // quote references (ask = execution reference, never a valuation).
+      const expShape = data.economics.expected_stock_exposure_usd;
+      if (typeof expShape !== "number" && expShape !== null) throw new Error("Exposure shape invalid");
       if (!data.benchmark.market_context) throw new Error("Market context missing from benchmark");
     } finally {
       await new Promise(resolve => server.close(resolve));

@@ -2047,6 +2047,14 @@ function renderCardBodyMarkup(symbol) {
           <span class="money-value res-diff-val">-$1.77</span>
           <span class="money-sub res-diff-pct">(-0.35%)</span>
         </div>
+        <div class="money-divider money-spread-div" style="display:none">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="9" x2="19" y2="9"></line><line x1="5" y1="15" x2="19" y2="15"></line></svg>
+        </div>
+        <div class="money-stat money-spread-stat" style="display:none">
+          <span class="money-label">SPREAD POSITION</span>
+          <span class="money-value money-pos">—</span>
+          <span class="money-sub money-pos-sub">vs reference bid/ask</span>
+        </div>
       </div>
 
       <!-- Plain English Explanation -->
@@ -2179,6 +2187,7 @@ function renderCardBodyMarkup(symbol) {
             <div class="evidence-item"><span class="ev-label">Reference Midpoint</span><span class="ev-val ev-ref-mid">—</span></div>
             <div class="evidence-item"><span class="ev-label">Reference Type</span><span class="ev-val ev-ref-type">—</span></div>
             <div class="evidence-item"><span class="ev-label">Reference Time</span><span class="ev-val ev-ref-time">—</span></div>
+            <div class="evidence-item"><span class="ev-label">Spread Position</span><span class="ev-val ev-spread-pos">—</span></div>
             <div class="evidence-item"><span class="ev-label">Current Market Session</span><span class="ev-val ev-session">CLOSED</span></div>
             <div class="evidence-item"><span class="ev-label">Reference Status</span><span class="ev-val ev-reference-status">Previous market reference</span></div>
             <div class="evidence-item"><span class="ev-label">Preflight Level</span><span class="ev-val ev-preflight-level">QUOTE_CHECK</span></div>
@@ -2917,6 +2926,13 @@ function renderCardResult(card, data, symbol) {
 
   const isClosed = mkt.session === "CLOSED" || bench.freshness_status === "AFTER_HOURS_CLOSE" || data.verification_status === "UNABLE_TO_VERIFY";
 
+  // Bid/ask quote reference (017B): the ask is an execution reference for
+  // acquiring the underlying — never an exposure valuation surrogate.
+  // Money-card and copy branch to per-share acquisition comparison.
+  const isQuote = typeof bench.bid_price === "number" && typeof bench.ask_price === "number"
+    && bench.bid_price > 0 && bench.ask_price > 0;
+  const spreadPosition = econ.spread_position || null;
+
   // Synchronize authoritative SOL price snapshot to form if SOL trade
   if (trade.input_asset === "SOL" && trade.input_asset_price_usd) {
     currentSolPrice = trade.input_asset_price_usd;
@@ -2953,11 +2969,17 @@ function renderCardResult(card, data, symbol) {
   const exposureLabel = resultContainer.querySelector(".res-exposure-label");
   const exposureVal = resultContainer.querySelector(".res-exposure-val");
   const exposureSub = resultContainer.querySelector(".res-exposure-sub");
-  if (exposureLabel) {
-    exposureLabel.textContent = isClosed ? "LAST KNOWN REFERENCE VALUE" : `EXPECTED ${assetNameUpper} EXPOSURE`;
+  if (isQuote) {
+    if (exposureLabel) exposureLabel.textContent = "DEX EFFECTIVE PRICE";
+    if (exposureVal) exposureVal.textContent = `$${Number(econ.effective_price_per_share).toFixed(2)}`;
+    if (exposureSub) exposureSub.textContent = `per ${trade.canonical_stock} share`;
+  } else {
+    if (exposureLabel) {
+      exposureLabel.textContent = isClosed ? "LAST KNOWN REFERENCE VALUE" : `EXPECTED ${assetNameUpper} EXPOSURE`;
+    }
+    if (exposureVal) exposureVal.textContent = `$${econ.expected_stock_exposure_usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (exposureSub) exposureSub.textContent = `${econ.expected_stock_shares} ${trade.canonical_stock} @ $${Number(bench.price).toFixed(2)}`;
   }
-  if (exposureVal) exposureVal.textContent = `$${econ.expected_stock_exposure_usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  if (exposureSub) exposureSub.textContent = `${econ.expected_stock_shares} ${trade.canonical_stock} @ $${Number(bench.price).toFixed(2)}`;
 
   // 3. Set Net Difference / Reference Difference (Primary Metric #3 - Truthful on Weekend)
   const diffPrefix = econ.difference_usd >= 0 ? "+" : "-";
@@ -2965,15 +2987,47 @@ function renderCardResult(card, data, symbol) {
   const diffLabel = diffCard?.querySelector(".money-label");
   const diffVal = resultContainer.querySelector(".res-diff-val");
   const diffPctEl = resultContainer.querySelector(".res-diff-pct");
-  if (diffLabel) {
-    diffLabel.textContent = isClosed ? "REFERENCE DIFFERENCE" : "DIFFERENCE";
-  }
-  if (diffVal) diffVal.textContent = `${diffPrefix}$${Math.abs(econ.difference_usd).toFixed(2)}`;
-  if (diffPctEl) {
-    const ref = describeReference(bench);
-    diffPctEl.textContent = isClosed
-      ? `(${diffPrefix}${Math.abs(diffPct).toFixed(2)}% ${ref.vsRefLabel})`
-      : `(${econ.difference_usd >= 0 ? "+" : ""}${diffPct.toFixed(2)}%)`;
+  if (isQuote) {
+    const vsAsk = Number(econ.difference_vs_ask_usd_per_share) || 0;
+    const vsAskPct = Number(econ.difference_vs_ask_pct) || 0;
+    const vsPrefix = vsAsk >= 0 ? "+" : "-";
+    if (diffLabel) diffLabel.textContent = "DIFFERENCE VS ASK";
+    if (diffVal) diffVal.textContent = `${vsPrefix}$${Math.abs(vsAsk).toFixed(2)}`;
+    if (diffPctEl) diffPctEl.textContent = `(${vsPrefix}${Math.abs(vsAskPct).toFixed(2)}% vs ask)`;
+    // Factual spread position stat: quote snapshots only, observational wording.
+    const spreadStat = resultContainer.querySelector(".money-spread-stat");
+    const spreadDiv = resultContainer.querySelector(".money-spread-div");
+    const posVal = resultContainer.querySelector(".money-pos");
+    const posSub = resultContainer.querySelector(".money-pos-sub");
+    if (spreadStat) spreadStat.style.display = "flex";
+    if (spreadDiv) spreadDiv.style.display = "";
+    if (posVal) {
+      posVal.textContent = !spreadPosition ? "—"
+        : spreadPosition === "BELOW_REFERENCE_BID" ? "Below bid"
+        : spreadPosition === "ABOVE_REFERENCE_ASK" ? "Above ask"
+        : "In spread";
+    }
+    if (posSub) {
+      const effQ = Number(econ.effective_price_per_share);
+      posSub.textContent = isFinite(effQ) && effQ > 0
+        ? `$${effQ.toFixed(2)}/share vs reference bid/ask`
+        : "vs reference bid/ask";
+    }
+  } else {
+    const spreadStat = resultContainer.querySelector(".money-spread-stat");
+    const spreadDiv = resultContainer.querySelector(".money-spread-div");
+    if (spreadStat) spreadStat.style.display = "none";
+    if (spreadDiv) spreadDiv.style.display = "none";
+    if (diffLabel) {
+      diffLabel.textContent = isClosed ? "REFERENCE DIFFERENCE" : "DIFFERENCE";
+    }
+    if (diffVal) diffVal.textContent = `${diffPrefix}$${Math.abs(econ.difference_usd).toFixed(2)}`;
+    if (diffPctEl) {
+      const ref = describeReference(bench);
+      diffPctEl.textContent = isClosed
+        ? `(${diffPrefix}${Math.abs(diffPct).toFixed(2)}% ${ref.vsRefLabel})`
+        : `(${econ.difference_usd >= 0 ? "+" : ""}${diffPct.toFixed(2)}%)`;
+    }
   }
 
   // 4. Verdict Banner
@@ -3006,14 +3060,50 @@ function renderCardResult(card, data, symbol) {
       verdictBanner.classList.add("verdict-measured");
       if (verdictIcon) verdictIcon.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"></path><path d="M4 7l8-4 8 4"></path><path d="M6 18l-3-6h6l-3 6z"></path><path d="M18 18l-3-6h6l-3 6z"></path></svg>`;
       if (verdictTitle) verdictTitle.textContent = "MEASURED";
-      if (verdictSubtitle) verdictSubtitle.textContent = `Economic difference measured at ${diffPrefix}${diffPct.toFixed(2)}%. Threshold safety calibration is pending live market tape verification.`;
+      if (verdictSubtitle) {
+        if (isQuote) {
+          const vsAskPct = Number(econ.difference_vs_ask_pct) || 0;
+          verdictSubtitle.textContent = `Acquisition difference vs reference ask measured at ${vsAskPct >= 0 ? "+" : ""}${vsAskPct.toFixed(2)}%. No calibrated fair/bad-fill threshold is applied.`;
+        } else {
+          verdictSubtitle.textContent = `Economic difference measured at ${diffPrefix}${diffPct.toFixed(2)}%. Threshold safety calibration is pending live market tape verification.`;
+        }
+      }
     }
+  }
+
+  // Factual spread position for bid/ask references (017B §10).
+  // Observational only: never GOOD/BAD/SAFE/UNSAFE.
+  function quotePositionText() {
+    if (!isQuote) return null;
+    const eff = Number(econ.effective_price_per_share);
+    const bid = Number(bench.bid_price);
+    const ask = Number(bench.ask_price);
+    if (!isFinite(eff) || !isFinite(bid) || !isFinite(ask) || bid <= 0 || ask <= 0) return null;
+    if (eff < bid) return `Your DEX price is $${(bid - eff).toFixed(2)} below the current reference bid.`;
+    if (eff > ask) return `Your DEX price is $${(eff - ask).toFixed(2)} above the current reference ask.`;
+    return "Your DEX price falls inside the current reference spread.";
   }
 
   // 5. Plain English Explanation
   const resExplanation = resultContainer.querySelector(".res-explanation");
   if (resExplanation) {
-    if (isClosed) {
+    if (isQuote) {
+      // Bid/ask quote reference (017B): shares + effective acquisition price
+      // against the explicit reference range. Never values shares × ask.
+      const refQ = describeBenchmarkState(bench, data?.reason_codes);
+      let rangeKind = "reference";
+      if (refQ.session === "OVERNIGHT") rangeKind = "overnight indicative reference";
+      else if (refQ.session === "PRE_MARKET") rangeKind = "pre-market reference";
+      else if (refQ.session === "POST_MARKET") rangeKind = "after-hours reference";
+      const position = quotePositionText();
+      const verdictNote = data.verification_status === "UNABLE_TO_VERIFY" || data.verdict === "UNABLE_TO_VERIFY"
+        ? "Not a current fairness verdict."
+        : "No calibrated fair/bad-fill threshold is being applied.";
+      resExplanation.textContent = `You would receive approximately ${econ.expected_stock_shares} ${trade.canonical_stock}-equivalent shares. `
+        + `DEX effective price: $${Number(econ.effective_price_per_share).toFixed(2)}/share. `
+        + `Current ${rangeKind} range: $${Number(bench.bid_price).toFixed(2)}–$${Number(bench.ask_price).toFixed(2)}. `
+        + `${position ? position + " " : ""}${verdictNote}`;
+    } else if (isClosed) {
       const refE = describeBenchmarkState(bench, data?.reason_codes);
       if (refE.unknown) {
         resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. An equity reference was available, but its timestamp could not be verified, so JustFair cannot certify a current fairness verdict. ${refE.sessionSentence}`;
@@ -3029,22 +3119,6 @@ function renderCardResult(card, data, symbol) {
       }
     } else {
       resExplanation.textContent = `This trade route would spend $${trade.input_usd_value.toFixed(2)} to acquire approximately ${econ.expected_stock_shares} shares of ${stockMeta.name} on Solana, delivering $${econ.expected_stock_exposure_usd.toFixed(2)} of underlying exposure (difference: ${diffPrefix}$${econ.difference_usd.toFixed(2)} or ${diffPrefix}${diffPct.toFixed(2)}%).`;
-      // Factual spread position when the reference carries a real quote.
-      // Observational only: never a good/bad verdict.
-      const hasQuoteHere = typeof bench.bid_price === "number" && typeof bench.ask_price === "number"
-        && bench.bid_price > 0 && bench.ask_price > 0;
-      if (hasQuoteHere) {
-        const eff = Number(econ.effective_price_per_share);
-        const bid = Number(bench.bid_price);
-        const ask = Number(bench.ask_price);
-        if (isFinite(eff) && isFinite(bid) && isFinite(ask) && bid > 0 && ask > 0) {
-          let relation;
-          if (eff < bid) relation = `is $${(bid - eff).toFixed(2)} below the reference bid`;
-          else if (eff > ask) relation = `is $${(eff - ask).toFixed(2)} above the reference ask`;
-          else relation = "falls between the reference bid and ask";
-          resExplanation.textContent += ` Reference ask $${ask.toFixed(2)} (bid $${bid.toFixed(2)}); DEX effective price $${eff.toFixed(2)} ${relation}.`;
-        }
-      }
     }
   }
 
@@ -3146,6 +3220,7 @@ function renderCardResult(card, data, symbol) {
   const evRefMid = resultContainer.querySelector(".ev-ref-mid");
   const evRefType = resultContainer.querySelector(".ev-ref-type");
   const evRefTime = resultContainer.querySelector(".ev-ref-time");
+  const evSpreadPos = resultContainer.querySelector(".ev-spread-pos");
   const evSession = resultContainer.querySelector(".ev-session");
   const evReferenceStatus = resultContainer.querySelector(".ev-reference-status");
   const evPreflightLevel = resultContainer.querySelector(".ev-preflight-level");
@@ -3181,6 +3256,12 @@ function renderCardResult(card, data, symbol) {
   if (evRefMid) evRefMid.textContent = (hasQuote && typeof bench.midpoint === "number") ? `$${bench.midpoint.toFixed(2)}` : "—";
   if (evRefType) evRefType.textContent = bench.reference_price_type || "—";
   if (evRefTime) evRefTime.textContent = bench.source_timestamp || bench.timestamp || "—";
+  if (evSpreadPos) {
+    evSpreadPos.textContent = !spreadPosition ? "—"
+      : spreadPosition === "BELOW_REFERENCE_BID" ? "Below reference bid"
+      : spreadPosition === "ABOVE_REFERENCE_ASK" ? "Above reference ask"
+      : "Within reference spread";
+  }
   if (evSession) {
     const sess = mkt.session || bench.current_market_session;
     evSession.textContent = sess ? `${sess} (${describeMarketSession(sess)})` : (isClosed ? "CLOSED" : "REGULAR");
@@ -3350,9 +3431,12 @@ function renderRevalidation(card, snapA, snapB) {
   const sharesB = Number(econB.expected_stock_shares) || 0;
   const dShares = sharesB - sharesA;
   const pctShares = sharesA !== 0 ? (dShares / sharesA) * 100 : null;
-  const expA = Number(econA.expected_stock_exposure_usd) || 0;
-  const expB = Number(econB.expected_stock_exposure_usd) || 0;
-  const dExp = expB - expA;
+  // Exposure is only meaningful for single-price references; bid/ask quote
+  // snapshots compare per-share acquisition instead (017B).
+  const expA = econA.expected_stock_exposure_usd;
+  const expB = econB.expected_stock_exposure_usd;
+  const hasExposure = typeof expA === "number" && typeof expB === "number";
+  const dExp = hasExposure ? expB - expA : null;
 
   const fmtSigned = (v, digits) => `${v >= 0 ? "+" : "-"}${Math.abs(v).toFixed(digits)}`;
   const set = (sel, text) => {
@@ -3362,7 +3446,7 @@ function renderRevalidation(card, snapA, snapB) {
   set(".reval-orig-shares", `${sharesA} ${canonical}`);
   set(".reval-new-shares", `${sharesB} ${canonical}`);
   set(".reval-change", `${fmtSigned(dShares, 6)} ${canonical} (${pctShares === null ? "—" : fmtSigned(pctShares, 2) + "%"})`);
-  set(".reval-exposure", `$${expB.toFixed(2)} (${fmtSigned(dExp, 2)} vs original)`);
+  set(".reval-exposure", hasExposure ? `$${expB.toFixed(2)} (${fmtSigned(dExp, 2)} vs original)` : "— (per-share comparison above)");
 
   const idA = frontendRouteIdentity(snapA.dex_route, tradeA);
   const idB = frontendRouteIdentity(snapB.dex_route, tradeB);

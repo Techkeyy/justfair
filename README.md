@@ -99,7 +99,7 @@ curl -X POST https://justfair-theta.vercel.app/api/v1/preflight \
 ## Limitations
 
 - Execution Preflight covers the 12 xStocks representations only.
-- Equity references are session-aware extended-hours coverage where a current verifiable reference is available — never claimed 24/7. The ladder is: current regular-session reference (Nasdaq direct preferred), current timestamped Alpaca session quote (IEX pre/post-market, overnight feed), latest indicative reference (timestamp unverified, never certified), last available dated reference, unavailable.
+- Equity references are session-aware extended-hours coverage where a current verifiable reference is available — never claimed 24/7. The ladder is: current regular-session reference (Nasdaq direct preferred), current timestamped Alpaca session quote (IEX pre/post-market, overnight feed; buy-side ask is an execution reference, never an exposure valuation), latest indicative reference (timestamp unverified, never certified), last available dated reference, unavailable.
 - An indicative xStocks price (live number, no source timestamp) is shown as indicative with upstream provenance (on-chain providers plus Nasdaq/Blue Ocean); it never certifies fairness.
 - Free Alpaca/IEX data is real-time single-exchange coverage, not full SIP consolidated tape.
 - Fairness verdicts require an eligible live equity reference; off-hours checks report reference value against the last available reference without certifying fairness.

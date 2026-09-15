@@ -120,6 +120,13 @@ Market-hours truth: outside an eligible live reference the API still returns
 Eligible references may come from the Nasdaq direct tape or from timestamped
 Alpaca session quotes (buy-side reference is the ask; `bid_price`,
 `ask_price`, `midpoint`, `feed`, and `reference_price_type` are returned).
+The ask is an execution reference for acquiring the underlying, never an
+exposure valuation: quote-reference responses carry
+`expected_stock_exposure_usd: null` and `difference_usd`/`difference_pct: null`,
+and instead report per-share `dex_effective_price_per_share`,
+`difference_vs_ask_usd_per_share`, `difference_vs_ask_pct`, and a factual
+`spread_position` (`BELOW_REFERENCE_BID`, `WITHIN_REFERENCE_SPREAD`,
+`ABOVE_REFERENCE_ASK`).
 A current fairness verdict is only produced against an eligible live tape;
 threshold calibration for graded verdicts is pending.
 

@@ -44,7 +44,7 @@ async function smokeTest() {
   });
   console.log('POST /api/v1/preflight status:', pRes.status);
   const pData = await pRes.json();
-  console.log('Preflight status:', pData.request_status, '| Spend: $' + pData.trade?.input_usd_value, '| Exposure: $' + pData.economics?.expected_stock_exposure_usd, '| Verdict:', pData.verdict);
+  console.log('Preflight status:', pData.request_status, '| Spend: $' + pData.trade?.input_usd_value, '| Exposure: ' + pData.economics?.expected_stock_exposure_usd, '| RefType:', pData.benchmark?.reference_price_type, '| Bid/Ask:', pData.benchmark?.bid_price + '/' + pData.benchmark?.ask_price, '| Mid:', pData.benchmark?.midpoint, '| VsAsk:', pData.economics?.difference_vs_ask_usd_per_share, '| SpreadPos:', pData.economics?.spread_position, '| Verdict:', pData.verdict);
   console.log('Alternative Routes status:', pData.alternative_routes?.status, '| Evaluated count:', pData.alternative_routes?.candidates_evaluated_count);
 
   // 4. HTML & Client Bundle
@@ -78,7 +78,7 @@ async function smokeTest() {
       });
       const d = await r.json().catch(() => null);
       if (r.status === 200 && d?.request_status === "SUCCESS") {
-        console.log(`  [SUCCESS] preflight ${label}: exposure $${d.economics?.expected_stock_exposure_usd} verdict ${d.verdict}`);
+        console.log(`  [SUCCESS] preflight ${label}: exposure ${d.economics?.expected_stock_exposure_usd} ref ${d.benchmark?.reference_price_type} bid/ask ${d.benchmark?.bid_price}/${d.benchmark?.ask_price} vsAsk ${d.economics?.difference_vs_ask_usd_per_share} pos ${d.economics?.spread_position} verdict ${d.verdict}`);
       } else {
         classify(`preflight ${label}`, r.status, d);
       }

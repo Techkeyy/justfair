@@ -261,15 +261,38 @@ export async function runPreflight(params = {}) {
     const quoteAgeMs = Date.now() - Date.parse(v2Result.obtained_at);
 
     // 6. Compute Fairness Economics
+    // Two reference models (Director Order 017B):
+    // - Single-price reference: exposure and difference derive from the mark.
+    // - Bid/ask quote reference: the ask is an EXECUTION reference for
+    //   acquiring the underlying, never an exposure valuation surrogate.
+    //   Comparison is per-share (effective price vs ask) plus spread position.
     const inputUsdValue = numAmount * inputBenchmark.price;
     const rawOutAmount = parseInt(orderData.outAmount, 10);
     const rawTokens = rawOutAmount / Math.pow(10, onChainMultiplierData.decimals);
     const expectedStockShares = rawTokens * onChainMultiplierData.current_multiplier;
-    const expectedStockExposureUsd = expectedStockShares * stockBenchmark.price;
     const effectivePricePerShare = expectedStockShares > 0 ? inputUsdValue / expectedStockShares : 0;
+    const hasQuoteReference = typeof stockBenchmark.ask_price === "number" && stockBenchmark.ask_price > 0
+      && typeof stockBenchmark.bid_price === "number" && stockBenchmark.bid_price > 0;
 
-    const diffUsd = expectedStockExposureUsd - inputUsdValue;
-    const diffPct = (diffUsd / inputUsdValue) * 100;
+    let expectedStockExposureUsd = null;
+    let diffUsd = null;
+    let diffPct = null;
+    let differenceVsAskUsdPerShare = null;
+    let differenceVsAskPct = null;
+    let spreadPosition = null;
+    if (hasQuoteReference) {
+      differenceVsAskUsdPerShare = parseFloat((effectivePricePerShare - stockBenchmark.ask_price).toFixed(2));
+      differenceVsAskPct = parseFloat((differenceVsAskUsdPerShare / stockBenchmark.ask_price * 100).toFixed(2));
+      spreadPosition = effectivePricePerShare < stockBenchmark.bid_price
+        ? "BELOW_REFERENCE_BID"
+        : effectivePricePerShare > stockBenchmark.ask_price
+          ? "ABOVE_REFERENCE_ASK"
+          : "WITHIN_REFERENCE_SPREAD";
+    } else {
+      expectedStockExposureUsd = expectedStockShares * stockBenchmark.price;
+      diffUsd = expectedStockExposureUsd - inputUsdValue;
+      diffPct = (diffUsd / inputUsdValue) * 100;
+    }
 
     // 7. Alternative Routing & Better Option Discovery
     let alternativeCandidates = [];
@@ -370,7 +393,7 @@ export async function runPreflight(params = {}) {
 
     const verdict = determineVerdict({
       verificationStatus,
-      differencePct: diffPct,
+      differencePct: hasQuoteReference ? differenceVsAskPct : diffPct,
       priceImpactPct: orderData.priceImpactPct
     });
 
@@ -423,10 +446,13 @@ export async function runPreflight(params = {}) {
         raw_out_amount: orderData.outAmount,
         expected_stock_shares: parseFloat(expectedStockShares.toFixed(6)),
         underlying_benchmark_price: stockBenchmark.price,
-        expected_stock_exposure_usd: parseFloat(expectedStockExposureUsd.toFixed(2)),
+        expected_stock_exposure_usd: expectedStockExposureUsd === null ? null : parseFloat(expectedStockExposureUsd.toFixed(2)),
         effective_price_per_share: parseFloat(effectivePricePerShare.toFixed(2)),
-        difference_usd: parseFloat(diffUsd.toFixed(2)),
-        difference_pct: parseFloat(diffPct.toFixed(2)),
+        difference_usd: diffUsd === null ? null : parseFloat(diffUsd.toFixed(2)),
+        difference_pct: diffPct === null ? null : parseFloat(diffPct.toFixed(2)),
+        difference_vs_ask_usd_per_share: differenceVsAskUsdPerShare,
+        difference_vs_ask_pct: differenceVsAskPct,
+        spread_position: spreadPosition,
         multiplier: {
           stored_multiplier: onChainMultiplierData.stored_multiplier,
           new_multiplier: onChainMultiplierData.new_multiplier,

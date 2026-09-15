@@ -58,11 +58,13 @@ function installUpstreamStubs() {
       const outputMint = u.searchParams.get("outputMint") || "";
       const excluded = u.searchParams.get("excludeRouters") || "";
       const alt = excluded.length > 0;
+      // Per-test override for spread-position fixtures (017B); default unchanged.
+      const forcedOut = globalThis.__E2E_JUPITER_OUT;
       return jsonResponse(jupiterOrderFixture(
         inputMint, outputMint,
         alt ? "metis" : "jupiterz",
         alt ? "ALTAMMKEY11111111111111111111111111111111111" : "CANONAMMKEY1111111111111111111111111111111",
-        alt ? "150900000" : FIXTURE_OUT_AMOUNT
+        typeof forcedOut === "string" && !alt ? forcedOut : (alt ? "150900000" : FIXTURE_OUT_AMOUNT)
       ));
     }
     // xStocks price-data: fresh dated reference (timestamp = now)
@@ -380,8 +382,15 @@ async function runE2ETests() {
       }
     });
     // 5d. Alpaca session quote drives buy-side ask economics (session-aware branch)
+    // 017B: the ask is an execution reference, never an exposure valuation.
+    // Spread fixtures: eff ABOVE ask, WITHIN spread, BELOW bid.
     await test("Alpaca quote selects ask reference with exact derived math", async () => {
       const nowIso = new Date().toISOString();
+      const cases = [
+        { out: "150000000", position: "ABOVE_REFERENCE_ASK" },
+        { out: "151250000", position: "WITHIN_REFERENCE_SPREAD" },
+        { out: "151500000", position: "BELOW_REFERENCE_BID" }
+      ];
       // Fixture credentials (dummy values): prove the adapter reads env only,
       // while all network responses remain stubbed fixtures.
       process.env.ALPACA_API_KEY_ID = "e2e-fixture-key-id";
@@ -393,48 +402,65 @@ async function runE2ETests() {
         }
       };
       globalThis.__E2E_XSTOCKS_BARE = true;
-      clearMarketReferenceCache();
       try {
-        const res = await fetch(`${BASE_URL}/api/v1/preflight`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ inputAsset: "USDC", stock: "AAPLx", amount: 500 })
-        });
-        if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
-        const data = await res.json();
-        if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
-        const session = calculateMarketSession(new Date());
-        if (session === "CLOSED") {
-          // No Alpaca fetch when closed: indicative fallback, honestly uncertified.
-          if (data.benchmark.freshness_status !== "INDICATIVE_UNVERIFIED") {
-            throw new Error("Closed session must not certify Alpaca");
+        for (const [idx, c] of cases.entries()) {
+          globalThis.__E2E_JUPITER_OUT = c.out;
+          clearMarketReferenceCache();
+          const res = await fetch(`${BASE_URL}/api/v1/preflight`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ inputAsset: "USDC", stock: "AAPLx", amount: 500 })
+          });
+          if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
+          const data = await res.json();
+          if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
+          const session = calculateMarketSession(new Date());
+          if (session === "CLOSED") {
+            // No Alpaca fetch when closed: indicative fallback, honestly uncertified.
+            if (data.benchmark.freshness_status !== "INDICATIVE_UNVERIFIED") {
+              throw new Error("Closed session must not certify Alpaca");
+            }
+            return;
           }
-          return;
-        }
-        if (data.benchmark.source !== "Alpaca Market Data") throw new Error(`Alpaca must win, got: ${data.benchmark.source}`);
-        if (data.benchmark.upstream_source !== "Alpaca Market Data (IEX)") {
-          throw new Error(`Upstream provenance missing: ${data.benchmark.upstream_source}`);
-        }
-        if (data.benchmark.feed !== "iex") throw new Error(`Feed must be iex, got: ${data.benchmark.feed}`);
-        if (data.benchmark.reference_price_type !== "ASK") throw new Error("Buy-side reference must be ASK");
-        if (data.benchmark.ask_price !== 330.70 || data.benchmark.bid_price !== 330.50) {
-          throw new Error("Bid/ask must echo fixture");
-        }
-        if (data.benchmark.midpoint !== 330.60) throw new Error(`Midpoint must derive: ${data.benchmark.midpoint}`);
-        if (data.benchmark.price !== 330.70) throw new Error("Reference price must be the ask");
-        const shares = parseInt(FIXTURE_OUT_AMOUNT, 10) / Math.pow(10, 8);
-        const expectedExposure = parseFloat((shares * 330.70).toFixed(2));
-        if (data.economics.expected_stock_exposure_usd !== expectedExposure) {
-          throw new Error(`Exposure must derive from ask: ${data.economics.expected_stock_exposure_usd} vs ${expectedExposure}`);
-        }
-        const effExpected = parseFloat((500 / shares).toFixed(2));
-        if (data.economics.effective_price_per_share !== effExpected) throw new Error("Effective price mismatch");
-        if (data.verification_status !== "VERIFIED" || data.verdict !== "MEASURED") {
-          throw new Error("Fresh session-aligned Alpaca must verify and measure");
+          if (data.benchmark.source !== "Alpaca Market Data") throw new Error(`Alpaca must win, got: ${data.benchmark.source}`);
+          if (data.benchmark.upstream_source !== "Alpaca Market Data (IEX)") {
+            throw new Error(`Upstream provenance missing: ${data.benchmark.upstream_source}`);
+          }
+          if (data.benchmark.feed !== "iex") throw new Error(`Feed must be iex, got: ${data.benchmark.feed}`);
+          if (data.benchmark.reference_price_type !== "ASK") throw new Error("Buy-side reference must be ASK");
+          if (data.benchmark.ask_price !== 330.70 || data.benchmark.bid_price !== 330.50) {
+            throw new Error("Bid/ask must echo fixture");
+          }
+          if (data.benchmark.midpoint !== 330.60) throw new Error(`Midpoint must derive: ${data.benchmark.midpoint}`);
+          if (data.benchmark.price !== 330.70) throw new Error("Reference price must be the ask");
+          // 017B: shares x ask must NOT be presented as exposure value.
+          if (data.economics.expected_stock_exposure_usd !== null) {
+            throw new Error(`Exposure must be null for quote references, got ${data.economics.expected_stock_exposure_usd}`);
+          }
+          if (data.economics.difference_usd !== null || data.economics.difference_pct !== null) {
+            throw new Error("Legacy value-difference must be null for quote references");
+          }
+          const shares = parseFloat((parseInt(c.out, 10) / Math.pow(10, 8)).toFixed(6));
+          if (data.economics.expected_stock_shares !== shares) {
+            throw new Error("Shares must stay exact");
+          }
+          const vsAsk = parseFloat(((500 / shares) - 330.70).toFixed(2));
+          if (data.economics.difference_vs_ask_usd_per_share !== vsAsk) {
+            throw new Error(`vs-ask math mismatch: ${data.economics.difference_vs_ask_usd_per_share} vs ${vsAsk}`);
+          }
+          if (data.economics.spread_position !== c.position) {
+            throw new Error(`Case ${idx}: expected ${c.position}, got ${data.economics.spread_position}`);
+          }
+          const effExpected = parseFloat((500 / shares).toFixed(2));
+          if (data.economics.effective_price_per_share !== effExpected) throw new Error("Effective price mismatch");
+          if (data.verification_status !== "VERIFIED" || data.verdict !== "MEASURED") {
+            throw new Error("Fresh session-aligned Alpaca must verify and measure");
+          }
         }
       } finally {
         globalThis.__E2E_ALPACA = null;
         globalThis.__E2E_XSTOCKS_BARE = false;
+        globalThis.__E2E_JUPITER_OUT = null;
         delete process.env.ALPACA_API_KEY_ID;
         delete process.env.ALPACA_API_SECRET_KEY;
         clearMarketReferenceCache();
