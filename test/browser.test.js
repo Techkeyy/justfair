@@ -2190,6 +2190,85 @@ async function runBrowserTests() {
       }
     });
 
+    // 54-55. Owner UAT regression: custody+dividend must MATCH; no stale-state contradiction
+    await test("54. Owner UAT flow: Apple custody+dividend yields MULTIPLE match with truthful rows", async () => {
+      const uatCtx = await browser.newContext({ viewport: { width: 1600, height: 800 } });
+      const uatPage = await uatCtx.newPage();
+      try {
+        await uatPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await uatPage.click("#hero-open-app-btn");
+        await uatPage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
+        await uatPage.click("#underlying-card-AAPL");
+        await uatPage.waitForSelector("#step-2-container", { timeout: 15000 });
+        await uatPage.click("#exp-card-SELF_CUSTODY .btn-must-have");
+        await uatPage.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have");
+        await uatPage.click("#btn-submit-expectations");
+        await uatPage.waitForSelector("#step-3-container:not(.hidden)", { timeout: 20000 });
+        const banner = await uatPage.textContent("#result-banner-title");
+        if (!banner.includes("2 Verified Products Match Your Must-Haves")) {
+          throw new Error(`Owner flow must yield MULTIPLE match, got: ${banner}`);
+        }
+        if (/No Verified Product Matches/i.test(await uatPage.textContent("#step-3-container"))) {
+          throw new Error("Owner flow must not show NO MATCH text");
+        }
+        for (const sym of ["AAPLx", "AAPLon"]) {
+          const badge = (await uatPage.textContent(`#rep-card-${sym} .rep-match-badge`)).trim();
+          if (badge !== "MATCHES MUST-HAVES") throw new Error(`${sym} must read MATCH, got: ${badge}`);
+          if (!await uatPage.isVisible(`#rep-card-${sym}`)) throw new Error(`${sym} card must be visible`);
+        }
+        // Evaluated rows must carry the real API verdicts, not static flattery.
+        const cards = await uatPage.textContent("#representation-cards-container");
+        if (!/automatically reinvests net dividends/i.test(cards)) {
+          throw new Error("Dividend rows must carry the real evaluation explanation");
+        }
+        const sub = await uatPage.textContent("#result-banner-subtitle");
+        if (!/satisfy all of your required expectations/i.test(sub)) {
+          throw new Error(`Subtitle must carry canonical summary: ${sub.slice(0, 160)}`);
+        }
+      } finally {
+        await uatCtx.close();
+      }
+    });
+
+    await test("55. Stale Step 2 state: switching company clears must-haves", async () => {
+      const staleCtx = await browser.newContext({ viewport: { width: 1600, height: 800 } });
+      const stalePage = await staleCtx.newPage();
+      try {
+        await stalePage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await stalePage.click("#hero-open-app-btn");
+        await stalePage.waitForSelector("#underlying-card-TSLA", { timeout: 15000 });
+        await stalePage.click("#underlying-card-TSLA");
+        await stalePage.waitForSelector("#step-2-container", { timeout: 15000 });
+        await stalePage.click("#exp-card-ORDINARY_VOTING_RIGHTS .btn-must-have");
+        await stalePage.click("#btn-submit-expectations");
+        await stalePage.waitForSelector("#step-3-container:not(.hidden)", { timeout: 20000 });
+        // Switch company: stale must-haves must not follow.
+        await stalePage.click("#tracker-step-1");
+        await stalePage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
+        await stalePage.click("#underlying-card-AAPL");
+        await stalePage.waitForSelector("#step-2-container", { timeout: 15000 });
+        const state = await stalePage.evaluate(() => window.appState?.expectations);
+        if (Object.keys(state || {}).length !== 0) {
+          throw new Error(`Company switch must clear expectations, got: ${JSON.stringify(state)}`);
+        }
+        const guidance = await stalePage.textContent("#expectations-guidance-box");
+        if (!/Select what matters/i.test(guidance)) {
+          throw new Error(`Guidance must reset to unselected state: ${guidance.slice(0, 120)}`);
+        }
+        // The exact owner sequence now yields MULTIPLE, not a stale NO_MATCH.
+        await stalePage.click("#exp-card-SELF_CUSTODY .btn-must-have");
+        await stalePage.click("#exp-card-ECONOMIC_DIVIDEND_BENEFIT .btn-must-have");
+        await stalePage.click("#btn-submit-expectations");
+        await stalePage.waitForSelector("#step-3-container:not(.hidden)", { timeout: 20000 });
+        const banner = await stalePage.textContent("#result-banner-title");
+        if (!banner.includes("2 Verified Products Match Your Must-Haves")) {
+          throw new Error(`Post-switch owner flow must yield MULTIPLE match, got: ${banner}`);
+        }
+      } finally {
+        await staleCtx.close();
+      }
+    });
+
     // 28-29. Tracker truth (013.9A)
     await test("28. Tracker Truth Direct: fresh Step 4 leaves Steps 1-3 neutral", async () => {
       const truthContext = await browser.newContext({ viewport: { width: 1600, height: 800 } });

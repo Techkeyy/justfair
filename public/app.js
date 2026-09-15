@@ -987,8 +987,10 @@ export function renderUnderlyingGrid() {
 export function selectUnderlying(canonical) {
   if (!UNDERLYING_CATALOG[canonical]) return;
 
-  // State isolation: changing company resets old product results and selection
+  // State isolation: changing company resets old product results, selection,
+  // and Step 2 expectations (stale must-haves must never constrain a new check).
   appState.selectedUnderlying = canonical;
+  appState.expectations = {};
   appState.productPreflightResult = null;
   appState.selectedRepresentation = null;
   appState.progress = { company: true, expectations: false };
@@ -1268,22 +1270,22 @@ export function renderProductPreflightResults(data) {
       banner.classList.add("status-match");
       if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>`;
       if (bannerTitle) bannerTitle.textContent = `${matchProducts.length} Verified Products Match Your Must-Haves`;
-      if (bannerSubtitle) bannerSubtitle.textContent = `Both xStocks and Ondo Stocks satisfy all your required capabilities for ${meta.name}. Review the side-by-side details below before trading.`;
+      if (bannerSubtitle) bannerSubtitle.textContent = data.consumer_summary || `Both xStocks and Ondo Stocks satisfy all your required capabilities for ${meta.name}. Review the side-by-side details below before trading.`;
     } else if (overallResult === "MATCHES_REQUIRED_EXPECTATIONS" || matchProducts.length === 1) {
       banner.classList.add("status-match");
       if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
       if (bannerTitle) bannerTitle.textContent = `1 Verified Product Matches Your Must-Haves`;
-      if (bannerSubtitle) bannerSubtitle.textContent = `Representation ${matchProducts[0].symbol} satisfies all your specified requirements for ${meta.name}.`;
+      if (bannerSubtitle) bannerSubtitle.textContent = data.consumer_summary || `Representation ${matchProducts[0].symbol} satisfies all your specified requirements for ${meta.name}.`;
     } else if (overallResult === "CONDITIONAL_MATCHES" || condProducts.length > 0) {
       banner.classList.add("status-conditional");
-      if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+      if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
       if (bannerTitle) bannerTitle.textContent = `Products Match, But Important Conditions Apply`;
-      if (bannerSubtitle) bannerSubtitle.textContent = `Verified representations match your requirements subject to specific institutional onboarding, KYC, or redemption minimums.`;
+      if (bannerSubtitle) bannerSubtitle.textContent = data.consumer_summary || `Verified representations match your requirements subject to specific institutional onboarding, KYC, or redemption minimums.`;
     } else if (overallResult === "NO_VERIFIED_PRODUCT_MATCH") {
       banner.classList.add("status-mismatch");
       if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
       if (bannerTitle) bannerTitle.textContent = `No Verified Product Matches Your Must-Haves`;
-      if (bannerSubtitle) bannerSubtitle.textContent = `No tokenized stock on Solana satisfies all your specified must-have requirements for ${meta.name}. See the conflict details below.`;
+      if (bannerSubtitle) bannerSubtitle.textContent = data.consumer_summary || `No tokenized stock on Solana satisfies all your specified must-have requirements for ${meta.name}. See the conflict details below.`;
     } else {
       banner.classList.add("status-warning");
       if (bannerIconBox) bannerIconBox.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`;
@@ -1309,40 +1311,59 @@ export function renderProductPreflightResults(data) {
       card.className = "representation-card";
       card.id = `rep-card-${rep.symbol}`;
 
-      // Default capabilities breakdown for display
+      // Default capabilities breakdown for display.
+      // Rows for expectations the user actually checked are overridden with
+      // the real per-product evaluation (state + explanation), so the card
+      // can never contradict its own MATCH/MISMATCH badge. Remaining rows
+      // are general structural facts, not verdicts on the current check.
+      const evaluatedCaps = {};
+      for (const r of (rep.evaluation?.required || [])) {
+        if (!r || !r.key) continue;
+        evaluatedCaps[r.key] = {
+          label: r.title || r.shortLabel || r.key,
+          status: r.state === "MATCH" ? "MATCH" : r.state === "MISMATCH" ? "MISMATCH" : "CONDITIONAL",
+          note: r.explanation || ""
+        };
+      }
       const isOndo = rep.symbol.endsWith("on");
       const defaultCaps = [
         {
+          key: "SELF_CUSTODY",
           label: "Self-Custody (Hold in own wallet)",
           status: "MATCH",
           note: "Direct Solana Token-2022 wallet custody"
         },
         {
+          key: "ECONOMIC_DIVIDEND_BENEFIT",
           label: "Economic Dividend Benefit",
           status: "MATCH",
           note: "Value accrued via share price multiplier"
         },
         {
+          key: "ORDINARY_VOTING_RIGHTS",
           label: "Shareholder Voting Rights",
           status: "MISMATCH",
           note: "No voting rights passed to token holders"
         },
         {
+          key: "WEEKEND_TRADING",
           label: "Weekend DEX Trading",
           status: "MATCH",
           note: "Secondary DEX liquidity pools trade on weekends"
         },
         {
+          key: "DIRECT_ISSUER_REDEMPTION",
           label: "Direct Issuer Redemption",
           status: "CONDITIONAL",
           note: isOndo ? "Non-US Reg S institutional KYC required" : "Retail eligible ($5,000 min, KYC required)"
         },
         {
+          key: "CASH_DIVIDEND_PAYOUT",
           label: "Direct Cash Dividend Payouts",
           status: "MISMATCH",
           note: "No cash USDC distributions directly into wallets"
         }
-      ];
+      ].map(row => evaluatedCaps[row.key] || row);
 
       // Build capability items markup
       const capsMarkup = defaultCaps.map(cap => {

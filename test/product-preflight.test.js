@@ -1074,6 +1074,47 @@ test("50. Strict Request Validation Suite: Rejects all malformed inputs", async 
   );
 });
 
+test("51. Owner UAT Regression: Self-Custody + Dividend + Voting -> NO_VERIFIED_PRODUCT_MATCH (voting fails, others pass)", async () => {
+  const result = await runProductPreflight({
+    underlying: "AAPL",
+    expectations: [
+      { key: "SELF_CUSTODY", priority: EXPECTATION_PRIORITY.REQUIRED },
+      { key: "ECONOMIC_DIVIDEND_BENEFIT", priority: EXPECTATION_PRIORITY.REQUIRED },
+      { key: "ORDINARY_VOTING_RIGHTS", priority: EXPECTATION_PRIORITY.REQUIRED }
+    ]
+  });
+
+  assert.equal(result.overall_result, UNDERLYING_RESULT_STATE.NO_VERIFIED_PRODUCT_MATCH);
+  for (const sym of ["AAPLx", "AAPLon"]) {
+    const prod = result.products.find(p => p.symbol === sym);
+    assert.equal(prod.evaluation.status, PRODUCT_EVALUATION_STATE.MISMATCH);
+    const byKey = Object.fromEntries(prod.evaluation.required.map(e => [e.key, e.state]));
+    // Custody and dividend benefit genuinely pass; only voting fails.
+    assert.equal(byKey.SELF_CUSTODY, MATCH_STATE.MATCH, `${sym} custody must pass`);
+    assert.equal(byKey.ECONOMIC_DIVIDEND_BENEFIT, MATCH_STATE.MATCH, `${sym} dividend benefit must pass`);
+    assert.equal(byKey.ORDINARY_VOTING_RIGHTS, MATCH_STATE.MISMATCH, `${sym} voting must fail`);
+  }
+  assert.ok(result.consumer_summary.includes("Corporate Voting Rights"));
+});
+
+test("52. Owner UAT Regression: Self-Custody only -> MULTIPLE_VERIFIED_MATCHES (both stay valid)", async () => {
+  const result = await runProductPreflight({
+    underlying: "AAPL",
+    expectations: [
+      { key: "SELF_CUSTODY", priority: EXPECTATION_PRIORITY.REQUIRED }
+    ]
+  });
+
+  assert.equal(result.overall_result, UNDERLYING_RESULT_STATE.MULTIPLE_VERIFIED_MATCHES);
+  const aaplx = result.products.find(p => p.symbol === "AAPLx");
+  const aaplon = result.products.find(p => p.symbol === "AAPLon");
+  assert.equal(aaplx.evaluation.status, PRODUCT_EVALUATION_STATE.MATCH);
+  assert.equal(aaplon.evaluation.status, PRODUCT_EVALUATION_STATE.MATCH);
+  // Products stay separate; no silent single pick.
+  assert.equal(result.products.length, 2);
+  assert.ok(result.consumer_summary.includes("AAPLx, AAPLon"));
+});
+
 
 
 
