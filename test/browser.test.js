@@ -39,6 +39,26 @@ async function runBrowserTests() {
   const PORT = server.address().port;
   const BASE_URL = `http://127.0.0.1:${PORT}`;
 
+  // Screenshots during smooth-scroll transit can capture unpainted frames.
+  // Settle the viewport before capturing scrolled mobile screenshots.
+  async function settleScroll(pg) {
+    await pg.waitForFunction(() => {
+      return new Promise(res => {
+        let last = window.scrollY;
+        let stable = 0;
+        const iv = setInterval(() => {
+          if (window.scrollY === last) {
+            stable++;
+            if (stable >= 3) { clearInterval(iv); res(true); }
+          } else {
+            last = window.scrollY;
+            stable = 0;
+          }
+        }, 100);
+      });
+    }, { timeout: 8000 });
+  }
+
   const browser = await chromium.launch({ headless: true });
   
   const context = await browser.newContext({
@@ -1171,6 +1191,8 @@ async function runBrowserTests() {
             if (!evRef.includes(want === "Friday" ? "Sep 11, 2026" : "Sep 14, 2026")) {
               throw new Error(`Evidence must agree on date: ${evRef}`);
             }
+            const subW = await page.textContent("#stock-card-AAPLx .verdict-subtitle");
+            if (!/stale/i.test(subW)) throw new Error(`Proven-stale subtitle may say stale: ${subW}`);
           } else {
             if (/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/.test(diff + expl + evRef)) {
               throw new Error(`Unknown timestamp must not invent a weekday: ${diff} | ${evRef}`);
@@ -1178,8 +1200,102 @@ async function runBrowserTests() {
             if (!/timestamp unavailable/i.test(expl + evRef)) {
               throw new Error("Unknown timestamp must say so honestly");
             }
+            const sub = await page.textContent("#stock-card-AAPLx .verdict-subtitle");
+            if (/stale/i.test(sub)) throw new Error(`Unknown reference must never be called stale: ${sub}`);
+            if (!/freshness could not be verified/i.test(sub)) {
+              throw new Error(`Unknown subtitle must state unverifiable freshness: ${sub}`);
+            }
           }
           await page.waitForTimeout(400);
+        }
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("34. Preview States: standby initial, confirmed live, failed neutral", async () => {
+      // C. Fresh expand, no confirmed route: neutral standby, no live claim.
+      await page.click("#tracker-step-4");
+      await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+      await page.click("#stock-card-AAPLx .stock-card-header");
+      await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+      const initialBadge = await page.textContent("#stock-card-AAPLx .live-route-status");
+      if (/Route Live|Live Route Active|Market Closed/.test(initialBadge)) {
+        throw new Error(`Initial preview must be neutral standby, got: ${initialBadge}`);
+      }
+      const ctxHidden = await page.$eval("#stock-card-AAPLx .live-benchmark-context", el => el.classList.contains("hidden"));
+      if (!ctxHidden) throw new Error("Benchmark context must stay hidden before any confirmed route");
+
+      // D. Confirmed route with UNKNOWN benchmark: Route Live + separated context.
+      await page.route("**/api/v1/preflight", async route => {
+        const req = route.request();
+        if (req.method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({
+          status: 200, contentType: "application/json",
+          body: JSON.stringify({
+            request_status: "SUCCESS", verification_status: "UNABLE_TO_VERIFY", verdict: "UNABLE_TO_VERIFY",
+            preflight_level: "QUOTE_CHECK", reason_codes: ["REFERENCE_UNAVAILABLE"],
+            trade: {
+              input_asset: "SOL", input_amount: 2, input_usd_value: 206.18,
+              input_mint: "So11111111111111111111111111111111111111112",
+              input_asset_price_usd: 103.09, input_asset_price_timestamp: new Date().toISOString(),
+              input_asset_price_source: "CoinGecko Real-Time Spot Feed", input_asset_price_provider: "CoinGecko Real-Time Spot Feed",
+              input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+              token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+              token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+            },
+            benchmark: {
+              symbol: "AAPLx", price: 332.27, source: "Nasdaq", source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+              provider: "Last known Nasdaq reference, not eligible", timestamp: null, freshness_status: "UNKNOWN",
+              is_real_time: false,
+              market_context: { session: "POST_MARKET", underlying_reference_available: false, reference_eligibility: "INELIGIBLE_UNKNOWN" }
+            },
+            economics: {
+              raw_out_amount: "61918", expected_stock_shares: 0.619188, underlying_benchmark_price: 332.27,
+              expected_stock_exposure_usd: 205.74, effective_price_per_share: 332.99, difference_usd: -0.44, difference_pct: -0.21,
+              multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+            },
+            dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["SOL", "AAPLx"], price_impact_pct: "0.0100" },
+            alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+            simulation: { status: "NOT_RUN", err: null, units_consumed: 0 }
+          })
+        });
+      });
+      try {
+        await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
+        await page.fill("#stock-card-AAPLx .amount-input", "2");
+        await page.waitForFunction(() => {
+          const el = document.querySelector("#stock-card-AAPLx .live-benchmark-context");
+          return el && !el.classList.contains("hidden") && el.textContent.includes("Post-market");
+        }, { timeout: 15000 });
+        const liveBadge = await page.textContent("#stock-card-AAPLx .live-route-status");
+        if (!liveBadge.includes("Route Live")) throw new Error(`Confirmed route must read Route Live, got: ${liveBadge}`);
+        const liveCtx = await page.textContent("#stock-card-AAPLx .live-benchmark-context");
+        if (!/Post-market/.test(liveCtx) || !/unavailable/i.test(liveCtx)) {
+          throw new Error(`Confirmed context must separate session/benchmark: ${liveCtx}`);
+        }
+        if (/stale/i.test(liveCtx)) throw new Error(`Unknown benchmark must not read stale in preview: ${liveCtx}`);
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "34_preview_states.png") });
+
+      // E. Scheduler failure: no live-route claim may remain.
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() === "POST") await route.abort("failed");
+        else await route.continue();
+      });
+      try {
+        await page.click("#tracker-step-4"); // fresh feed, neutral badge again
+        await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .stock-card-header");
+        await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .payment-tab[data-asset='SOL']");
+        await page.fill("#stock-card-AAPLx .amount-input", "2");
+        await page.waitForTimeout(2500);
+        const failBadge = await page.textContent("#stock-card-AAPLx .live-route-status");
+        if (/Route Live|Live Route Active|Market Closed/.test(failBadge)) {
+          throw new Error(`Failed preview must not claim a live route, got: ${failBadge}`);
         }
       } finally {
         await page.unroute("**/api/v1/preflight");
@@ -1303,7 +1419,7 @@ async function runBrowserTests() {
 
       // 16. Mobile Dashboard Story (Two Mistakes + Why JustFair)
       await mobilePage.evaluate(() => document.getElementById("two-mistakes-story")?.scrollIntoView());
-      await mobilePage.waitForTimeout(300);
+      await settleScroll(mobilePage);
       isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       if (isOverflow) throw new Error("Mobile Dashboard Story exhibits horizontal overflow");
       await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "16_mobile_story_section.png") });
@@ -1333,6 +1449,7 @@ async function runBrowserTests() {
       await mobilePage.click("#exp-card-SELF_CUSTODY .btn-must-have");
       await mobilePage.click("#btn-submit-expectations");
       await mobilePage.waitForSelector("#step-3-container:not(.hidden)", { timeout: 15000 });
+      await settleScroll(mobilePage);
       isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       if (isOverflow) throw new Error("Mobile Step 3 exhibits horizontal overflow");
       await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "19_mobile_product_results.png") });
