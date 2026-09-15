@@ -60,14 +60,19 @@ node test/browser.test.js          # Playwright UI suite (local server, headed-c
 node test/product-preflight.test.js
 node test/preflight.test.js
 node test/streaming.test.js
-node test/e2e.test.js              # deterministic contract tests (upstream-tolerant)
+node test/e2e.test.js              # deterministic contract tests (external providers stubbed at the fetch boundary)
 node test/smoke_prod.js            # live production smoke (observational)
 ```
 
-Live quote tests tolerate transient upstream failures by asserting the error
-contract (`UPSTREAM_TIMEOUT` / `UPSTREAM_UNAVAILABLE` / `UPSTREAM_ERROR`)
-instead of failing the build on external weather. Real live-success proof is
-done via headed production runs.
+Deterministic suites are fixture-controlled and release-gating: `e2e.test.js`
+stubs Jupiter/xStocks/Nasdaq/CoinGecko/Solana-RPC responses while exercising
+JustFair's real HTTP routing, validation, economics, and response contracts,
+so the same code plus the same fixtures yields the same result on every run.
+
+Live integration smoke (`smoke_prod.js` plus headed production runs) tests
+real external APIs observationally: results are classified as SUCCESS,
+UPSTREAM TRANSIENT, or PRODUCT FAILURE. A transient upstream failure never
+fails the deterministic build and is never presented as a successful quote.
 
 ## Deployment
 

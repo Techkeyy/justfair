@@ -1,5 +1,117 @@
 // JustFair Consumer Product End-to-End Test Suite (Director Order 005 Block B Gate)
+//
+// DETERMINISTIC suite (Director Order 014A): external-provider calls
+// (Jupiter, xStocks, Nasdaq, CoinGecko, Solana RPC) are stubbed at the fetch
+// boundary with fixed fixtures, while JustFair's own HTTP routing,
+// validation, economics, matcher, and response contracts run for real.
+// Same code + same fixture -> same result every run, no network weather.
+// Live-provider behavior belongs in test/smoke_prod.js (observational).
 import { createServer } from "../src/server.js";
+import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS } from "../src/config.js";
+
+const FIXTURE_OUT_AMOUNT = "151127287";
+const FIXTURE_PRICE = 330.30;
+const FIXTURE_MULTIPLIER = "1.0";
+
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+function jupiterOrderFixture(inputMint, outputMint, router, ammKey, outAmount) {
+  return {
+    outAmount,
+    router,
+    mode: "ultra",
+    feeBps: 10,
+    priceImpactPct: "0.01",
+    routePlan: [{
+      swapInfo: { label: router === "metis" ? "Meteora" : "Whirlpool", ammKey, inputMint, outputMint }
+    }],
+    transaction: "FIXTURE_BASE64_TRANSACTION"
+  };
+}
+
+// Intercepts ONLY external upstream hosts. Same-process localhost traffic
+// (the JustFair server under test) always passes through untouched.
+function installUpstreamStubs() {
+  const realFetch = globalThis.fetch;
+  const EXTERNAL_HOSTS = [
+    "api.jup.ag", "quote-api.jup.ag", "api.xstocks.fi", "api.nasdaq.com",
+    "api.coingecko.com", "publicnode.com", "mainnet-beta.solana.com",
+    "solana.com", "hermes.pyth.network", "pyth.network", "douro"
+  ];
+  globalThis.fetch = async (url, options = {}) => {
+    const urlStr = typeof url === "string" ? url : String(url?.url || url);
+    const isExternal = EXTERNAL_HOSTS.some(h => urlStr.includes(h));
+    if (!isExternal) return realFetch(url, options);
+    const u = new URL(urlStr);
+
+    // Jupiter V2 order + V6 quote fallback (canonical + distinct alternative)
+    if (urlStr.includes("jup.ag")) {
+      const inputMint = u.searchParams.get("inputMint") || "";
+      const outputMint = u.searchParams.get("outputMint") || "";
+      const excluded = u.searchParams.get("excludeRouters") || "";
+      const alt = excluded.length > 0;
+      return jsonResponse(jupiterOrderFixture(
+        inputMint, outputMint,
+        alt ? "metis" : "jupiterz",
+        alt ? "ALTAMMKEY11111111111111111111111111111111111" : "CANONAMMKEY1111111111111111111111111111111",
+        alt ? "150900000" : FIXTURE_OUT_AMOUNT
+      ));
+    }
+    // xStocks price-data: fresh dated reference (timestamp = now)
+    if (urlStr.includes("api.xstocks.fi")) {
+      return jsonResponse({
+        quote: {
+          price: FIXTURE_PRICE,
+          provider: "Fixture Reference Tape",
+          timestamp: new Date().toISOString(),
+          isRealTime: false
+        }
+      });
+    }
+    // Nasdaq fallback: no usable quote (xStocks fixture wins deterministically)
+    if (urlStr.includes("api.nasdaq.com")) {
+      return jsonResponse({ data: {} });
+    }
+    // CoinGecko SOL spot: fresh fixed quote
+    if (urlStr.includes("api.coingecko.com")) {
+      return jsonResponse({ solana: { usd: 101.50, last_updated_at: Math.floor(Date.now() / 1000) } });
+    }
+    // Solana RPC: multiplier account + simulation success
+    if (options?.method === "POST" && options?.body) {
+      let method = "";
+      try { method = JSON.parse(options.body).method || ""; } catch {}
+      if (method === "getAccountInfo") {
+        return jsonResponse({
+          result: {
+            value: {
+              data: {
+                parsed: {
+                  info: {
+                    decimals: 8,
+                    extensions: [{
+                      extension: "scaledUiAmountConfig",
+                      state: { multiplier: FIXTURE_MULTIPLIER, newMultiplier: null, newMultiplierEffectiveTimestamp: 0 }
+                    }]
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+      if (method === "simulateTransaction") {
+        return jsonResponse({ result: { value: { err: null, unitsConsumed: 42000, logs: ["ok"] } } });
+      }
+    }
+    return jsonResponse({ error: "unstubbed upstream in deterministic e2e" }, 500);
+  };
+  return () => { globalThis.fetch = realFetch; };
+}
 
 async function runE2ETests() {
   console.log("==================================================");
@@ -25,17 +137,41 @@ async function runE2ETests() {
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   const TEST_PORT = server.address().port;
   const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
+  const restoreFetch = installUpstreamStubs();
 
-  // Upstream weather tolerance (014 §2/§22): live Jupiter/benchmark calls can
-  // transiently fail. A transient ERROR with an upstream reason code proves
-  // the contract stayed truthful; it must not fail the deterministic suite.
-  // Real live-success proof lives in headed production runs + smoke_prod.js.
-  const UPSTREAM_TRANSIENT_CODES = ["UPSTREAM_TIMEOUT", "UPSTREAM_UNAVAILABLE", "UPSTREAM_ERROR"];
-  function isUpstreamTransient(res, data) {
-    return res.status !== 200
-      && data.request_status === "ERROR"
-      && Array.isArray(data.reason_codes)
-      && data.reason_codes.some(c => UPSTREAM_TRANSIENT_CODES.includes(c));
+  // Deterministic economics derived from the fixed fixtures above.
+  function expectedQuoteMath(inputUsd) {
+    const shares = parseInt(FIXTURE_OUT_AMOUNT, 10) / Math.pow(10, 8) * parseFloat(FIXTURE_MULTIPLIER);
+    const exposure = shares * FIXTURE_PRICE;
+    return {
+      shares: parseFloat(shares.toFixed(6)),
+      exposure: parseFloat(exposure.toFixed(2)),
+      diffPct: parseFloat(((exposure - inputUsd) / inputUsd * 100).toFixed(2))
+    };
+  }
+
+  // Reason-code taxonomy mirrors src/preflight.js: the code must follow the
+  // returned freshness, whatever the wall-clock weekday is.
+  function expectedReasonCode(freshness) {
+    if (freshness === "AFTER_HOURS_CLOSE") return "MARKET_CLOSED_OR_AFTER_HOURS";
+    if (freshness === "STALE") return "STALE_REFERENCE";
+    return "REFERENCE_UNAVAILABLE";
+  }
+
+  function assertTaxonomy(data) {
+    const freshness = data.benchmark?.freshness_status;
+    const eligibility = data.benchmark?.market_context?.reference_eligibility;
+    if (!freshness || !eligibility) throw new Error("Benchmark taxonomy missing");
+    if (eligibility !== "ELIGIBLE" && data.verification_status !== "UNABLE_TO_VERIFY") {
+      throw new Error(`Ineligible (${eligibility}) must yield UNABLE_TO_VERIFY`);
+    }
+    if (eligibility === "ELIGIBLE") {
+      if (data.verification_status !== "VERIFIED") throw new Error("Eligible reference must verify");
+      if (data.verdict !== "MEASURED") throw new Error(`Eligible check must read MEASURED, got ${data.verdict}`);
+      if (!data.reason_codes.includes("ALL_PREREQUISITES_PASSED")) throw new Error("Expected ALL_PREREQUISITES_PASSED");
+    } else if (!data.reason_codes.includes(expectedReasonCode(freshness))) {
+      throw new Error(`Freshness ${freshness} must yield ${expectedReasonCode(freshness)}, got ${data.reason_codes.join(",")}`);
+    }
   }
 
   try {
@@ -105,17 +241,16 @@ async function runE2ETests() {
       });
 
       const data = await res.json();
-      if (isUpstreamTransient(res, data)) {
-        console.log(`      (upstream transient ${data.reason_codes.join(",")}, contract held) ... `);
-        return;
-      }
       if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
       if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
       if (data.preflight_level !== "QUOTE_CHECK") throw new Error("Expected QUOTE_CHECK level");
       if (data.trade.input_usd_value !== 500) throw new Error("Spend mismatch");
-      if (data.economics.expected_stock_exposure_usd <= 0) throw new Error("Expected exposure missing");
+      const math = expectedQuoteMath(500);
+      if (data.economics.expected_stock_shares !== math.shares) throw new Error(`Shares mismatch: ${data.economics.expected_stock_shares} vs ${math.shares}`);
+      if (data.economics.expected_stock_exposure_usd !== math.exposure) throw new Error("Exposure mismatch");
       if (!data.benchmark.market_context) throw new Error("Market context missing");
       if (!data.alternative_routes || !data.alternative_routes.status) throw new Error("Alternative routes missing");
+      assertTaxonomy(data);
     });
 
     // 5. Frontend Trade Flow 2: NVDAx with SOL
@@ -131,14 +266,13 @@ async function runE2ETests() {
       });
 
       const data = await res.json();
-      if (isUpstreamTransient(res, data)) {
-        console.log(`      (upstream transient ${data.reason_codes.join(",")}, contract held) ... `);
-        return;
-      }
       if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
       if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
       if (data.trade.input_asset !== "SOL") throw new Error("Input asset mismatch");
-      if (data.economics.expected_stock_shares <= 0) throw new Error("Expected shares must be > 0");
+      if (data.trade.input_usd_value !== 203) throw new Error(`SOL spot math mismatch: ${data.trade.input_usd_value}`);
+      const mathSol = expectedQuoteMath(203);
+      if (data.economics.expected_stock_shares !== mathSol.shares) throw new Error("Expected shares mismatch");
+      assertTaxonomy(data);
     });
 
     // 6. Frontend Trade Flow 3: MSFTx with USDC (Newly Expanded Megacap)
@@ -154,14 +288,11 @@ async function runE2ETests() {
       });
 
       const data = await res.json();
-      if (isUpstreamTransient(res, data)) {
-        console.log(`      (upstream transient ${data.reason_codes.join(",")}, contract held) ... `);
-        return;
-      }
       if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
       if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
       if (data.trade.stock_symbol !== "MSFTx") throw new Error("Expected MSFTx");
       if (data.economics.expected_stock_exposure_usd <= 0) throw new Error("Expected exposure missing");
+      assertTaxonomy(data);
     });
 
     // 7. Frontend Trade Flow 4: QQQx with USDC (Index ETF)
@@ -177,14 +308,11 @@ async function runE2ETests() {
       });
 
       const data = await res.json();
-      if (isUpstreamTransient(res, data)) {
-        console.log(`      (upstream transient ${data.reason_codes.join(",")}, contract held) ... `);
-        return;
-      }
       if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
       if (data.request_status !== "SUCCESS") throw new Error("Expected request_status SUCCESS");
       if (data.trade.stock_symbol !== "QQQx") throw new Error("Expected QQQx");
       if (data.economics.expected_stock_exposure_usd <= 0) throw new Error("Expected exposure missing");
+      assertTaxonomy(data);
     });
 
     // 5. Frontend Trade Flow 3: Wallet-Connected Exact RPC Simulation
@@ -202,15 +330,11 @@ async function runE2ETests() {
       });
 
       const data = await res.json();
-      if (isUpstreamTransient(res, data)) {
-        console.log(`      (upstream transient ${data.reason_codes.join(",")}, contract held) ... `);
-        return;
-      }
       if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
       if (data.preflight_level !== "EXACT_SIMULATION") throw new Error("Expected EXACT_SIMULATION level");
-      if (data.simulation.status === "PASS") {
-        if (data.simulation.err !== null) throw new Error("Simulation pass must have err: null");
-      }
+      if (data.simulation.status !== "PASS") throw new Error(`Simulation must pass on fixture, got ${data.simulation.status}`);
+      if (data.simulation.err !== null) throw new Error("Simulation pass must have err: null");
+      if (data.simulation.units_consumed !== 42000) throw new Error("Simulation units must echo fixture");
     });
 
     // 6. Failure State: Invalid Amount
@@ -262,6 +386,7 @@ async function runE2ETests() {
     });
 
   } finally {
+    restoreFetch();
     await new Promise(resolve => server.close(resolve));
   }
 
