@@ -11,7 +11,7 @@ import {
   determineVerdict,
   THRESHOLD_CALIBRATION_STATUS
 } from "../src/preflight.js";
-import { parseXStocksPriceData, fetchCryptoSpotPrice, selectEquityBenchmark, evaluateReferenceEligibility, fetchMarketReference, clearMarketReferenceCache } from "../src/engine/benchmark.js";
+import { parseXStocksPriceData, fetchCryptoSpotPrice, selectEquityBenchmark, evaluateReferenceEligibility, fetchMarketReference, clearMarketReferenceCache, buildAlpacaBenchmark, refreshCachedReference, REFERENCE_FRESHNESS_MAX_AGE_MS } from "../src/engine/benchmark.js";
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, API_ENDPOINTS } from "../src/config.js";
 import { createServer, clearRateLimiter } from "../src/server.js";
 
@@ -919,8 +919,33 @@ async function runTests() {
     }
   });
 
+  await test("Benchmark V2 Alpaca builder preserves provenance, feed, and ask economics", async () => {
+    const ts = new Date().toISOString();
+    const { result } = buildAlpacaBenchmark({
+      symbol: "AAPLx",
+      candidate: {
+        quote: {
+          symbol: "AAPL", feed: "overnight", bid_price: 330.10, ask_price: 330.28,
+          upstream_source: "Alpaca Market Data (overnight derived feed)", source_timestamp: ts
+        },
+        refTimeMs: Date.parse(ts), ageMs: 5000, quoteSession: "OVERNIGHT"
+      },
+      currentSession: "OVERNIGHT",
+      fetchedAt: ts
+    });
+    if (result.upstream_source !== "Alpaca Market Data (overnight derived feed)") {
+      throw new Error(`upstream_source lost: ${result.upstream_source}`);
+    }
+    if (result.feed !== "overnight") throw new Error(`feed lost: ${result.feed}`);
+    if (result.price !== 330.28 || result.reference_price_type !== "ASK") throw new Error("Buy-side reference must be the ask");
+    if (result.midpoint !== 330.19) throw new Error(`Midpoint must derive: ${result.midpoint}`);
+    if (result.freshness_status !== "FRESH" || result.market_context.reference_eligibility !== "ELIGIBLE") {
+      throw new Error("Session-aligned fresh Alpaca must certify");
+    }
+    if (REFERENCE_FRESHNESS_MAX_AGE_MS !== 900000) throw new Error("Freshness policy constant changed unexpectedly");
+  });
+
   await test("Benchmark V2 cache: reused responses recompute age-sensitive truth", async () => {
-    const { refreshCachedReference } = await import("../src/engine/benchmark.js");
     const oldRef = Date.now() - 3600000;
     const cached = {
       result: {

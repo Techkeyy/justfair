@@ -95,6 +95,15 @@ export function parseXStocksPriceData(data, symbol) {
   };
 }
 
+// Canonical technical freshness rule (shared by eligibility, selection, and
+// cache honesty). A reference older than this can never certify a comparison.
+// This is a TECHNICAL staleness guard against obviously stale or delayed
+// upstream data — not a financial GOOD/BAD threshold, and unrelated to any
+// vendor plan limit (e.g. Alpaca historical-data delay vs live-quote
+// freshness are different concepts). Timestamp validity and session alignment
+// are enforced as separate gates; age alone never certifies anything.
+export const REFERENCE_FRESHNESS_MAX_AGE_MS = 900000; // 15 minutes
+
 let cachedMarketReferences = {};
 
 export function clearMarketReferenceCache() {
@@ -282,10 +291,11 @@ export function buildAlpacaBenchmark({ symbol, candidate, currentSession, fetche
     ask_price: q.ask_price,
     midpoint,
     currency: "USD",
+    feed: q.feed,
     source: "Alpaca Market Data",
     source_type: "ALPACA_QUOTE",
     provider,
-    upstream_source: q.upstream,
+    upstream_source: q.upstream_source,
     timestamp: q.source_timestamp,
     source_timestamp: q.source_timestamp,
     fetched_at: fetchedAt,
@@ -364,7 +374,7 @@ export function refreshCachedReference(cached, currentSession, nowMs) {
     const ageMs = p.refTimeMs ? Math.max(0, nowMs - p.refTimeMs) : null;
     const quoteSession = p.refTimeMs ? calculateMarketSession(new Date(p.refTimeMs)) : null;
     // Session match + technical freshness, else truthfully degraded (never refetched here).
-    const stillCurrent = ageMs !== null && ageMs <= 900000 && quoteSession === currentSession;
+    const stillCurrent = ageMs !== null && ageMs <= REFERENCE_FRESHNESS_MAX_AGE_MS && quoteSession === currentSession;
     const freshness = stillCurrent ? "FRESH" : "STALE";
     const eligibility = stillCurrent ? "ELIGIBLE" : "INELIGIBLE_STALE";
     return {
@@ -421,7 +431,7 @@ export function evaluateReferenceEligibility({ currentSession, timestampIso, age
   if (!timestampIso || ageMs === null || ageMs === undefined) {
     return { referenceEligibility: "INELIGIBLE_UNKNOWN", freshnessStatus: "UNKNOWN" };
   }
-  if (ageMs > 900000) { // > 15 minutes old during a live tradable session
+  if (ageMs > REFERENCE_FRESHNESS_MAX_AGE_MS) { // > 15 minutes old during a live tradable session
     return { referenceEligibility: "INELIGIBLE_STALE", freshnessStatus: "STALE" };
   }
   return { referenceEligibility: "ELIGIBLE", freshnessStatus: "FRESH" };
@@ -481,7 +491,7 @@ export function selectEquityBenchmark({ currentSession, xstocksQuote, nasdaqQuot
     const validTs = tsMs && !isNaN(tsMs) ? tsMs : null;
     const quoteSession = validTs ? calculateMarketSession(new Date(validTs)) : null;
     const ageMs = validTs ? Math.max(0, Date.now() - validTs) : null;
-    if (validTs && quoteSession === currentSession && ageMs !== null && ageMs <= 900000) {
+    if (validTs && quoteSession === currentSession && ageMs !== null && ageMs <= REFERENCE_FRESHNESS_MAX_AGE_MS) {
       alpacaCandidate = {
         kind: "alpaca",
         quote: alpacaQuote,
@@ -533,7 +543,7 @@ export async function fetchCryptoSpotPrice(cryptoPriceId = "solana", forceFresh 
   // Return cached quote if it's less than 60s old and forceFresh is false
   if (!forceFresh && cached && (now - cached.cachedAt < 60000)) {
     const ageMs = cached.entry.timestamp ? Math.max(0, now - Date.parse(cached.entry.timestamp)) : null;
-    const isFresh = ageMs !== null && ageMs <= 900000;
+    const isFresh = ageMs !== null && ageMs <= REFERENCE_FRESHNESS_MAX_AGE_MS;
     return {
       ...cached.entry,
       age_ms: ageMs,
@@ -550,7 +560,7 @@ export async function fetchCryptoSpotPrice(cryptoPriceId = "solana", forceFresh 
     });
 
     if (!res.ok) {
-      if (cached && (now - Date.parse(cached.entry.timestamp || 0) <= 900000)) {
+      if (cached && (now - Date.parse(cached.entry.timestamp || 0) <= REFERENCE_FRESHNESS_MAX_AGE_MS)) {
         return {
           ...cached.entry,
           age_ms: Math.max(0, now - Date.parse(cached.entry.timestamp)),
@@ -564,7 +574,7 @@ export async function fetchCryptoSpotPrice(cryptoPriceId = "solana", forceFresh 
     const entry = data[cryptoPriceId];
     const price = entry?.usd;
     if (!price || typeof price !== "number") {
-      if (cached && (now - Date.parse(cached.entry.timestamp || 0) <= 900000)) {
+      if (cached && (now - Date.parse(cached.entry.timestamp || 0) <= REFERENCE_FRESHNESS_MAX_AGE_MS)) {
         return {
           ...cached.entry,
           age_ms: Math.max(0, now - Date.parse(cached.entry.timestamp)),
@@ -594,7 +604,7 @@ export async function fetchCryptoSpotPrice(cryptoPriceId = "solana", forceFresh 
     const upstreamMs = upstreamSec * 1000;
     const upstreamIso = new Date(upstreamMs).toISOString();
     const ageMs = Math.max(0, now - upstreamMs);
-    const isFresh = ageMs <= 900000; // 15 mins
+    const isFresh = ageMs <= REFERENCE_FRESHNESS_MAX_AGE_MS; // 15 mins
 
     const result = {
       price,
@@ -617,7 +627,7 @@ export async function fetchCryptoSpotPrice(cryptoPriceId = "solana", forceFresh 
 
     return result;
   } catch (err) {
-    if (cached && (now - Date.parse(cached.entry.timestamp || 0) <= 900000)) {
+    if (cached && (now - Date.parse(cached.entry.timestamp || 0) <= REFERENCE_FRESHNESS_MAX_AGE_MS)) {
       return {
         ...cached.entry,
         age_ms: Math.max(0, now - Date.parse(cached.entry.timestamp)),
