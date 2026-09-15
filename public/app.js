@@ -1891,6 +1891,11 @@ function renderCardBodyMarkup(symbol) {
   const stock = STOCK_META[symbol] || { name: symbol, canonical: symbol, mint: "", fullName: symbol };
   return `
     <form class="stock-trade-form" data-symbol="${symbol}" novalidate>
+      <div class="trade-form-intro">
+        <h4 class="trade-form-title">CHECK THE TRADE</h4>
+        <p class="trade-form-sub">What trade are you about to make?</p>
+        <p class="trade-form-rep"><strong>${stock.symbol}</strong> · ${stock.name} · xStocks · Solana</p>
+      </div>
       <div class="form-row-grid">
         <!-- Payment Choice -->
         <div class="form-col">
@@ -1940,7 +1945,7 @@ function renderCardBodyMarkup(symbol) {
       <!-- Submit Row -->
       <div class="form-actions">
         <button type="submit" class="btn btn-primary btn-block btn-lg submit-trade-btn" disabled>
-          <span class="btn-text">CHECK TRADE</span>
+          <span class="btn-text">CHECK THIS TRADE</span>
           <span class="btn-spinner hidden" aria-hidden="true"></span>
         </button>
         <p class="form-hint submit-gating-hint">Select USDC or SOL and enter an amount to check this trade.</p>
@@ -2028,6 +2033,25 @@ function renderCardBodyMarkup(symbol) {
         <span class="snapshot-freeze-badge res-freeze-timestamp">CHECKED AT --:--:-- UTC</span>
       </div>
 
+      <!-- Plain-English Trade Summary (first thing the user reads) -->
+      <div class="result-summary-card">
+        <h3 class="result-summary-title">YOUR TRADE</h3>
+        <div class="result-summary-row">
+          <span class="result-summary-label">You're spending</span>
+          <strong class="result-summary-value res-sum-spend">$500.00</strong>
+          <span class="result-summary-sub res-sum-spend-sub">500 USDC</span>
+        </div>
+        <div class="result-summary-row">
+          <span class="result-summary-label">You would receive approximately</span>
+          <strong class="result-summary-value res-sum-shares">1.50 AAPLx</strong>
+        </div>
+        <div class="result-summary-row">
+          <span class="result-summary-label">Effective acquisition price</span>
+          <strong class="result-summary-value res-sum-eff">$330.00</strong>
+          <span class="result-summary-sub res-sum-eff-sub">per AAPL share</span>
+        </div>
+      </div>
+
       <!-- Post-Check Live Movement Notice -->
       <div class="live-movement-banner hidden">
         <span class="live-movement-text">⚡ Live DEX route output moved since this check</span>
@@ -2080,6 +2104,7 @@ function renderCardBodyMarkup(symbol) {
 
       <!-- Plain English Explanation -->
       <div class="explanation-box">
+        <h4 class="expl-heading">WHAT JUSTFAIR FOUND</h4>
         <p class="explanation-text res-explanation"></p>
       </div>
 
@@ -2096,7 +2121,7 @@ function renderCardBodyMarkup(symbol) {
           <div class="better-option-detail hidden">
             <div class="better-option-grid">
               <div class="route-box canonical-box">
-                <span class="route-box-title">CURRENT JUPITER ROUTE</span>
+                <span class="route-box-title">CURRENT ROUTE</span>
                 <span class="route-box-value canonical-exposure-val">$0.00</span>
                 <span class="route-box-diff canonical-diff-val">Reference difference: -$0.00</span>
                 <span class="route-box-sub canonical-route-venues">Jupiter DEX Route</span>
@@ -2105,7 +2130,7 @@ function renderCardBodyMarkup(symbol) {
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
               </div>
               <div class="route-box alternative-box">
-                <span class="route-box-title">BETTER OBSERVED OPTION</span>
+                <span class="route-box-title">BETTER CHECKED ROUTE</span>
                 <span class="route-box-value alternative-exposure-val">$0.00</span>
                 <span class="route-box-diff alternative-diff-val">Reference difference: -$0.00</span>
                 <span class="route-box-sub alternative-route-venues">Alternative Route</span>
@@ -2133,7 +2158,10 @@ function renderCardBodyMarkup(symbol) {
 
       <!-- Exact Simulation upsell (only after a walletless quote check) -->
       <div class="exact-upsell hidden">
-        <span class="exact-upsell-text">Want a more exact check?</span>
+        <div class="exact-upsell-copy">
+          <h4 class="exact-upsell-title">WANT A MORE EXACT CHECK?</h4>
+          <p class="exact-upsell-sub">Run an unsigned transaction simulation using only your public Solana address. Optional · Nothing is signed or sent · No funds move.</p>
+        </div>
         <button type="button" class="btn btn-secondary btn-sm exact-upsell-btn">Run exact simulation</button>
       </div>
 
@@ -2143,7 +2171,7 @@ function renderCardBodyMarkup(symbol) {
           <span class="btn-text">REVALIDATE &amp; CONTINUE</span>
           <span class="btn-spinner hidden" aria-hidden="true"></span>
         </button>
-        <p class="form-hint revalidate-hint">Refresh this exact trade before leaving JustFair.</p>
+        <p class="form-hint revalidate-hint">Refresh this exact trade before opening Jupiter.</p>
 
         <div class="revalidation-loading hidden">
           <div class="loading-spinner"></div>
@@ -2152,7 +2180,7 @@ function renderCardBodyMarkup(symbol) {
 
         <div class="revalidation-result hidden">
           <div class="reval-header">
-            <span class="reval-title">HANDOFF REVALIDATION</span>
+            <span class="reval-title">REFRESH BEFORE CONTINUING</span>
             <span class="reval-timestamp"></span>
           </div>
           <div class="reval-grid">
@@ -2187,7 +2215,7 @@ function renderCardBodyMarkup(symbol) {
       <!-- Technical Evidence Drawer -->
       <details class="evidence-accordion">
         <summary class="accordion-header">
-          <span>View Technical Proof &amp; Route Evidence</span>
+          <span>View Technical Details</span>
           <svg class="accordion-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
         <div class="accordion-body">
@@ -3018,6 +3046,19 @@ function renderCardResult(card, data, symbol) {
       : `${trade.input_amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${trade.input_asset}`;
   }
 
+  // 1b. Plain-English trade summary (first thing the user reads).
+  const sumSpend = resultContainer.querySelector(".res-sum-spend");
+  const sumSpendSub = resultContainer.querySelector(".res-sum-spend-sub");
+  const sumShares = resultContainer.querySelector(".res-sum-shares");
+  const sumEff = resultContainer.querySelector(".res-sum-eff");
+  const sumEffSub = resultContainer.querySelector(".res-sum-eff-sub");
+  if (sumSpend) sumSpend.textContent = `$${trade.input_usd_value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (sumSpendSub) sumSpendSub.textContent = `${trade.input_amount} ${trade.input_asset}`;
+  if (sumShares) sumShares.textContent = `${econ.expected_stock_shares} ${trade.stock_symbol}`;
+  const sumEffNum = Number(econ.effective_price_per_share);
+  if (sumEff) sumEff.textContent = isFinite(sumEffNum) && sumEffNum > 0 ? `$${sumEffNum.toFixed(2)}` : "—";
+  if (sumEffSub) sumEffSub.textContent = `per ${trade.canonical_stock} share`;
+
   // 2. Set Exposure / Reference Value (Primary Metric #2 - Truthful on Weekend)
   const assetNameUpper = stockMeta.name.toUpperCase();
   const exposureLabel = resultContainer.querySelector(".res-exposure-label");
@@ -3193,7 +3234,7 @@ function renderCardResult(card, data, symbol) {
   if (betterOptionCard) {
     if (altRoutes && altRoutes.status === "ALTERNATIVE_FOUND" && altRoutes.best_alternative) {
       betterOptionCard.className = "better-option-card is-alternative-found";
-      if (betterOptionBadgeText) betterOptionBadgeText.textContent = "BETTER OBSERVED OPTION";
+      if (betterOptionBadgeText) betterOptionBadgeText.textContent = "BETTER CHECKED ROUTE FOUND";
       if (betterOptionSummaryText) betterOptionSummaryText.textContent = altRoutes.summary;
 
       const canonicalTitle = resultContainer.querySelector(".canonical-box .route-box-title");
@@ -3218,9 +3259,11 @@ function renderCardResult(card, data, symbol) {
         if (alternativeRouteVenues) alternativeRouteVenues.textContent = `Via ${best.label}`;
         if (alternativeImprovementVal) {
           alternativeImprovementVal.textContent = (isFinite(addShares) && isFinite(addPct) && isFinite(effLower))
-            ? `+${addShares.toFixed(6)} ${trade.canonical_stock} (+${addPct.toFixed(2)}%) · $${Math.abs(effLower).toFixed(2)}/share lower`
+            ? `+${addShares.toFixed(6)} ${trade.canonical_stock} more (+${addPct.toFixed(2)}%) · $${Math.abs(effLower).toFixed(2)}/share lower`
             : "—";
         }
+        const improvementLabel = resultContainer.querySelector(".better-option-improvement-badge .improvement-label");
+        if (improvementLabel) improvementLabel.textContent = "YOU RECEIVE:";
       } else {
         const cExp = altRoutes.canonical_route?.expected_stock_exposure_usd ?? econ.expected_stock_exposure_usd;
         const cDiff = altRoutes.canonical_route?.reference_difference_usd ?? econ.difference_usd;
@@ -3229,7 +3272,7 @@ function renderCardResult(card, data, symbol) {
         const diffPrefixC = cDiff >= 0 ? "+" : "-";
         const diffPrefixA = aDiff >= 0 ? "+" : "-";
 
-        if (canonicalTitle) canonicalTitle.textContent = "CURRENT JUPITER ROUTE";
+        if (canonicalTitle) canonicalTitle.textContent = "CURRENT ROUTE";
         if (canonicalExposureVal) canonicalExposureVal.textContent = `$${cExp.toFixed(2)} exposure`;
         if (canonicalDiffVal) canonicalDiffVal.textContent = `Reference difference: ${diffPrefixC}$${Math.abs(cDiff).toFixed(2)}`;
         if (canonicalRouteVenues) canonicalRouteVenues.textContent = `Jupiter DEX Route (${altRoutes.canonical_route?.venues?.join(" + ") || "Standard"})`;
@@ -3245,6 +3288,8 @@ function renderCardResult(card, data, symbol) {
             alternativeImprovementVal.textContent = `+$${best.improvement_usd.toFixed(2)} (+${best.improvement_pct.toFixed(2)}%)`;
           }
         }
+        const improvementLabelSingle = resultContainer.querySelector(".better-option-improvement-badge .improvement-label");
+        if (improvementLabelSingle) improvementLabelSingle.textContent = "IMPROVEMENT:";
       }
 
       if (betterOptionDetail) betterOptionDetail.classList.remove("hidden");

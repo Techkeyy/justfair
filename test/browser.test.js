@@ -1967,7 +1967,7 @@ async function runBrowserTests() {
         if (!/vs latest indicative reference/i.test(box.diff)) throw new Error(`Diff must reference indicative: ${box.diff}`);
         if (!/Indicative/.test(box.evRef) || !/Blue Ocean/.test(box.evUp)) throw new Error(`Evidence must carry provenance: ${box.evRef} | ${box.evUp}`);
         if (/\bstale\b/i.test(box.all)) throw new Error("Indicative must never read stale");
-        if (/FAIR|CAUTION|BAD FILL/.test(box.all)) throw new Error("Indicative must not certify fairness");
+        if (/\bFAIR\b|\bCAUTION\b|BAD FILL/.test(box.all)) throw new Error("Indicative must not certify fairness");
         await page.screenshot({ path: path.join(EVIDENCE_DIR, "36_indicative_reference.png") });
       } finally {
         await page.unroute("**/api/v1/preflight");
@@ -2234,7 +2234,7 @@ async function runBrowserTests() {
           const c = document.getElementById("stock-card-AAPLx");
           return c.querySelector(".inline-result-container").innerText;
         });
-        for (const n of ["CURRENT ROUTE", "BETTER OBSERVED OPTION", "1.514192 AAPL", "1.524192 AAPL", "$330.21/share", "$328.04/share", "+0.010000 AAPL (+0.66%)", "$2.17/share lower"]) {
+        for (const n of ["CURRENT ROUTE", "BETTER CHECKED ROUTE FOUND", "BETTER CHECKED ROUTE", "1.514192 AAPL", "1.524192 AAPL", "$330.21/share", "$328.04/share", "+0.010000 AAPL more (+0.66%)", "$2.17/share lower"]) {
           if (!box.includes(n)) throw new Error(`Quote comparison must show "${n}"`);
         }
         if (/exposure/i.test(box)) throw new Error("No exposure valuation allowed in quote comparison");
@@ -2324,6 +2324,176 @@ async function runBrowserTests() {
         }
       } finally {
         await staleCtx.close();
+      }
+    });
+
+    // 56-57. Step 4 first-time comprehension + mobile clarity
+    await test("56. First-glance clarity: trade task obvious before check, result self-explains after", async () => {
+      const compCtx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+      const compPage = await compCtx.newPage();
+      try {
+        await compPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await compPage.click("#hero-open-app-btn");
+        await compPage.click("#tracker-step-4");
+        await compPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await compPage.click("#stock-card-AAPLx .stock-card-header");
+        await compPage.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+        // Pre-check: token / pay-with / amount / CTA all visually obvious.
+        for (const sel of [".trade-form-title", ".trade-form-rep", ".payment-tab[data-asset='USDC']", ".payment-tab[data-asset='SOL']", ".amount-input", ".submit-trade-btn"]) {
+          if (!await compPage.isVisible(`#stock-card-AAPLx ${sel}`)) throw new Error(`Pre-check element must be visible: ${sel}`);
+        }
+        const repLine = await compPage.textContent("#stock-card-AAPLx .trade-form-rep");
+        if (!repLine.includes("AAPLx")) throw new Error(`Rep line must name AAPLx: ${repLine}`);
+        const cta = await compPage.textContent("#stock-card-AAPLx .submit-trade-btn .btn-text");
+        if (cta.trim() !== "CHECK THIS TRADE") throw new Error(`Primary CTA mismatch: ${cta}`);
+        // Pre-check preview must not pose as a completed check.
+        if (await compPage.isVisible("#stock-card-AAPLx .live-preview-box")) {
+          throw new Error("Pre-check live preview must be demoted/hidden, not presented as a result");
+        }
+        await compPage.route("**/api/v1/preflight", async route => {
+          if (route.request().method() !== "POST") { await route.continue(); return; }
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+            request_status: "SUCCESS", verification_status: "VERIFIED", verdict: "MEASURED",
+            preflight_level: "QUOTE_CHECK", reason_codes: ["ALL_PREREQUISITES_PASSED"],
+            trade: {
+              input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+              input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+              input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+              input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+              token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+              token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+            },
+            benchmark: {
+              symbol: "AAPL", price: 332.27, source: "Nasdaq Official Public Equity Quote API (api.nasdaq.com)",
+              source_type: "OFFICIAL_MARKET_DATA_PROVIDER", provider: "Nasdaq regular-session reference",
+              timestamp: new Date().toISOString(), reference_session: "REGULAR",
+              current_market_session: "REGULAR", freshness_status: "FRESH", is_real_time: true,
+              market_context: { session: "REGULAR", underlying_reference_available: true, reference_eligibility: "ELIGIBLE" }
+            },
+            economics: {
+              raw_out_amount: "151419200", expected_stock_shares: 1.514192,
+              underlying_benchmark_price: 332.27, expected_stock_exposure_usd: 503.12,
+              effective_price_per_share: 329.77, difference_usd: 3.12, difference_pct: 0.62,
+              multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+            },
+            dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+            alternative_routes: { status: "NO_BETTER_ALTERNATIVE_OBSERVED", summary: "JustFair checked distinct executable route candidates and did not find one that improved on Jupiter's current route.", candidates_evaluated_count: 1, candidates: [] },
+            simulation: { status: "NOT_RUN", err: null, units_consumed: 0 }
+          }) });
+        });
+        try {
+          await compPage.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+          await compPage.fill("#stock-card-AAPLx .amount-input", "500");
+          await compPage.click("#stock-card-AAPLx .submit-trade-btn");
+          await compPage.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+          // Post-check: spend / receive / finding / next step — no Technical Details needed.
+          const detailsOpen = await compPage.$eval("#stock-card-AAPLx .evidence-accordion", el => el.open);
+          if (detailsOpen) throw new Error("Technical Details must start collapsed");
+          for (const sel of [".res-sum-spend", ".res-sum-shares", ".res-sum-eff", ".expl-heading", ".res-explanation", ".revalidate-btn", ".revalidate-hint"]) {
+            if (!await compPage.isVisible(`#stock-card-AAPLx ${sel}`)) throw new Error(`Result element must be visible: ${sel}`);
+          }
+          const spend = await compPage.textContent("#stock-card-AAPLx .res-sum-spend");
+          const shares = await compPage.textContent("#stock-card-AAPLx .res-sum-shares");
+          const eff = await compPage.textContent("#stock-card-AAPLx .res-sum-eff");
+          if (!spend.includes("$500.00")) throw new Error(`Summary spend mismatch: ${spend}`);
+          if (!shares.includes("AAPLx")) throw new Error(`Summary shares must name AAPLx: ${shares}`);
+          if (!eff.includes("$329.77")) throw new Error(`Summary eff price mismatch: ${eff}`);
+          const heading = await compPage.textContent("#stock-card-AAPLx .expl-heading");
+          if (heading.trim() !== "WHAT JUSTFAIR FOUND") throw new Error(`Finding heading mismatch: ${heading}`);
+          const hint = await compPage.textContent("#stock-card-AAPLx .revalidate-hint");
+          if (!/before opening Jupiter/i.test(hint)) throw new Error(`Next-step hint mismatch: ${hint}`);
+          const title = await compPage.textContent("#stock-card-AAPLx .verdict-title");
+          if (title.trim() !== "MEASURED") throw new Error(`Verdict must stay MEASURED, got: ${title}`);
+        } finally {
+          await compPage.unroute("**/api/v1/preflight");
+        }
+      } finally {
+        await compCtx.close();
+      }
+    });
+
+    await test("57. Mobile 390px: form, summary, stacked alt comparison, no horizontal scroll", async () => {
+      const mobCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
+      const mobPage = await mobCtx.newPage();
+      try {
+        await mobPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        await mobPage.click("#hero-open-app-btn");
+        await mobPage.click("#tracker-step-4");
+        await mobPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await mobPage.click("#stock-card-AAPLx .stock-card-header");
+        await mobPage.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+        for (const sel of [".trade-form-rep", ".payment-tab[data-asset='USDC']", ".amount-input", ".submit-trade-btn"]) {
+          if (!await mobPage.isVisible(`#stock-card-AAPLx ${sel}`)) throw new Error(`Mobile element must be visible: ${sel}`);
+        }
+        const ctaBox = await mobPage.locator("#stock-card-AAPLx .submit-trade-btn").boundingBox();
+        const cardBox = await mobPage.locator("#stock-card-AAPLx .stock-card-body").boundingBox();
+        if (!ctaBox || !cardBox || ctaBox.width < cardBox.width * 0.8) {
+          throw new Error("Mobile CTA must be full and obvious");
+        }
+        await mobPage.route("**/api/v1/preflight", async route => {
+          if (route.request().method() !== "POST") { await route.continue(); return; }
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+            request_status: "SUCCESS", verification_status: "VERIFIED", verdict: "MEASURED",
+            preflight_level: "QUOTE_CHECK", reason_codes: ["ALL_PREREQUISITES_PASSED"],
+            trade: {
+              input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+              input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+              input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+              input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+              token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+              token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+            },
+            benchmark: {
+              symbol: "AAPLx", price: 330.28, reference_price_type: "ASK",
+              bid_price: 330.10, ask_price: 330.28, midpoint: 330.19, currency: "USD", feed: "overnight",
+              source: "Alpaca Market Data", source_type: "ALPACA_QUOTE", provider: "Alpaca Overnight",
+              upstream_source: "Alpaca Market Data (overnight derived feed)",
+              timestamp: new Date().toISOString(), source_timestamp: new Date().toISOString(),
+              fetched_at: new Date().toISOString(), age_ms: 12000,
+              reference_session: "OVERNIGHT", current_market_session: "OVERNIGHT",
+              freshness_status: "FRESH", is_real_time: true,
+              market_context: { session: "OVERNIGHT", underlying_reference_available: true, reference_eligibility: "ELIGIBLE" }
+            },
+            economics: {
+              raw_out_amount: "151419200", expected_stock_shares: 1.514192,
+              underlying_benchmark_price: 330.28, expected_stock_exposure_usd: null,
+              effective_price_per_share: 330.21, difference_usd: null, difference_pct: null,
+              dex_effective_price_per_share: 330.21,
+              difference_vs_ask_usd_per_share: -0.07, difference_vs_ask_pct: -0.02,
+              spread_position: "WITHIN_REFERENCE_SPREAD",
+              multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+            },
+            dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+            alternative_routes: {
+              status: "ALTERNATIVE_FOUND",
+              summary: "Observed an alternative route returning 0.010000 more AAPLx (+0.66%) for the same 500 USDC via Metis Alt. Effective acquisition price is $2.17/share lower.",
+              canonical_route: { label: "Current Jupiter Route", router: "jupiterz", mode: "ultra", venues: ["Raydium CLMM"], raw_out_amount: "151419200", expected_stock_shares: 1.514192, effective_price_per_share: 330.21, expected_stock_exposure_usd: null, reference_difference_usd: null, price_impact_pct: "0.0100", steps: ["Raydium CLMM"] },
+              best_alternative: { type: "ROUTER_EXCLUSION", label: "Metis Alt", venues: ["Whirlpool"], raw_out_amount: "152419200", expected_stock_shares: 1.524192, effective_price_per_share: 328.04, expected_stock_exposure_usd: null, reference_difference_usd: null, additional_stock_shares: 0.01, additional_stock_shares_pct: 0.66, effective_price_difference_per_share: 2.17, improvement_usd: null, improvement_pct: 0.66, price_impact_pct: "0.005", steps: ["Whirlpool"] },
+              improvement_usd: null, improvement_pct: 0.66, candidates_evaluated_count: 1, candidates: []
+            },
+            simulation: { status: "NOT_RUN", err: null, units_consumed: 0 }
+          }) });
+        });
+        try {
+          await mobPage.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+          await mobPage.fill("#stock-card-AAPLx .amount-input", "500");
+          await mobPage.click("#stock-card-AAPLx .submit-trade-btn");
+          await mobPage.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+          await mobPage.waitForSelector("#stock-card-AAPLx .better-option-detail:not(.hidden)", { timeout: 15000 });
+          for (const sel of [".res-sum-spend", ".res-sum-shares", ".exact-upsell-btn", ".revalidate-btn", ".evidence-accordion"]) {
+            if (!await mobPage.isVisible(`#stock-card-AAPLx ${sel}`)) throw new Error(`Mobile result element must be visible: ${sel}`);
+          }
+          const stacked = await mobPage.$eval("#stock-card-AAPLx .better-option-grid", el => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+          if (stacked !== 1) throw new Error("Alt comparison must stack vertically on mobile");
+          const overflow = await mobPage.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+          if (overflow > 1) throw new Error(`No horizontal page scroll allowed, overflow: ${overflow}px`);
+        } finally {
+          await mobPage.unroute("**/api/v1/preflight");
+        }
+      } finally {
+        await mobCtx.close();
       }
     });
 

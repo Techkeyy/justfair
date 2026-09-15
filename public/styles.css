@@ -1333,6 +1333,120 @@ body {
   color: var(--text-secondary);
 }
 
+.exact-upsell-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.exact-upsell-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+}
+
+.exact-upsell-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* Trade form intro: what exact trade is being checked */
+.trade-form-intro {
+  margin-bottom: 16px;
+}
+
+.trade-form-title {
+  margin: 0 0 2px 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+}
+
+.trade-form-sub {
+  margin: 0 0 6px 0;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.trade-form-rep {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.trade-form-rep strong {
+  color: var(--accent-primary);
+}
+
+/* Dominant primary CTA */
+.submit-trade-btn {
+  font-size: 16px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+/* Pre-check live preview is hidden from the consumer flow (functionality kept
+   for polling/tests). The check itself is the explicit snapshot moment. */
+.live-preview-box {
+  display: none;
+}
+
+/* Plain-English result summary: first thing read after a check */
+.result-summary-card {
+  background-color: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result-summary-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.result-summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.result-summary-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.result-summary-value {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.result-summary-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.expl-heading {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
 @keyframes stockFormSlideIn {
   from {
     opacity: 0;
@@ -2442,6 +2556,15 @@ body {
     flex-direction: column;
     align-items: stretch;
     gap: 16px;
+  }
+
+  .better-option-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .route-box-arrow {
+    transform: rotate(90deg);
+    justify-self: center;
   }
 
   .money-divider {
