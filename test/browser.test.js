@@ -1848,6 +1848,160 @@ async function runBrowserTests() {
       }
     });
 
+    // 49-51. Benchmark V2 presentation (016)
+    await test("49. Indicative reference renders honestly, never certified", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({
+          status: 200, contentType: "application/json",
+          body: JSON.stringify({
+            request_status: "SUCCESS", verification_status: "UNABLE_TO_VERIFY", verdict: "UNABLE_TO_VERIFY",
+            preflight_level: "QUOTE_CHECK", reason_codes: ["INDICATIVE_REFERENCE_UNVERIFIED"],
+            trade: {
+              input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+              input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              input_asset_price_usd: 1, input_asset_price_timestamp: new Date().toISOString(),
+              input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+              input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+              token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+              token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+            },
+            benchmark: {
+              symbol: "AAPLx", price: 330.94, source: "xStocks Public Price Data",
+              source_type: "INDICATIVE_ASSET_PRICE", provider: "xStocks Public Price Data (indicative)",
+              upstream_source: "On-chain providers (cached) + Nasdaq (Blue Ocean overnight/extended hours)",
+              timestamp: null, source_timestamp: null, fetched_at: new Date().toISOString(), reference_date: null,
+              age_ms: null, reference_session: "UNKNOWN", current_market_session: "OVERNIGHT",
+              freshness_status: "INDICATIVE_UNVERIFIED", is_real_time: false,
+              market_context: { session: "OVERNIGHT", underlying_reference_available: false, reference_eligibility: "INELIGIBLE_INDICATIVE" }
+            },
+            economics: {
+              raw_out_amount: "151127287", expected_stock_shares: 1.511273,
+              underlying_benchmark_price: 330.94, expected_stock_exposure_usd: 500.12,
+              effective_price_per_share: 330.86, difference_usd: 0.12, difference_pct: 0.02,
+              multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+            },
+            dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+            alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+            simulation: { status: "NOT_RUN", err: null, units_consumed: 0 }
+          })
+        });
+      });
+      try {
+        await page.click("#tracker-step-4");
+        await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .stock-card-header");
+        await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+        await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+        await page.fill("#stock-card-AAPLx .amount-input", "500");
+        await page.click("#stock-card-AAPLx .submit-trade-btn");
+        await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+        const box = await page.evaluate(() => {
+          const c = document.getElementById("stock-card-AAPLx");
+          const t = s => c.querySelector(s)?.textContent || "";
+          return { sub: t(".verdict-subtitle"), expl: t(".res-explanation"), diff: t(".res-diff-pct"), evRef: t(".ev-reference-status"), evUp: t(".ev-upstream-source"), all: c.querySelector(".inline-result-container").innerText };
+        });
+        if (!/latest overnight indicative reference/i.test(box.sub)) throw new Error(`Subtitle must state indicative: ${box.sub.slice(0, 200)}`);
+        if (!/could not be verified|unverified/i.test(box.sub + box.expl)) throw new Error("Indicative must disclose unverified timestamp");
+        if (!/vs latest indicative reference/i.test(box.diff)) throw new Error(`Diff must reference indicative: ${box.diff}`);
+        if (!/Indicative/.test(box.evRef) || !/Blue Ocean/.test(box.evUp)) throw new Error(`Evidence must carry provenance: ${box.evRef} | ${box.evUp}`);
+        if (/\bstale\b/i.test(box.all)) throw new Error("Indicative must never read stale");
+        if (/FAIR|CAUTION|BAD FILL/.test(box.all)) throw new Error("Indicative must not certify fairness");
+        await page.screenshot({ path: path.join(EVIDENCE_DIR, "36_indicative_reference.png") });
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
+    await test("50. Eligible session labels render per session without enum text", async () => {
+      for (const [session, label] of [["REGULAR", "Current regular-session reference"], ["OVERNIGHT", "Current overnight reference"]]) {
+        await page.route("**/api/v1/preflight", async route => {
+          if (route.request().method() !== "POST") { await route.continue(); return; }
+          const nowIso = new Date().toISOString();
+          await route.fulfill({
+            status: 200, contentType: "application/json",
+            body: JSON.stringify({
+              request_status: "SUCCESS", verification_status: "VERIFIED", verdict: "MEASURED",
+              preflight_level: "QUOTE_CHECK", reason_codes: ["ALL_PREREQUISITES_PASSED"],
+              trade: {
+                input_asset: "USDC", input_amount: 500, input_usd_value: 500,
+                input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                input_asset_price_usd: 1, input_asset_price_timestamp: nowIso,
+                input_asset_price_source: "1:1 Fixed USD Peg", input_asset_price_provider: "Fixed 1:1 USD Peg",
+                input_asset_price_freshness: "FRESH", stock_symbol: "AAPLx", canonical_stock: "AAPL",
+                token_mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+                token_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+              },
+              benchmark: {
+                symbol: "AAPLx", price: 332.27, source: "Nasdaq", source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+                provider: "Nasdaq", timestamp: nowIso, freshness_status: "FRESH", is_real_time: true,
+                market_context: { session, underlying_reference_available: true, reference_eligibility: "ELIGIBLE" }
+              },
+              economics: {
+                raw_out_amount: "151127287", expected_stock_shares: 1.514192,
+                underlying_benchmark_price: 332.27, expected_stock_exposure_usd: 503.12,
+                effective_price_per_share: 329.77, difference_usd: 3.12, difference_pct: 0.62,
+                multiplier: { stored_multiplier: 1.0026, new_multiplier: 1.0032, current_multiplier: 1.0032 }
+              },
+              dex_route: { router: "Jupiter Swap V2", mode: "QUOTE_CHECK", steps: ["USDC", "AAPLx"], price_impact_pct: "0.0100" },
+              alternative_routes: { status: "NONE", summary: "No better route observed.", candidates_evaluated_count: 1 },
+              simulation: { status: "NOT_RUN", err: null, units_consumed: 0 }
+            })
+          });
+        });
+        try {
+          await page.click("#tracker-step-4");
+          await page.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
+          await page.click("#stock-card-AAPLx .stock-card-header");
+          await page.waitForSelector("#stock-card-AAPLx .stock-card-body:not(.hidden)", { timeout: 15000 });
+          await page.click("#stock-card-AAPLx .payment-tab[data-asset='USDC']");
+          await page.fill("#stock-card-AAPLx .amount-input", "500");
+          await page.click("#stock-card-AAPLx .submit-trade-btn");
+          await page.waitForSelector("#stock-card-AAPLx .inline-result-container:not(.hidden)", { timeout: 35000 });
+          const title = await page.textContent("#stock-card-AAPLx .verdict-title");
+          if (title.trim() !== "MEASURED") throw new Error(`Eligible check must read MEASURED, got: ${title}`);
+          const ctx = await page.textContent("#stock-card-AAPLx .live-benchmark-context");
+          if (!ctx.includes(label)) throw new Error(`Preview must read '${label}', got: ${ctx}`);
+        } finally {
+          await page.unroute("**/api/v1/preflight");
+        }
+      }
+    });
+
+    await test("51. Revalidation renders indicative Snapshot B truthfully", async () => {
+      await page.route("**/api/v1/preflight", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
+      });
+      try {
+        await openFreshTradeCard(page);
+        await fillTradeAndCheck(page, "USDC", 500);
+        await page.unroute("**/api/v1/preflight");
+        await page.route("**/api/v1/preflight", async route => {
+          if (route.request().method() !== "POST") { await route.continue(); return; }
+          const base = revalQuoteFixture();
+          base.benchmark = {
+            symbol: "AAPLx", price: 330.94, source: "xStocks Public Price Data",
+            source_type: "INDICATIVE_ASSET_PRICE", provider: "xStocks Public Price Data (indicative)",
+            upstream_source: "On-chain providers (cached) + Nasdaq (Blue Ocean overnight/extended hours)",
+            timestamp: null, source_timestamp: null, fetched_at: new Date().toISOString(), reference_date: null,
+            age_ms: null, reference_session: "UNKNOWN", current_market_session: "OVERNIGHT",
+            freshness_status: "INDICATIVE_UNVERIFIED", is_real_time: false,
+            market_context: { session: "OVERNIGHT", underlying_reference_available: false, reference_eligibility: "INELIGIBLE_INDICATIVE" }
+          };
+          base.reason_codes = ["INDICATIVE_REFERENCE_UNVERIFIED"];
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(base) });
+        });
+        await page.click("#stock-card-AAPLx .revalidate-btn");
+        await page.waitForSelector("#stock-card-AAPLx .revalidation-result:not(.hidden)", { timeout: 15000 });
+        const bench = await page.textContent("#stock-card-AAPLx .reval-bench");
+        if (!/indicative/i.test(bench)) throw new Error(`Revalidation must carry indicative truth: ${bench}`);
+        if (/\bstale\b/i.test(bench)) throw new Error("Indicative revalidation must not read stale");
+      } finally {
+        await page.unroute("**/api/v1/preflight");
+      }
+    });
+
     // 28-29. Tracker truth (013.9A)
     await test("28. Tracker Truth Direct: fresh Step 4 leaves Steps 1-3 neutral", async () => {
       const truthContext = await browser.newContext({ viewport: { width: 1600, height: 800 } });

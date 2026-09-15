@@ -2173,6 +2173,7 @@ function renderCardBodyMarkup(symbol) {
             <div class="evidence-item"><span class="ev-label">Route Alternatives Checked</span><span class="ev-val ev-alt-count">1 distinct alternative inspected</span></div>
             <div class="evidence-item"><span class="ev-label">Price Impact</span><span class="ev-val ev-impact">0.00%</span></div>
             <div class="evidence-item"><span class="ev-label">Benchmark Provider</span><span class="ev-val ev-benchmark-source">Stock Market Tape</span></div>
+            <div class="evidence-item"><span class="ev-label">Underlying Market Source</span><span class="ev-val ev-upstream-source">—</span></div>
             <div class="evidence-item"><span class="ev-label">Current Market Session</span><span class="ev-val ev-session">CLOSED</span></div>
             <div class="evidence-item"><span class="ev-label">Reference Status</span><span class="ev-val ev-reference-status">Previous market reference</span></div>
             <div class="evidence-item"><span class="ev-label">Preflight Level</span><span class="ev-val ev-preflight-level">QUOTE_CHECK</span></div>
@@ -2449,9 +2450,13 @@ export function describeBenchmarkState(benchmark, reasonCodes = []) {
   const codes = Array.isArray(reasonCodes) ? reasonCodes : [];
   const session = mkt.session || benchmark?.current_market_session || null;
 
-  const unknown = !hasTimestamp || freshness === "UNKNOWN" || eligibility === "INELIGIBLE_UNKNOWN" || codes.includes("REFERENCE_UNAVAILABLE");
-  const closed = !unknown && (freshness === "AFTER_HOURS_CLOSE" || eligibility === "INELIGIBLE_CLOSED" || codes.includes("MARKET_CLOSED_OR_AFTER_HOURS"));
-  const stale = !unknown && !closed && (freshness === "STALE" || eligibility === "INELIGIBLE_STALE" || codes.includes("STALE_REFERENCE"));
+  // Indicative (016): a live xStocks number with no provable source time.
+  // Displayed, never certified; never collapsed into unknown/stale/closed.
+  const indicative = freshness === "INDICATIVE_UNVERIFIED" || eligibility === "INELIGIBLE_INDICATIVE";
+  const unknown = !indicative
+    && (!hasTimestamp || freshness === "UNKNOWN" || eligibility === "INELIGIBLE_UNKNOWN" || codes.includes("REFERENCE_UNAVAILABLE"));
+  const closed = !unknown && !indicative && (freshness === "AFTER_HOURS_CLOSE" || eligibility === "INELIGIBLE_CLOSED" || codes.includes("MARKET_CLOSED_OR_AFTER_HOURS"));
+  const stale = !unknown && !indicative && !closed && (freshness === "STALE" || eligibility === "INELIGIBLE_STALE" || codes.includes("STALE_REFERENCE"));
 
   let sessionDisplay = "Unknown";
   let sessionSentence = "The underlying equity reference is not current.";
@@ -2476,13 +2481,27 @@ export function describeBenchmarkState(benchmark, reasonCodes = []) {
   if (eligibility === "ELIGIBLE") eligibilityDisplay = "Current";
   else if (eligibility === "INELIGIBLE_STALE") eligibilityDisplay = "Stale";
   else if (eligibility === "INELIGIBLE_CLOSED") eligibilityDisplay = "Closed-market reference";
+  else if (eligibility === "INELIGIBLE_INDICATIVE") eligibilityDisplay = "Indicative (unverified)";
   else if (eligibility) eligibilityDisplay = eligibility;
 
   let benchmarkDisplay = "unavailable";
-  if (eligibility === "ELIGIBLE") benchmarkDisplay = "current";
+  if (eligibility === "ELIGIBLE") {
+    if (session === "REGULAR") benchmarkDisplay = "Current regular-session reference";
+    else if (session === "PRE_MARKET") benchmarkDisplay = "Current pre-market reference";
+    else if (session === "POST_MARKET") benchmarkDisplay = "Current after-hours reference";
+    else if (session === "OVERNIGHT") benchmarkDisplay = "Current overnight reference";
+    else benchmarkDisplay = "Current market reference";
+  }
+  else if (indicative) {
+    if (session === "OVERNIGHT") benchmarkDisplay = "Latest overnight indicative reference";
+    else if (session === "PRE_MARKET" || session === "POST_MARKET") benchmarkDisplay = "Latest extended-hours indicative reference";
+    else benchmarkDisplay = "Latest indicative reference";
+  }
   else if (stale) benchmarkDisplay = hasTimestamp ? `stale (${dateLabel} reference)` : "stale";
   else if (closed) benchmarkDisplay = hasTimestamp ? `last reference (${dateLabel})` : "last reference";
   else if (!unknown && eligibility) benchmarkDisplay = eligibilityDisplay.toLowerCase();
+
+  // Session-qualified indicative session display (016 §18).
 
   return {
     timestamp: hasTimestamp ? ts : null,
@@ -2495,11 +2514,12 @@ export function describeBenchmarkState(benchmark, reasonCodes = []) {
     unknown,
     closed,
     stale,
+    indicative,
     sessionDisplay,
     sessionSentence,
     eligibilityDisplay,
     benchmarkDisplay,
-    vsRefLabel: hasTimestamp ? `vs ${weekday} reference` : "vs last available reference",
+    vsRefLabel: hasTimestamp ? `vs ${weekday} reference` : indicative ? "vs latest indicative reference" : "vs last available reference",
     refDateLabel: hasTimestamp ? `${dateLabel} reference` : "last available reference"
   };
 }
@@ -2966,6 +2986,9 @@ function renderCardResult(card, data, symbol) {
         const refV = describeBenchmarkState(bench, data?.reason_codes);
         if (refV.unknown) {
           verdictSubtitle.textContent = `Live route found. A current fairness verdict cannot be certified because the equity benchmark's freshness could not be verified. ${refV.sessionSentence}`;
+        } else if (refV.indicative) {
+          const scope = refV.session === "OVERNIGHT" ? "overnight " : (refV.session === "PRE_MARKET" || refV.session === "POST_MARKET") ? "extended-hours " : "";
+          verdictSubtitle.textContent = `Live route found. Showing the latest ${scope}indicative reference — source timestamp could not be verified, so a current fairness verdict cannot be certified.`;
         } else if (refV.closed) {
           const closedRef = refV.hasTimestamp ? `underlying reference ($${bench.price}) is the ${refV.dateLabel} reference (${refV.weekday})` : `underlying reference ($${bench.price}) reflects the last available market reference`;
           verdictSubtitle.textContent = `Live route found. Fairness verdict unavailable — ${closedRef}. ${refV.sessionSentence} Not a current fairness verdict.`;
@@ -2988,6 +3011,10 @@ function renderCardResult(card, data, symbol) {
       const refE = describeBenchmarkState(bench, data?.reason_codes);
       if (refE.unknown) {
         resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. An equity reference was available, but its timestamp could not be verified, so JustFair cannot certify a current fairness verdict. ${refE.sessionSentence}`;
+      } else if (refE.indicative) {
+        const scope = refE.session === "OVERNIGHT" ? "overnight " : (refE.session === "PRE_MARKET" || refE.session === "POST_MARKET") ? "extended-hours " : "";
+        const upstream = bench.upstream_source || bench.source || "xStocks Public Price Data";
+        resExplanation.textContent = `We found a live Solana route for ${trade.input_amount} ${trade.input_asset} giving approximately ${econ.expected_stock_shares} shares of ${stockMeta.name}. The $${bench.price} reference is the latest ${scope}indicative reference (${upstream}); its source timestamp could not be verified, so JustFair cannot certify a current fairness verdict.`;
       } else {
         const refNote = refE.hasTimestamp
           ? `the ${refE.dateLabel} reference (${refE.weekday})`
@@ -3091,6 +3118,7 @@ function renderCardResult(card, data, symbol) {
   const evAltCount = resultContainer.querySelector(".ev-alt-count");
   const evImpact = resultContainer.querySelector(".ev-impact");
   const evBenchmarkSource = resultContainer.querySelector(".ev-benchmark-source");
+  const evUpstreamSource = resultContainer.querySelector(".ev-upstream-source");
   const evSession = resultContainer.querySelector(".ev-session");
   const evReferenceStatus = resultContainer.querySelector(".ev-reference-status");
   const evPreflightLevel = resultContainer.querySelector(".ev-preflight-level");
@@ -3118,16 +3146,19 @@ function renderCardResult(card, data, symbol) {
   }
   if (evImpact) evImpact.textContent = `${(parseFloat(data.dex_route.price_impact_pct || 0)).toFixed(4)}%`;
   if (evBenchmarkSource) evBenchmarkSource.textContent = `${bench.provider} (${bench.source})`;
+  if (evUpstreamSource) evUpstreamSource.textContent = bench.upstream_source || "—";
   if (evSession) {
     const sess = mkt.session || bench.current_market_session;
     evSession.textContent = sess ? `${sess} (${describeMarketSession(sess)})` : (isClosed ? "CLOSED" : "REGULAR");
   }
   if (evReferenceStatus) {
     const refEv = describeBenchmarkState(bench, data?.reason_codes);
-    if (refEv.eligibility === "ELIGIBLE" && !refEv.unknown) {
+    if (refEv.eligibility === "ELIGIBLE" && !refEv.unknown && !refEv.indicative) {
       evReferenceStatus.textContent = "Eligible Live Tape";
     } else if (refEv.unknown) {
       evReferenceStatus.textContent = "Unavailable — timestamp unavailable";
+    } else if (refEv.indicative) {
+      evReferenceStatus.textContent = "Indicative — source timestamp unverified";
     } else if (refEv.closed) {
       evReferenceStatus.textContent = refEv.hasTimestamp ? `Closed-market reference — ${refEv.refDateLabel}` : "Closed-market reference";
     } else {

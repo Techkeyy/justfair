@@ -9,7 +9,7 @@ The JustFair Equity Preflight API provides pre-trade product truth and execution
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/health` | Service health status and version |
-| `GET` | `/api/v1/stocks` | Supported payment assets and the 12 execution-supported tokenized stocks |
+| `GET` | `/api/v1/stocks` | List supported payment assets and tokenized stocks registry |
 | `GET` | `/api/v1/products` | Master catalog: 12 underlyings, 24 representations (xStocks + Ondo) |
 | `GET` | `/api/v1/products/:productId` | Single product capabilities (colon-bearing IDs supported, URL-encoded) |
 | `GET` | `/api/v1/products/compare/:underlyingSymbol` | Side-by-side representation comparison, or `?a=&b=` product comparison |
@@ -114,7 +114,8 @@ The JustFair Equity Preflight API provides pre-trade product truth and execution
 Market-hours truth: outside an eligible live reference the API still returns
 `request_status: SUCCESS` with `verification_status: UNABLE_TO_VERIFY`,
 `verdict: UNABLE_TO_VERIFY`, and a truthful reason code
-(`MARKET_CLOSED_OR_AFTER_HOURS`, `STALE_REFERENCE`, or `REFERENCE_UNAVAILABLE`).
+(`MARKET_CLOSED_OR_AFTER_HOURS`, `STALE_REFERENCE`,
+`INDICATIVE_REFERENCE_UNVERIFIED`, or `REFERENCE_UNAVAILABLE`).
 A current fairness verdict is only produced against an eligible live tape;
 threshold calibration for graded verdicts is pending.
 

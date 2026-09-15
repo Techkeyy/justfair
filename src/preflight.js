@@ -344,6 +344,8 @@ export async function runPreflight(params = {}) {
         reasonCodes.push("MARKET_CLOSED_OR_AFTER_HOURS");
       } else if (stockBenchmark.freshness_status === "STALE") {
         reasonCodes.push("STALE_REFERENCE");
+      } else if (stockBenchmark.freshness_status === "INDICATIVE_UNVERIFIED") {
+        reasonCodes.push("INDICATIVE_REFERENCE_UNVERIFIED");
       } else {
         reasonCodes.push("REFERENCE_UNAVAILABLE");
       }

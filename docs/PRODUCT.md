@@ -38,7 +38,7 @@ JustFair enforces strict separation between legal holder rights and on-chain tec
 | :--- | :--- | :--- | :--- |
 | **Legal / Holder Rights** | Official Issuer Prospectus, Base Offering Terms, Key Information Documents (KID) | Contractual debt security / structured note tracking equity 1:1; **zero direct shareholder ownership**; **zero corporate voting rights**; net dividends reinvested automatically (Total Return); direct primary redemption restricted to KYC-onboarded eligible participants. | **NEVER** infer legal rights or equity ownership from on-chain token balances or smart contracts. |
 | **On-Chain Technical Facts** | Solana Mainnet RPC (`getAccountInfo`), SPL Token-2022 program state | Exact decimals, dynamic multiplier extension (`scaledUiAmountConfig`), freeze authority, permanent delegate, pause status, program factory accounts. | **NEVER** infer legal shareholder standing or SEC registration from Solana token extension flags. |
-| **Execution Economics** | Jupiter Swap V2 Order API, Solana RPC Simulation, Nasdaq / Pyth Benchmarks | Net dollar fill, effective shares, slippage, compute units, liquidity depth. | **NEVER** confuse quote price with product suitability or legal entitlement. |
+| **Execution Economics** | Jupiter Swap V2 Order API, Solana RPC Simulation, session-aware equity references (Nasdaq direct tape; xStocks indicative extended-hours data) | Net dollar fill, effective shares, slippage, compute units, liquidity depth. | **NEVER** confuse quote price with product suitability or legal entitlement. |
 
 ---
 
@@ -145,3 +145,23 @@ JustFair maintains a deterministic, provenance-backed catalog mapping 12 underly
 10. `CASH_STABLECOIN_REDEMPTION`: "I need the option to redeem directly with the issuer for cash or stablecoin proceeds."
 11. `REDEMPTION_WITHOUT_KYC`: "I want to redeem directly with the issuer without submitting ID/KYC."
 12. `WEEKEND_TRADING`: "I need the ability to trade on weekends."
+
+---
+
+## 11. Session-Aware Execution Benchmark (Benchmark V2)
+
+Execution Preflight selects the strongest truthful equity reference available:
+
+1. Current regular-session reference (Nasdaq direct preferred for independence)
+2. Current extended-hours reference (pre/post-market, freshness proven)
+3. Current overnight reference (freshness proven)
+4. Latest indicative reference (live xStocks number, source timestamp unverified — displayed, never certified)
+5. Last available dated reference (stale/closed truthfully labeled)
+6. Unavailable (route-only mode)
+
+Session and freshness are separate facts. An indicative price is labeled with
+upstream provenance (on-chain providers plus Nasdaq/Blue Ocean) and can never
+produce an eligible fairness comparison. True closed/outage periods degrade to
+route-only mode with the last known reference. Each response carries
+`source_timestamp` (provider market time, possibly null), `fetched_at` (when
+JustFair fetched it), and `reference_date` (provider calendar date, if known).

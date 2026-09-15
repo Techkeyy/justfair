@@ -11,7 +11,7 @@ import {
   determineVerdict,
   THRESHOLD_CALIBRATION_STATUS
 } from "../src/preflight.js";
-import { parseXStocksPriceData, fetchCryptoSpotPrice } from "../src/engine/benchmark.js";
+import { parseXStocksPriceData, fetchCryptoSpotPrice, selectEquityBenchmark, evaluateReferenceEligibility, fetchMarketReference, clearMarketReferenceCache } from "../src/engine/benchmark.js";
 import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS, API_ENDPOINTS } from "../src/config.js";
 import { createServer, clearRateLimiter } from "../src/server.js";
 
@@ -120,10 +120,9 @@ async function runTests() {
       throw new Error(`Expected CLOSED session on Saturday, got ${session}`);
     }
 
-    // Live preflight: the reason code must deterministically follow the
-    // returned freshness taxonomy instead of the wall-clock weekday.
     // AFTER_HOURS_CLOSE -> MARKET_CLOSED_OR_AFTER_HOURS
     // STALE             -> STALE_REFERENCE
+    // INDICATIVE_UNVERIFIED -> INDICATIVE_REFERENCE_UNVERIFIED
     // anything else     -> REFERENCE_UNAVAILABLE
     let pf = await runPreflight({
       inputSymbol: "USDC",
@@ -145,7 +144,9 @@ async function runTests() {
       ? "MARKET_CLOSED_OR_AFTER_HOURS"
       : freshness === "STALE"
         ? "STALE_REFERENCE"
-        : "REFERENCE_UNAVAILABLE";
+        : freshness === "INDICATIVE_UNVERIFIED"
+          ? "INDICATIVE_REFERENCE_UNVERIFIED"
+          : "REFERENCE_UNAVAILABLE";
     if (!pf.reason_codes.includes(expectedCode)) {
       throw new Error(`Freshness ${freshness} must yield ${expectedCode}, got ${pf.reason_codes.join(", ")}`);
     }
@@ -802,6 +803,138 @@ async function runTests() {
     if (invalidAssetRes.verification_status !== "UNABLE_TO_VERIFY" || !invalidAssetRes.reason_codes.includes("UNSUPPORTED_PAYMENT_ASSET")) {
       throw new Error("Failed to reject unsupported payment asset");
     }
+  });
+
+  await test("Preflight evaluates stale or unavailable input reference safely with UNABLE_TO_VERIFY", async () => {
+    // Test unsupported payment asset rejection
+    const invalidAssetRes = await runPreflight({ inputSymbol: "INVALID_TOKEN", stockSymbol: "AAPLx", amount: 10 });
+    if (invalidAssetRes.verification_status !== "UNABLE_TO_VERIFY" || !invalidAssetRes.reason_codes.includes("UNSUPPORTED_PAYMENT_ASSET")) {
+      throw new Error("Failed to reject unsupported payment asset");
+    }
+  });
+
+  // --- BENCHMARK V2 SELECTION MATRIX (Director Order 016, deterministic) ---
+  const freshTs = () => new Date(Date.now() - 60000).toISOString();
+  const oldTs = () => new Date(Date.now() - 3600000).toISOString();
+  const nasdaqDated = (ts) => ({ price: 330.30, rawTs: ts, isRealTime: false });
+  const xstocksDated = (ts) => ({
+    symbol: "AAPLx", price: 331.10, provider: "Fixture Tape",
+    source: "xStocks Public V2 API (Fixture Tape)", source_type: "UNDERLYING_EQUITY_FEED",
+    timestamp: ts, raw_timestamp: ts, session: null, is_real_time: false, is_indicative: false
+  });
+  const xstocksIndicative = { symbol: "AAPLx", price: 330.94, is_indicative: true };
+
+  await test("Benchmark V2: bare xStocks number parses as indicative without timestamp", async () => {
+    const q = parseXStocksPriceData({ quote: 330.935 }, "AAPLx");
+    if (!q || q.price !== 330.935) throw new Error("Indicative price missing");
+    if (!q.is_indicative) throw new Error("Bare number must be flagged indicative");
+    if (q.timestamp !== null) throw new Error("Indicative quote must not invent a timestamp");
+  });
+
+  for (const [label, session] of [["A", "REGULAR"], ["B", "PRE_MARKET"], ["C", "POST_MARKET"], ["D", "OVERNIGHT"]]) {
+    await test(`Benchmark V2 matrix ${label}: ${session} + current dated reference stays eligible`, async () => {
+      const sel = selectEquityBenchmark({ currentSession: session, xstocksQuote: null, nasdaqQuote: nasdaqDated(freshTs()) });
+      if (sel.kind !== "dated" || sel.candidate.kind !== "nasdaq") throw new Error(`Expected dated/nasdaq, got ${sel.kind}`);
+      if (sel.candidate.referenceEligibility !== "ELIGIBLE") throw new Error("Fresh dated reference must be ELIGIBLE");
+    });
+  }
+
+  await test("Benchmark V2 matrix E: overnight indicative without dated source stays uncertified", async () => {
+    const sel = selectEquityBenchmark({ currentSession: "OVERNIGHT", xstocksQuote: xstocksIndicative, nasdaqQuote: null });
+    if (sel.kind !== "indicative") throw new Error(`Expected indicative, got ${sel.kind}`);
+    const evald = evaluateReferenceEligibility({ currentSession: "OVERNIGHT", timestampIso: null, ageMs: null });
+    if (evald.referenceEligibility !== "INELIGIBLE_UNKNOWN") throw new Error("Untimestamped must never evaluate ELIGIBLE");
+  });
+
+  await test("Benchmark V2 matrix F: indicative outranks stale dated, never overrides current", async () => {
+    const staleNasdaq = nasdaqDated(oldTs());
+    const selStale = selectEquityBenchmark({ currentSession: "OVERNIGHT", xstocksQuote: xstocksIndicative, nasdaqQuote: staleNasdaq });
+    if (selStale.kind !== "indicative") throw new Error("Indicative must outrank stale dated");
+    const freshSel = selectEquityBenchmark({ currentSession: "REGULAR", xstocksQuote: xstocksIndicative, nasdaqQuote: nasdaqDated(freshTs()) });
+    if (freshSel.kind !== "dated" || freshSel.candidate.referenceEligibility !== "ELIGIBLE") {
+      throw new Error("Stale/current rules must not let indicative override an ELIGIBLE dated reference");
+    }
+  });
+
+  await test("Benchmark V2 matrix G: true closed falls back to last dated reference", async () => {
+    const sel = selectEquityBenchmark({ currentSession: "CLOSED", xstocksQuote: null, nasdaqQuote: nasdaqDated(oldTs()) });
+    if (sel.kind !== "dated") throw new Error(`Expected dated fallback, got ${sel.kind}`);
+    if (sel.candidate.referenceEligibility !== "INELIGIBLE_CLOSED") throw new Error("Closed session must be INELIGIBLE_CLOSED");
+  });
+
+  await test("Benchmark V2 matrix H+I: provider failure degrades honestly to stale or none", async () => {
+    const staleOnly = selectEquityBenchmark({ currentSession: "OVERNIGHT", xstocksQuote: null, nasdaqQuote: nasdaqDated(oldTs()) });
+    if (staleOnly.kind !== "dated" || staleOnly.candidate.freshnessStatus !== "STALE") {
+      throw new Error("Stale fallback must survive provider failure");
+    }
+    const none = selectEquityBenchmark({ currentSession: "OVERNIGHT", xstocksQuote: null, nasdaqQuote: null });
+    if (none.kind !== "none") throw new Error("Total failure must yield none");
+  });
+
+  await test("Benchmark V2 matrix J: unknown is never relabeled stale", async () => {
+    const sel = selectEquityBenchmark({
+      currentSession: "POST_MARKET", xstocksQuote: null,
+      nasdaqQuote: { price: 330.30, rawTs: "not-a-date", isRealTime: false }
+    });
+    if (sel.kind !== "dated") throw new Error("Unparseable timestamp still yields a dated candidate slot");
+    if (sel.candidate.referenceEligibility !== "INELIGIBLE_UNKNOWN") throw new Error("Must be INELIGIBLE_UNKNOWN, never STALE");
+    if (sel.candidate.freshnessStatus === "STALE") throw new Error("UNKNOWN must not become STALE");
+  });
+
+  await test("Benchmark V2 selection: Nasdaq wins eligible ties; fetch time is not source time", async () => {
+    const ts = freshTs();
+    const sel = selectEquityBenchmark({
+      currentSession: "REGULAR", xstocksQuote: xstocksDated(ts), nasdaqQuote: nasdaqDated(ts)
+    });
+    if (sel.kind !== "dated" || sel.candidate.kind !== "nasdaq") throw new Error("Nasdaq direct must win eligible ties");
+  });
+
+  await test("Benchmark V2 fetch: indicative result carries provenance and split timestamps", async () => {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options = {}) => {
+      const s = String(url?.url || url);
+      if (s.includes("api.xstocks.fi")) {
+        return new Response(JSON.stringify({ quote: 330.94 }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (s.includes("api.nasdaq.com")) {
+        return new Response(JSON.stringify({ data: {} }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return realFetch(url, options);
+    };
+    try {
+      clearMarketReferenceCache();
+      const r = await fetchMarketReference("AAPLx", "stocks", true);
+      if (r.freshness_status !== "INDICATIVE_UNVERIFIED") throw new Error(`Expected INDICATIVE_UNVERIFIED, got ${r.freshness_status}`);
+      if (r.market_context.reference_eligibility !== "INELIGIBLE_INDICATIVE") throw new Error("Expected INELIGIBLE_INDICATIVE");
+      if (r.timestamp !== null || r.source_timestamp !== null || r.reference_date !== null) {
+        throw new Error("Indicative result must not invent source time");
+      }
+      if (!r.fetched_at) throw new Error("fetched_at must always be recorded");
+      if (r.price !== 330.94) throw new Error("Indicative price must pass through");
+      if (!String(r.upstream_source).includes("Blue Ocean")) throw new Error(`Upstream provenance missing: ${r.upstream_source}`);
+      if (r.provider !== "xStocks Public Price Data (indicative)") throw new Error(`Provider mislabeled: ${r.provider}`);
+    } finally {
+      globalThis.fetch = realFetch;
+      clearMarketReferenceCache();
+    }
+  });
+
+  await test("Benchmark V2 cache: reused responses recompute age-sensitive truth", async () => {
+    const { refreshCachedReference } = await import("../src/engine/benchmark.js");
+    const oldRef = Date.now() - 3600000;
+    const cached = {
+      result: {
+        symbol: "AAPLx", price: 330, freshness_status: "FRESH",
+        market_context: { reference_eligibility: "ELIGIBLE", session: "REGULAR" },
+        timestamp: new Date(oldRef).toISOString(), is_real_time: true
+      },
+      cachedAt: Date.now() - 30000,
+      parts: { kind: "dated", refTimeMs: oldRef, chosenProvider: null, isRealTime: false }
+    };
+    const refreshed = refreshCachedReference(cached, "REGULAR", Date.now());
+    if (refreshed.freshness_status !== "STALE") throw new Error("Cached age must recompute to STALE");
+    if (refreshed.market_context.reference_eligibility !== "INELIGIBLE_STALE") throw new Error("Cached eligibility must recompute");
+    if (refreshed.is_real_time !== false) throw new Error("Stale refresh must drop real-time flag");
   });
 
   console.log("\n==================================================");

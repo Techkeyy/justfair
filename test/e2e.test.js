@@ -155,6 +155,7 @@ async function runE2ETests() {
   function expectedReasonCode(freshness) {
     if (freshness === "AFTER_HOURS_CLOSE") return "MARKET_CLOSED_OR_AFTER_HOURS";
     if (freshness === "STALE") return "STALE_REFERENCE";
+    if (freshness === "INDICATIVE_UNVERIFIED") return "INDICATIVE_REFERENCE_UNVERIFIED";
     return "REFERENCE_UNAVAILABLE";
   }
 

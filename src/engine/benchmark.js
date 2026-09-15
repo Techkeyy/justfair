@@ -42,6 +42,24 @@ export function calculateMarketSession(date = new Date()) {
  */
 export function parseXStocksPriceData(data, symbol) {
   if (!data || typeof data !== "object") return null;
+  // Live shape (verified 2026-09-15): a bare indicative number with no
+  // timestamp, session, or source fields. Usable as an indicative reference
+  // only — never as freshness-certified evidence (Director Order 016).
+  if (typeof data.quote === "number") {
+    if (isNaN(data.quote) || data.quote <= 0) return null;
+    return {
+      symbol,
+      price: data.quote,
+      provider: null,
+      source: "xStocks Public Price Data",
+      source_type: "INDICATIVE_ASSET_PRICE",
+      timestamp: null,
+      raw_timestamp: null,
+      session: null,
+      is_real_time: false,
+      is_indicative: true
+    };
+  }
   const quote = data.quote;
   if (!quote || typeof quote !== "object") return null;
 
@@ -71,7 +89,8 @@ export function parseXStocksPriceData(data, symbol) {
     timestamp: timestampIso,
     raw_timestamp: rawTs,
     session: quote.session || quote.period || null,
-    is_real_time: Boolean(quote.isRealTime)
+    is_real_time: Boolean(quote.isRealTime),
+    is_indicative: false
   };
 }
 
@@ -86,12 +105,12 @@ export function clearMarketReferenceCache() {
  */
 export async function fetchMarketReference(symbol, assetClass = "stocks", forceFresh = false) {
   const now = Date.now();
+  const currentSession = calculateMarketSession(new Date());
   const cached = cachedMarketReferences[symbol];
   if (!forceFresh && cached && (now - cached.cachedAt < 60000)) {
-    return cached.result;
+    return refreshCachedReference(cached, currentSession, now);
   }
 
-  const currentSession = calculateMarketSession(new Date());
   let xStocksQuote = null;
   let nasdaqQuote = null;
 
@@ -138,112 +157,239 @@ export async function fetchMarketReference(symbol, assetClass = "stocks", forceF
     // Nasdaq fetch error
   }
 
-  // Choose the best underlying equity reference
-  let chosenQuote = xStocksQuote;
-  let source = chosenQuote?.source || "Nasdaq Official Public Equity Quote API (api.nasdaq.com)";
-  let price = chosenQuote?.price;
-  let rawTs = chosenQuote?.raw_timestamp;
-  let isRealTime = chosenQuote?.is_real_time || false;
+  const selection = selectEquityBenchmark({ currentSession, xstocksQuote: xStocksQuote, nasdaqQuote });
+  const fetchedAt = new Date(now).toISOString();
 
-  if (!chosenQuote && nasdaqQuote) {
-    source = "Nasdaq Official Public Equity Quote API (api.nasdaq.com)";
-    price = nasdaqQuote.price;
-    rawTs = nasdaqQuote.rawTs;
-    isRealTime = nasdaqQuote.isRealTime;
-  }
-
-  if (!price || isNaN(price)) {
+  if (selection.kind === "none") {
     if (cached) {
-      return cached.result;
+      return refreshCachedReference(cached, currentSession, now);
     }
     throw new Error(`Underlying equity price unavailable for ${symbol}`);
   }
 
-  // Timestamp and Age Calculation
-  let refTimeMs = rawTs ? Date.parse(rawTs) : null;
-  let timestampIso = null;
-  let ageMs = null;
-  let refSession = "UNKNOWN";
-
-  if (refTimeMs && !isNaN(refTimeMs)) {
-    timestampIso = new Date(refTimeMs).toISOString();
-    ageMs = Math.max(0, Date.now() - refTimeMs);
-    refSession = calculateMarketSession(new Date(refTimeMs));
-  }
-
-  // Source-Aware Eligibility Evaluation
-  let referenceEligibility = "ELIGIBLE";
-  let freshnessStatus = "FRESH";
-
-  if (currentSession === "CLOSED") {
-    referenceEligibility = "INELIGIBLE_CLOSED";
-    freshnessStatus = "AFTER_HOURS_CLOSE";
-  } else if (!timestampIso || ageMs === null) {
-    referenceEligibility = "INELIGIBLE_UNKNOWN";
-    freshnessStatus = "UNKNOWN";
-  } else if (ageMs > 900000) { // > 15 minutes old during a live tradable session
-    referenceEligibility = "INELIGIBLE_STALE";
-    freshnessStatus = "STALE";
+  let built;
+  if (selection.kind === "indicative") {
+    built = buildIndicativeBenchmark({ symbol, price: selection.price, currentSession, fetchedAt });
   } else {
-    // Check session-specific eligibility
-    if (currentSession === "REGULAR") {
-      referenceEligibility = "ELIGIBLE";
-      freshnessStatus = "FRESH";
-    } else if (currentSession === "PRE_MARKET" || currentSession === "POST_MARKET") {
-      referenceEligibility = "ELIGIBLE";
-      freshnessStatus = "FRESH";
-    } else if (currentSession === "OVERNIGHT") {
-      referenceEligibility = "ELIGIBLE";
-      freshnessStatus = "FRESH";
-    }
+    built = buildDatedBenchmark({ symbol, candidate: selection.candidate, currentSession, fetchedAt, nowMs: now });
   }
 
-  // Truthful Source-Specific Provider Labeling (Director Order 007.5C)
-  let provider = chosenQuote?.provider;
-  if (!provider) {
-    if (currentSession === "CLOSED" || referenceEligibility !== "ELIGIBLE") {
-      provider = "Last known Nasdaq reference, not eligible";
-    } else if (currentSession === "REGULAR") {
-      provider = isRealTime ? "Nasdaq regular-session reference" : "Last known Nasdaq reference, not eligible";
-    } else if (currentSession === "PRE_MARKET" || currentSession === "POST_MARKET") {
-      provider = "Nasdaq extended-hours reference";
-    } else if (currentSession === "OVERNIGHT") {
-      provider = "Blue Ocean overnight reference";
-    } else {
-      provider = "Last known Nasdaq reference, not eligible";
-    }
-  }
-
-  const marketContext = {
-    session: currentSession,
-    underlying_reference_available: referenceEligibility === "ELIGIBLE",
-    underlying_reference_provider: provider,
-    underlying_reference_timestamp: timestampIso,
-    underlying_reference_age_ms: ageMs,
-    reference_eligibility: referenceEligibility
+  cachedMarketReferences[symbol] = {
+    result: built.result,
+    cachedAt: now,
+    kind: selection.kind,
+    parts: built.parts
   };
+  return built.result;
+}
 
+/**
+ * Assemble a dated benchmark result. Pure apart from inputs.
+ */
+export function buildDatedBenchmark({ symbol, candidate, currentSession, fetchedAt, nowMs }) {
+  const quote = candidate.quote;
+  const isNasdaq = candidate.kind === "nasdaq";
+  const source = isNasdaq
+    ? "Nasdaq Official Public Equity Quote API (api.nasdaq.com)"
+    : quote.source;
+  const price = quote.price;
+  const rawTs = isNasdaq ? quote.rawTs : (quote.raw_timestamp || quote.timestamp);
+  const isRealTime = !!quote.isRealTime;
+  const refTimeMs = candidate.refTimeMs ?? null;
+  const timestampIso = candidate.timestampIso ?? null;
+  const ageMs = candidate.ageMs ?? (refTimeMs ? Math.max(0, nowMs - refTimeMs) : null);
+  const refSession = refTimeMs ? calculateMarketSession(new Date(refTimeMs)) : "UNKNOWN";
+  const { referenceEligibility, freshnessStatus } = evaluateReferenceEligibility({ currentSession, timestampIso, ageMs });
+  const provider = labelReferenceProvider({
+    chosenProvider: isNasdaq ? null : (quote.provider || null),
+    currentSession,
+    referenceEligibility,
+    isRealTime
+  });
   const result = {
     symbol,
     price,
     source,
-    source_type: "OFFICIAL_MARKET_DATA_PROVIDER",
+    source_type: isNasdaq ? "OFFICIAL_MARKET_DATA_PROVIDER" : (quote.source_type || "UNDERLYING_EQUITY_FEED"),
     provider,
+    upstream_source: isNasdaq
+      ? "Nasdaq Official Public Equity Quote API"
+      : "xStocks Public Price Data",
     timestamp: timestampIso,
+    source_timestamp: timestampIso,
+    fetched_at: fetchedAt,
+    reference_date: timestampIso ? timestampIso.slice(0, 10) : null,
     age_ms: ageMs,
     reference_session: refSession,
     current_market_session: currentSession,
     freshness_status: freshnessStatus,
     is_real_time: isRealTime && referenceEligibility === "ELIGIBLE",
-    market_context: marketContext
+    market_context: {
+      session: currentSession,
+      underlying_reference_available: referenceEligibility === "ELIGIBLE",
+      underlying_reference_provider: provider,
+      underlying_reference_timestamp: timestampIso,
+      underlying_reference_age_ms: ageMs,
+      reference_eligibility: referenceEligibility
+    }
   };
-
-  cachedMarketReferences[symbol] = {
+  return {
     result,
-    cachedAt: now
+    parts: {
+      kind: "dated", candidateKind: candidate.kind, source, price, rawTs,
+      isRealTime, refTimeMs, chosenProvider: isNasdaq ? null : (quote.provider || null)
+    }
   };
+}
 
-  return result;
+/**
+ * Assemble an indicative benchmark result: truthful number, uncertifiable
+ * freshness. Never ELIGIBLE, never timestamped.
+ */
+export function buildIndicativeBenchmark({ symbol, price, currentSession, fetchedAt }) {
+  const provider = "xStocks Public Price Data (indicative)";
+  const result = {
+    symbol,
+    price,
+    source: "xStocks Public Price Data",
+    source_type: "INDICATIVE_ASSET_PRICE",
+    provider,
+    upstream_source: "On-chain providers (cached) + Nasdaq (Blue Ocean overnight/extended hours)",
+    timestamp: null,
+    source_timestamp: null,
+    fetched_at: fetchedAt,
+    reference_date: null,
+    age_ms: null,
+    reference_session: "UNKNOWN",
+    current_market_session: currentSession,
+    freshness_status: "INDICATIVE_UNVERIFIED",
+    is_real_time: false,
+    market_context: {
+      session: currentSession,
+      underlying_reference_available: false,
+      underlying_reference_provider: provider,
+      underlying_reference_timestamp: null,
+      underlying_reference_age_ms: null,
+      reference_eligibility: "INELIGIBLE_INDICATIVE"
+    }
+  };
+  return { result, parts: { kind: "indicative", price } };
+}
+
+/**
+ * Refresh a cached entry: recompute age-sensitive fields so a reused
+ * response can never present a stale-cached age as current (016 §26).
+ */
+export function refreshCachedReference(cached, currentSession, nowMs) {
+  if (!cached || !cached.parts) return cached?.result;
+  if (cached.parts.kind === "indicative") {
+    return { ...cached.result };
+  }
+  const p = cached.parts;
+  const ageMs = p.refTimeMs ? Math.max(0, nowMs - p.refTimeMs) : null;
+  const timestampIso = p.refTimeMs ? new Date(p.refTimeMs).toISOString() : null;
+  const { referenceEligibility, freshnessStatus } = evaluateReferenceEligibility({ currentSession, timestampIso, ageMs });
+  const provider = labelReferenceProvider({
+    chosenProvider: p.chosenProvider, currentSession, referenceEligibility, isRealTime: false
+  });
+  return {
+    ...cached.result,
+    age_ms: ageMs,
+    timestamp: timestampIso,
+    source_timestamp: timestampIso,
+    reference_date: timestampIso ? timestampIso.slice(0, 10) : null,
+    freshness_status: freshnessStatus,
+    is_real_time: !!p.isRealTime && referenceEligibility === "ELIGIBLE",
+    current_market_session: currentSession,
+    market_context: {
+      ...cached.result.market_context,
+      session: currentSession,
+      underlying_reference_available: referenceEligibility === "ELIGIBLE",
+      underlying_reference_provider: provider,
+      underlying_reference_timestamp: timestampIso,
+      underlying_reference_age_ms: ageMs,
+      reference_eligibility: referenceEligibility
+    }
+  };
+}
+
+/**
+ * Pure eligibility evaluation shared by fresh and cached references.
+ * Session-appropriate freshness only; never inferred from session alone.
+ */
+export function evaluateReferenceEligibility({ currentSession, timestampIso, ageMs }) {
+  if (currentSession === "CLOSED") {
+    return { referenceEligibility: "INELIGIBLE_CLOSED", freshnessStatus: "AFTER_HOURS_CLOSE" };
+  }
+  if (!timestampIso || ageMs === null || ageMs === undefined) {
+    return { referenceEligibility: "INELIGIBLE_UNKNOWN", freshnessStatus: "UNKNOWN" };
+  }
+  if (ageMs > 900000) { // > 15 minutes old during a live tradable session
+    return { referenceEligibility: "INELIGIBLE_STALE", freshnessStatus: "STALE" };
+  }
+  return { referenceEligibility: "ELIGIBLE", freshnessStatus: "FRESH" };
+}
+
+/**
+ * Pure provider labeling shared by fresh and cached references.
+ */
+export function labelReferenceProvider({ chosenProvider, currentSession, referenceEligibility, isRealTime }) {
+  if (chosenProvider) return chosenProvider;
+  if (currentSession === "CLOSED" || referenceEligibility !== "ELIGIBLE") {
+    return "Last known Nasdaq reference, not eligible";
+  }
+  if (currentSession === "REGULAR") {
+    return isRealTime ? "Nasdaq regular-session reference" : "Last known Nasdaq reference, not eligible";
+  }
+  if (currentSession === "PRE_MARKET" || currentSession === "POST_MARKET") {
+    return "Nasdaq extended-hours reference";
+  }
+  if (currentSession === "OVERNIGHT") {
+    return "Blue Ocean overnight reference";
+  }
+  return "Last known Nasdaq reference, not eligible";
+}
+
+/**
+ * Pure source selection (Director Order 016): strongest truthful reference wins.
+ * 1. ELIGIBLE dated reference (Nasdaq direct preferred for independence).
+ * 2. xStocks indicative price (unverified freshness, never ELIGIBLE).
+ * 3. Freshest dated fallback (legacy xStocks-then-Nasdaq order preserved).
+ * Returns { kind: "dated", candidate } | { kind: "indicative", price } | { kind: "none" }.
+ */
+export function selectEquityBenchmark({ currentSession, xstocksQuote, nasdaqQuote }) {
+  const dated = [];
+  if (xstocksQuote && !xstocksQuote.is_indicative && xstocksQuote.price > 0) {
+    dated.push({ kind: "xstocks", quote: xstocksQuote });
+  }
+  if (nasdaqQuote && nasdaqQuote.price > 0) {
+    dated.push({ kind: "nasdaq", quote: nasdaqQuote });
+  }
+  for (const c of dated) {
+    const refTimeMs = c.quote.rawTs ? Date.parse(c.quote.rawTs) : (c.quote.timestamp ? Date.parse(c.quote.timestamp) : null);
+    c.refTimeMs = refTimeMs && !isNaN(refTimeMs) ? refTimeMs : null;
+    c.timestampIso = c.refTimeMs ? new Date(c.refTimeMs).toISOString() : null;
+    c.ageMs = c.refTimeMs ? Math.max(0, Date.now() - c.refTimeMs) : null;
+    const evald = evaluateReferenceEligibility({ currentSession, timestampIso: c.timestampIso, ageMs: c.ageMs });
+    c.referenceEligibility = evald.referenceEligibility;
+    c.freshnessStatus = evald.freshnessStatus;
+  }
+  // 1. Current reference: Nasdaq direct wins ties for independence.
+  const eligible = dated.filter(c => c.referenceEligibility === "ELIGIBLE");
+  if (eligible.length > 0) {
+    const nasdaqEligible = eligible.find(c => c.kind === "nasdaq");
+    return { kind: "dated", candidate: nasdaqEligible || eligible[0] };
+  }
+  // 2. Indicative xStocks price: truthful number, uncertifiable freshness.
+  if (xstocksQuote && xstocksQuote.is_indicative && xstocksQuote.price > 0) {
+    return { kind: "indicative", price: xstocksQuote.price };
+  }
+  // 3. Legacy dated fallback order.
+  if (dated.length > 0) {
+    const xstocksDated = dated.find(c => c.kind === "xstocks");
+    return { kind: "dated", candidate: xstocksDated || dated[0] };
+  }
+  return { kind: "none" };
 }
 
 let cachedCryptoPrices = {};
