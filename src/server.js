@@ -600,6 +600,38 @@ export async function handleRequest(req, res) {
     }
   }
 
+  // 8b. DBC Whale Check: POST /api/v1/dbc/whale (read-only Meteora math).
+  // Constrained input (config address + numbers only — never a URL, never a
+  // key). Global rate limit applies. No signing, broadcast, or funds.
+  if (req.method === "POST" && pathname === "/api/v1/dbc/whale") {
+    try {
+      const payload = await getRequestBody(req, SERVER_CONFIG.MAX_PAYLOAD_BYTES || 1048576);
+      const { runDbcWhale } = await import("./scenarios/dbc-live.js");
+      const result = await runDbcWhale({
+        configAddress: payload.configAddress,
+        tradeSizeQuoteUnits: payload.tradeSizeQuoteUnits,
+        maxPriceImpactPct: payload.maxPriceImpactPct
+      });
+      return sendJson(res, 200, {
+        request_status: "SUCCESS",
+        scenarioId: "DBC_OPENING_WHALE",
+        status: result.status,
+        assertions: result.assertions,
+        diagnosis: result.diagnosis,
+        evidence: result.evidence,
+        replay: result.replay,
+        reason: result.reason || null,
+        reasonCode: result.reasonCode || null
+      });
+    } catch (err) {
+      return sendJson(res, 400, {
+        request_status: "ERROR",
+        reason_codes: [err.code || "INVALID_JSON_BODY"],
+        reason: err.message
+      });
+    }
+  }
+
   // Static Asset Serving (Frontend Client)
   if (req.method === "GET") {
     let filePath = pathname === "/" ? "/index.html" : pathname;

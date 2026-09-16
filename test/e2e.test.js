@@ -194,13 +194,16 @@ async function runE2ETests() {
 
   try {
     // 1. App Loads (HTML Serving) — approved production hero contract
-    await test("App root (GET /) loads with complete consumer structure & approved hero", async () => {
+    await test("App root (GET /) loads with crash-testing hero and new surfaces", async () => {
       const res = await fetch(`${BASE_URL}/`);
       if (res.status !== 200) throw new Error(`Expected HTTP 200, got ${res.status}`);
       const html = await res.text();
 
-      if (!html.includes("Know what you're buying.") || !html.includes("Then check the fill.")) {
-        throw new Error("Missing approved hero headline (Know what you're buying. Then check the fill.)");
+      if (!html.includes("Break your stock app") || !html.includes("before the market does.")) {
+        throw new Error("Missing approved hero headline (Break your stock app before the market does.)");
+      }
+      if (!html.includes("RUN A TEST") || !html.includes("OPEN REPLAY LAB")) {
+        throw new Error("Missing new-surface hero CTAs");
       }
       if (!html.includes("Start a Preflight")) {
         throw new Error("Missing approved Start a Preflight CTA");
@@ -541,6 +544,20 @@ async function runE2ETests() {
 
       const sendRes = await fetch(`${BASE_URL}/sendTransaction`, { method: "POST" });
       if (sendRes.status !== 404) throw new Error("Found unauthorized /sendTransaction route");
+    });
+
+    await test("DBC whale endpoint validates input without touching the network", async () => {
+      const res = await fetch(`${BASE_URL}/api/v1/dbc/whale`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ configAddress: "NOTANADDRESS", tradeSizeQuoteUnits: "1000", maxPriceImpactPct: 8 })
+      });
+      if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
+      const data = await res.json();
+      if (data.request_status !== "SUCCESS") throw new Error("Envelope must succeed");
+      if (data.scenarioId !== "DBC_OPENING_WHALE") throw new Error("Scenario identity missing");
+      if (data.status !== "UNABLE_TO_VERIFY") throw new Error("Bad address must be UNABLE, never PASS/FAIL");
+      if (data.reasonCode !== "DBC_BAD_ADDRESS") throw new Error(`Wrong reason code: ${data.reasonCode}`);
     });
 
   } finally {
