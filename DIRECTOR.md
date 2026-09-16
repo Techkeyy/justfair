@@ -456,8 +456,42 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
   v1.5.12 on npm (no funds to install); read-only pool/config inspection +
   quote simulation + devnet faucets per official docs; program
   `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`. Intended Phase-later
-  calls: client init → pool/config state reads → swap-quote simulation →
+  calls: client.init → pool/config state reads → swap-quote simulation →
   graduation-progress reads. No custody, launch, funds, or issuance needed.
+- Phase 2 CLI: `node src/cli.js test --target http://localhost:PORT
+  [--scenario ID] [--json] [--out file]` (localhost-only enforced).
+  Exit 0 = all PASS, 1 = any FAIL, 2 = UNABLE/config. Incompatible
+  scenarios SKIP (listed, uncounted). Manual rerun proof: example adapter
+  naive → FAIL exit 1 (STALE_REFERENCE_TREATED_AS_LIVE + replay), correct
+  → PASS exit 0. Same scenario/runner/evidence/invariant. Example:
+  `examples/adapter-basic/` (<50 lines, naive/correct modes). Contract doc:
+  `docs/adapter.md`. Artifact: {runId,target,startedAt,completedAt,
+  summary,results} via --json/--out.
+- PreStocks scenario #2 live: PRESTOCKS_EXPIRY_{BEFORE,NEAR,AFTER} through
+  the generic engine (3 variants, injected timestamps, one invariant
+  family). Naive AFTER → FAIL EXPIRED_REPRESENTATION_TREATED_AS_LIVE;
+  correct → PASS all three. Live listing API re-verified in-test
+  (SPACEX shape asserted when reachable, honest unreachable otherwise).
+- Meteora reality proof (Phase 2, read-only): SDK v1.5.12 installed
+  --no-save (repo manifests verified untouched; dep lives in gitignored
+  node_modules only). Discovery via official program: VirtualPool
+  discriminator (IDL bytes d5e005d16245775c) + IDL-derived 424-byte size →
+  82,288 devnet VirtualPool accounts. Live state read of pool
+  11iuqvcUBTL4FrqytcnJVoNgRoEh3mpDK2cLa41BV8n (config, creator, baseMint,
+  vaults, baseReserve 999262737704611265, quoteReserve 19698005,
+  sqrtPrice, migrationProgress 0 = active bonding, poolType 1 =
+  Token-2022). Live quote math: 1,000,000,000 base units → outputAmount 25,
+  tradingFee 1 (pure local math over fetched state). Signed: nothing.
+  Broadcast: nothing. Funds: none. Caveat: mainnet-beta stalls
+  getProgramAccounts from public endpoints, so enumeration ran on devnet
+  (same program ID both networks per docs); mainnet single-account reads
+  use the identical getAccountInfo path our engine already uses daily.
+  DBC_OPENING_WHALE stays CONTRACT_ONLY in Phase 2 (SDK-backed execution
+  deferred to Phase 3 to avoid adding the dep); pure policy comparator
+  tested.
+- Pyth: key STILL ABSENT at Phase 2 close → Scenario #1 stays
+  SIMULATED_PYTH_SEMANTICS; skip-truthful live probe test added (runs only
+  with a key, never commits credentials). INTEGRATION PROVEN still blocked.
 
 ## 22. COMPLETED PHASES
 
@@ -470,6 +504,12 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
   Pro proof, which needs an owner credential (key absent locally; legacy
   prod key proven NOT entitled to equity feeds). No code reason blocks it:
   fetcher, parser, and fixture-shaped proofs are green.
+- PHASE 2: ENGINEERING PASS (Pyth live leg still blocked on the same owner
+  key). Proven: localhost CLI loop (naive FAIL exit 1 → correct PASS exit
+  0), PreStocks expiry scenario family through the generic engine,
+  real DBC state+quote proof without custody/funds/signing, all suites
+  green (preflight 49, streaming 6, product 52, browser 59, e2e 14,
+  scenarios 25, cli 6).
 
 ## 23. BLOCKERS
 
@@ -507,7 +547,13 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
 - Phase 1: `test/e2e.test.js` (session-agnostic feed expectations, test-only);
   `src/scenarios/adapter.js` + `scenario.js` + `pyth.js` +
   `first-scenario.js` (new engine); `test/fixtures/adapter-targets.js` +
-  `test/justfair-scenarios.test.js` (new proof); `DIRECTOR.md` (continuous).
+  `test/justfair-scenarios.test.js` (new proof).
+- Phase 2: `src/cli.js` (local `test` runner); `src/scenarios/index.js`
+  (registry) + `prestocks.js` (scenario #2) + `dbc.js` (whale contract);
+  `src/scenarios/scenario.js` (+`authoritative_event_fixture`);
+  `examples/adapter-basic/` (sample target); `docs/adapter.md`;
+  `test/cli.test.js` + `test/justfair-scenarios.test.js` (Phase 2 cover);
+  `test/fixtures/adapter-targets.js` (+lifecycle target).
 
 ## 26. IMPORTANT COMMITS
 
