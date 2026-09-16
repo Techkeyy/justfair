@@ -160,7 +160,7 @@ async function runBrowserTests() {
 
   try {
     // 1. Desktop Dashboard Hero Section (Screenshot 01)
-    await test("1. Dashboard Hero: Lady Justice artwork, tagline, and Two Checks badge", async () => {
+    await test("1. Dashboard Hero: one-column thesis, no hero image", async () => {
       await page.goto(BASE_URL, { waitUntil: "networkidle" });
 
       const heroText = await page.textContent(".hero-headline");
@@ -178,8 +178,13 @@ async function runBrowserTests() {
         throw new Error(`Hero badge mismatch: ${badgeText}`);
       }
 
-      const isArtVisible = await page.isVisible(".hero-art-image");
-      if (!isArtVisible) throw new Error("Hero artwork image is not visible");
+      if (await page.$(".hero-art-image") || await page.$(".hero-art-col")) {
+        throw new Error("Hero image and its column must be removed");
+      }
+      const contentBox = await page.locator(".hero-content-col").boundingBox();
+      if (!contentBox || contentBox.width > 920) {
+        throw new Error(`One-column hero must stay balanced, width: ${contentBox?.width}`);
+      }
 
       // 013.5A: landing must fire ZERO Execution Preflight POSTs (wait 3s).
       await page.waitForTimeout(3000);
@@ -288,16 +293,18 @@ async function runBrowserTests() {
       if (!isFooterVisible) throw new Error("Footer not visible");
       const footer = await page.textContent(".site-footer");
       if (/Preflight App|Dashboard/.test(footer)) throw new Error("Footer must not present the legacy product");
-      for (const sel of ["#footer-test-link", "#footer-replay-link", "#footer-dbc-link", "#footer-legacy-app-link"]) {
+      if (/legacy/i.test(footer)) throw new Error("Footer must not advertise any legacy entry point");
+      for (const sel of ["#footer-test-link", "#footer-replay-link", "#footer-dbc-link"]) {
         if (!await page.$(sel)) throw new Error(`Footer must link ${sel}`);
       }
+      if (await page.$("#footer-legacy-app-link")) throw new Error("Legacy footer entry must be removed");
 
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "07_final_cta.png") });
     });
 
     // 7b. Single four-step app entry (013.9A)
     await test("7b. App Entry: no mode choice, tracker visible, Step 1 active", async () => {
-      await page.click("#footer-legacy-app-link");
+      await page.goto(BASE_URL + "/#app");
       await page.waitForSelector("#step-1-container:not(.hidden)", { timeout: 15000 });
 
       if (await page.$("#entry-choice-container")) {
@@ -946,7 +953,7 @@ async function runBrowserTests() {
       });
       try {
         await freshPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await freshPage.click("#footer-legacy-app-link");
+        await freshPage.goto(BASE_URL + "/#app");
         await freshPage.waitForSelector("#tracker-step-4", { timeout: 15000 });
         await freshPage.click("#tracker-step-4");
         await freshPage.click("#stock-card-AAPLx .stock-card-header");
@@ -975,7 +982,7 @@ async function runBrowserTests() {
         const widePage = await wideContext.newPage();
         try {
           await widePage.goto(BASE_URL, { waitUntil: "networkidle" });
-          await widePage.click("#footer-legacy-app-link");
+          await widePage.goto(BASE_URL + "/#app");
           await widePage.waitForSelector("#tracker-step-4", { timeout: 15000 });
           await widePage.click("#tracker-step-4");
           await widePage.waitForSelector("#stock-cards-container .stock-card-standalone", { timeout: 15000 });
@@ -1854,7 +1861,7 @@ async function runBrowserTests() {
           await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
         });
         await mobPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await mobPage.click("#footer-legacy-app-link");
+        await mobPage.goto(BASE_URL + "/#app");
         await mobPage.click("#tracker-step-4");
         await mobPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
         await mobPage.click("#stock-card-AAPLx .stock-card-header");
@@ -2272,7 +2279,7 @@ async function runBrowserTests() {
       const uatPage = await uatCtx.newPage();
       try {
         await uatPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await uatPage.click("#footer-legacy-app-link");
+        await uatPage.goto(BASE_URL + "/#app");
         await uatPage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
         await uatPage.click("#underlying-card-AAPL");
         await uatPage.waitForSelector("#step-2-container", { timeout: 15000 });
@@ -2311,7 +2318,7 @@ async function runBrowserTests() {
       const stalePage = await staleCtx.newPage();
       try {
         await stalePage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await stalePage.click("#footer-legacy-app-link");
+        await stalePage.goto(BASE_URL + "/#app");
         await stalePage.waitForSelector("#underlying-card-TSLA", { timeout: 15000 });
         await stalePage.click("#underlying-card-TSLA");
         await stalePage.waitForSelector("#step-2-container", { timeout: 15000 });
@@ -2351,7 +2358,7 @@ async function runBrowserTests() {
       const compPage = await compCtx.newPage();
       try {
         await compPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await compPage.click("#footer-legacy-app-link");
+        await compPage.goto(BASE_URL + "/#app");
         await compPage.click("#tracker-step-4");
         await compPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
         await compPage.click("#stock-card-AAPLx .stock-card-header");
@@ -2436,7 +2443,7 @@ async function runBrowserTests() {
       const mobPage = await mobCtx.newPage();
       try {
         await mobPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await mobPage.click("#footer-legacy-app-link");
+        await mobPage.goto(BASE_URL + "/#app");
         await mobPage.click("#tracker-step-4");
         await mobPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
         await mobPage.click("#stock-card-AAPLx .stock-card-header");
@@ -2521,7 +2528,7 @@ async function runBrowserTests() {
       const truthPage = await truthContext.newPage();
       try {
         await truthPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await truthPage.click("#footer-legacy-app-link");
+        await truthPage.goto(BASE_URL + "/#app");
         await truthPage.waitForSelector("#tracker-step-4", { timeout: 15000 });
         await truthPage.click("#tracker-step-4");
         await truthPage.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
@@ -2552,7 +2559,7 @@ async function runBrowserTests() {
       const flowPage = await flowContext.newPage();
       try {
         await flowPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await flowPage.click("#footer-legacy-app-link");
+        await flowPage.goto(BASE_URL + "/#app");
         await flowPage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
         await flowPage.click("#underlying-card-AAPL");
         await flowPage.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
@@ -2599,7 +2606,7 @@ async function runBrowserTests() {
       const guardPage = await guardContext.newPage();
       try {
         await guardPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await guardPage.click("#footer-legacy-app-link");
+        await guardPage.goto(BASE_URL + "/#app");
         await guardPage.waitForSelector("#tracker-step-3", { timeout: 15000 });
         await guardPage.click("#tracker-step-3");
         await guardPage.waitForSelector("#step-2-container:not(.hidden)", { timeout: 15000 });
@@ -2638,7 +2645,7 @@ async function runBrowserTests() {
       await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "16_mobile_sections.png") });
 
       // 17. Mobile Entry + Step 1 (013.9K: single app, tracker shortcut)
-      await mobilePage.click("#footer-legacy-app-link");
+      await mobilePage.goto(BASE_URL + "/#app");
       await mobilePage.waitForSelector("#step-1-container:not(.hidden)", { timeout: 15000 });
       isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       if (isOverflow) throw new Error("Mobile Step 1 exhibits horizontal overflow");

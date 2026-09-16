@@ -828,11 +828,6 @@ if (bottomOpenAppBtn) bottomOpenAppBtn.addEventListener("click", (e) => {
   e.preventDefault();
   navigateToSection("app");
 });
-const footerAppLink = document.getElementById("footer-legacy-app-link");
-if (footerAppLink) footerAppLink.addEventListener("click", (e) => {
-  e.preventDefault();
-  navigateToSection("app");
-});
 const footerDbcLink2 = document.getElementById("footer-dbc-link-2");
 if (footerDbcLink2) footerDbcLink2.addEventListener("click", (e) => {
   e.preventDefault();
