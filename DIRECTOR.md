@@ -597,6 +597,17 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
   scenarios 25, cli 11, dbc 5, tessera 13, smoke clean), README rewritten,
   release hardening done. Pyth explicitly NOT a blocker (sponsor
   realignment); GitHub access is the remaining release blocker.
+- UAT FIX 001 (homepage coherence): removed 7 legacy consumer sections
+  (two-mistakes, pillars, two-layer comparison, $500 example, old 4-step
+  how-it-works, proof stats, wallet-framed API) + Preflight badge, Open
+  App header CTA, Start-a-Preflight hero CTA, legacy footer framing.
+  Replaced with HOW IT WORKS (CONNECT/TEST/BREAK/FIX/VERIFY), WHAT
+  JUSTFAIR TESTS (5 packs), engine-sampled failure example (populated
+  from /samples/tessera-fail.json at runtime), dev integration block,
+  subtle sponsor proof, rewritten API drawer (/api/v1/dbc/whale).
+  Legacy app code/tests untouched and green; entry via footer legacy
+  link (all 12 app-entry test clicks repointed). Stale section tests
+  2-7 rewritten to current truth; new absence regressions added.
 
 ## 23. BLOCKERS
 
