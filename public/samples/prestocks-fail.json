@@ -1,0 +1,91 @@
+{
+  "runId": "d5dcbea5-7821-4321-90bb-eb0063551c70",
+  "target": {
+    "url": "sample",
+    "name": "Naive Lifecycle Wallet",
+    "adapterVersion": "1"
+  },
+  "startedAt": "2026-09-16T12:54:39.146Z",
+  "completedAt": "2026-09-16T12:54:39.221Z",
+  "summary": {
+    "passed": 0,
+    "failed": 1,
+    "unable": 0
+  },
+  "results": [
+    {
+      "scenarioId": "PRESTOCKS_EXPIRY_AFTER",
+      "status": "FAIL",
+      "target": "Naive Lifecycle Wallet",
+      "assertions": [
+        {
+          "id": "expired-marked",
+          "expected": "The post-deadline representation is marked expired or transitioned",
+          "actual": {
+            "expired": false,
+            "label": "Live SPACEX position"
+          },
+          "passed": false,
+          "error": null
+        },
+        {
+          "id": "no-ordinary-valuation",
+          "expected": "No ordinary current valuation is presented for the expired representation",
+          "actual": {
+            "ordinaryValuation": true
+          },
+          "passed": false,
+          "error": null
+        }
+      ],
+      "diagnosis": {
+        "failureCode": "EXPIRED_REPRESENTATION_TREATED_AS_LIVE",
+        "expected": "The post-deadline representation is marked expired or transitioned",
+        "actual": {
+          "expired": false,
+          "label": "Live SPACEX position"
+        },
+        "rootCause": "The target presents a post-deadline representation as an ordinary live holding.",
+        "guidance": "After a confirmed conversion/expiry deadline, mark the representation expired or transitioned and stop ordinary current valuation."
+      },
+      "replay": [
+        {
+          "at": "T0",
+          "label": "Scenario issued",
+          "expected": "PRESTOCKS_EXPIRY_AFTER",
+          "observed": "inputs prepared"
+        },
+        {
+          "at": "T+manifest",
+          "label": "Target manifest accepted",
+          "expected": "lifecycle_position_state",
+          "observed": "lifecycle_position_state"
+        },
+        {
+          "at": "T+evaluate",
+          "label": "Target observations collected",
+          "expected": "observable behavior only",
+          "observed": "received"
+        },
+        {
+          "at": "T+assert1",
+          "label": "Invariant expired-marked",
+          "expected": "The post-deadline representation is marked expired or transitioned",
+          "observed": "{\"expired\":false,\"label\":\"Live SPACEX position\"}"
+        },
+        {
+          "at": "T+assert2",
+          "label": "Invariant no-ordinary-valuation",
+          "expected": "No ordinary current valuation is presented for the expired representation",
+          "observed": "{\"ordinaryValuation\":true}"
+        },
+        {
+          "at": "T+verdict",
+          "label": "Invariant violated",
+          "expected": "The post-deadline representation is marked expired or transitioned",
+          "observed": "{\"expired\":false,\"label\":\"Live SPACEX position\"}"
+        }
+      ]
+    }
+  ]
+}

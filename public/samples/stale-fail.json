@@ -1,0 +1,91 @@
+{
+  "runId": "e2ffb8b9-e3ca-4ffb-aae5-1233df724b62",
+  "target": {
+    "url": "sample",
+    "name": "Naive Demo Wallet",
+    "adapterVersion": "1"
+  },
+  "startedAt": "2026-09-16T12:54:38.623Z",
+  "completedAt": "2026-09-16T12:54:39.005Z",
+  "summary": {
+    "passed": 0,
+    "failed": 1,
+    "unable": 0
+  },
+  "results": [
+    {
+      "scenarioId": "STALE_CARRIED_FORWARD_EQUITY",
+      "status": "FAIL",
+      "target": "Naive Demo Wallet",
+      "assertions": [
+        {
+          "id": "no-live-claim",
+          "expected": "A carried-forward underlying reference must not be presented as a fresh live underlying price",
+          "actual": {
+            "claimsLive": true,
+            "label": "Live AAPL price"
+          },
+          "passed": false,
+          "error": null
+        },
+        {
+          "id": "no-invented-price",
+          "expected": "The displayed underlying price equals the supplied reference price",
+          "actual": {
+            "displayedPrice": 329.29
+          },
+          "passed": true,
+          "error": null
+        }
+      ],
+      "diagnosis": {
+        "failureCode": "STALE_REFERENCE_TREATED_AS_LIVE",
+        "expected": "A carried-forward underlying reference must not be presented as a fresh live underlying price",
+        "actual": {
+          "claimsLive": true,
+          "label": "Live AAPL price"
+        },
+        "rootCause": "The target labeled a carried-forward underlying price as fresh.",
+        "guidance": "Check source freshness/session state (feed generation time vs consumption time) before presenting the underlying value as a live reference."
+      },
+      "replay": [
+        {
+          "at": "T0",
+          "label": "Scenario issued",
+          "expected": "STALE_CARRIED_FORWARD_EQUITY",
+          "observed": "inputs prepared"
+        },
+        {
+          "at": "T+manifest",
+          "label": "Target manifest accepted",
+          "expected": "underlying_price_display",
+          "observed": "underlying_price_display"
+        },
+        {
+          "at": "T+evaluate",
+          "label": "Target observations collected",
+          "expected": "observable behavior only",
+          "observed": "received"
+        },
+        {
+          "at": "T+assert1",
+          "label": "Invariant no-live-claim",
+          "expected": "A carried-forward underlying reference must not be presented as a fresh live underlying price",
+          "observed": "{\"claimsLive\":true,\"label\":\"Live AAPL price\"}"
+        },
+        {
+          "at": "T+assert2",
+          "label": "Invariant no-invented-price",
+          "expected": "The displayed underlying price equals the supplied reference price",
+          "observed": "{\"displayedPrice\":329.29}"
+        },
+        {
+          "at": "T+verdict",
+          "label": "Invariant violated",
+          "expected": "A carried-forward underlying reference must not be presented as a fresh live underlying price",
+          "observed": "{\"claimsLive\":true,\"label\":\"Live AAPL price\"}"
+        }
+      ]
+    }
+  ]
+}

@@ -676,22 +676,34 @@ const stockCardsContainer = document.getElementById("stock-cards-container");
 // 1. Navigation & View Switching
 // ==========================================
 export function switchView(viewName, targetSymbol = null) {
-  if (viewName === "app") {
-    dashboardView.classList.add("hidden");
-    appView.classList.remove("hidden");
-    tabDashboardBtn.classList.remove("active");
-    tabAppBtn.classList.add("active");
-    headerLaunchBtn.classList.add("hidden");
+  // Phase 3: generic view switching across dashboard / app / test / replay / dbc.
+  const views = {
+    dashboard: document.getElementById("dashboard-view"),
+    app: document.getElementById("app-view"),
+    test: document.getElementById("test-view"),
+    replay: document.getElementById("replay-view"),
+    dbc: document.getElementById("dbc-view")
+  };
+  const tabs = {
+    dashboard: document.getElementById("tab-dashboard-btn"),
+    app: document.getElementById("tab-app-btn"),
+    test: document.getElementById("tab-test-btn"),
+    replay: document.getElementById("tab-replay-btn"),
+    dbc: document.getElementById("tab-dbc-btn")
+  };
+  const known = views[viewName] ? viewName : "dashboard";
+  for (const [key, el] of Object.entries(views)) {
+    if (el) el.classList.toggle("hidden", key !== known);
+  }
+  for (const [key, el] of Object.entries(tabs)) {
+    if (el) el.classList.toggle("active", key === known);
+  }
+  if (headerLaunchBtn) headerLaunchBtn.classList.toggle("hidden", known === "app");
 
+  if (known === "app") {
     if (targetSymbol) {
       expandStockCard(targetSymbol);
     }
-  } else {
-    appView.classList.add("hidden");
-    dashboardView.classList.remove("hidden");
-    tabAppBtn.classList.remove("active");
-    tabDashboardBtn.classList.add("active");
-    headerLaunchBtn.classList.remove("hidden");
   }
 }
 
@@ -708,6 +720,12 @@ export function navigateToSection(target, targetStock = null) {
     window.scrollTo({ top: 0, behavior: "smooth" });
     if (window.location.hash !== "#dashboard" && window.location.hash !== "") {
       history.pushState(null, "", "#dashboard");
+    }
+  } else if (target === "test" || target === "replay" || target === "dbc") {
+    switchView(target);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (window.location.hash !== `#${target}`) {
+      history.pushState(null, "", `#${target}`);
     }
   } else if (target === "why-justfair") {
     switchView("dashboard");
@@ -816,10 +834,52 @@ if (footerAppLink) footerAppLink.addEventListener("click", (e) => {
   navigateToSection("app");
 });
 
+// Phase 3: new product surfaces (Test / Replay Lab / DBC Stress).
+for (const target of ["test", "replay", "dbc"]) {
+  const tab = document.getElementById(`tab-${target}-btn`);
+  if (tab) tab.addEventListener("click", (e) => {
+    e.preventDefault();
+    navigateToSection(target);
+  });
+  const footerLink = document.getElementById(`footer-${target}-link`);
+  if (footerLink) footerLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    navigateToSection(target);
+  });
+}
+const heroRunTestBtn = document.getElementById("hero-run-test-btn");
+if (heroRunTestBtn) heroRunTestBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("test");
+});
+const heroReplayBtn = document.getElementById("hero-replay-btn");
+if (heroReplayBtn) heroReplayBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("replay");
+});
+const testOpenReplayBtn = document.getElementById("test-open-replay-btn");
+if (testOpenReplayBtn) testOpenReplayBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("replay");
+});
+const testCopyCmdBtn = document.getElementById("test-copy-cmd-btn");
+if (testCopyCmdBtn) testCopyCmdBtn.addEventListener("click", async () => {
+  const cmd = document.getElementById("test-cli-cmd")?.textContent?.trim() || "";
+  try {
+    await navigator.clipboard.writeText(cmd);
+    testCopyCmdBtn.textContent = "Copied";
+    setTimeout(() => { testCopyCmdBtn.textContent = "Copy command"; }, 1500);
+  } catch {
+    testCopyCmdBtn.textContent = cmd;
+  }
+});
+
 function handleRoute() {
   const hash = window.location.hash.toLowerCase();
   if (hash === "#app") {
     switchView("app");
+  } else if (hash === "#test" || hash === "#replay" || hash === "#dbc") {
+    switchView(hash.slice(1));
   } else if (hash === "#why-justfair") {
     switchView("dashboard");
     setTimeout(() => {
@@ -3728,3 +3788,231 @@ if (walletBtn) walletBtn.addEventListener("click", handleGlobalWalletConnect);
 // (GET /api/v1/prices/sol via fetchAuthoritativeSolPrice). No Execution
 // Preflight POST may fire before the user explicitly submits Step 4
 // (Director Order 013.5: removed page-load preflight warmup).
+
+// ==========================================
+// PHASE 3: REPLAY LAB + DBC STRESS (NEW PRODUCT SURFACES)
+// Renders engine-produced result artifacts. No scenario logic here.
+// ==========================================
+
+function escapeHtmlText(value) {
+  return String(value ?? "").replace(/[&<>"'"'"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function formatObserved(actual) {
+  if (actual === null || actual === undefined) return "—";
+  if (typeof actual === "string") return actual;
+  try {
+    const flat = Object.entries(actual)
+      .filter(([, v]) => v !== null && v !== undefined)
+      .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : String(v)}`);
+    return flat.length > 0 ? flat.join(" · ") : JSON.stringify(actual);
+  } catch {
+    return "—";
+  }
+}
+
+// Minimal artifact schema check (mirrors the CLI artifact shape).
+function validateResultArtifact(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return "Report must be a JSON object.";
+  if (typeof obj.runId !== "string" || !obj.runId) return "Report is missing runId.";
+  if (!obj.summary || typeof obj.summary !== "object") return "Report is missing summary.";
+  if (!Array.isArray(obj.results) || obj.results.length === 0) return "Report contains no scenario results.";
+  for (const r of obj.results) {
+    if (!r || typeof r.scenarioId !== "string") return "A result is missing scenarioId.";
+    if (!["PASS", "FAIL", "UNABLE_TO_VERIFY"].includes(r.status)) return `Result ${r.scenarioId} has an unknown status.`;
+    if (!Array.isArray(r.assertions)) return `Result ${r.scenarioId} is missing assertions.`;
+    if (!Array.isArray(r.replay)) return `Result ${r.scenarioId} is missing replay data.`;
+  }
+  return null;
+}
+
+let replayArtifact = null;
+let replayIsSample = false;
+
+function renderReplayReport(artifact, isSample) {
+  replayArtifact = artifact;
+  replayIsSample = isSample;
+  const report = document.getElementById("replay-report");
+  const errBox = document.getElementById("replay-error");
+  if (errBox) errBox.classList.add("hidden");
+  if (!report) return;
+  report.classList.remove("hidden");
+  const badge = document.getElementById("replay-sample-badge");
+  if (badge) badge.classList.toggle("hidden", !isSample);
+  const counts = artifact.summary || { passed: 0, failed: 0, unable: 0 };
+  const title = document.getElementById("replay-run-title");
+  if (title) title.textContent = `Run report — ${artifact.target?.name || artifact.target?.config || "unknown target"}`;
+  const meta = document.getElementById("replay-run-meta");
+  if (meta) meta.textContent = `Run ${artifact.runId} · ${artifact.results.length} scenario${artifact.results.length === 1 ? "" : "s"}`;
+  const countsEl = document.getElementById("replay-run-counts");
+  if (countsEl) countsEl.textContent = `${counts.passed ?? 0} passed · ${counts.failed ?? 0} failed · ${counts.unable ?? 0} unable`;
+  const list = document.getElementById("replay-scenario-list");
+  if (list) {
+    list.innerHTML = "";
+    artifact.results.forEach((r, idx) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `replay-scenario-card status-${r.status.toLowerCase()}`;
+      btn.dataset.index = String(idx);
+      btn.innerHTML = `<span class="replay-status-badge">${escapeHtmlText(r.status)}</span>
+        <span class="replay-scenario-id">${escapeHtmlText(r.scenarioId)}</span>`;
+      btn.addEventListener("click", () => renderReplayDetail(idx));
+      list.appendChild(btn);
+    });
+  }
+  const detail = document.getElementById("replay-scenario-detail");
+  if (detail) detail.classList.add("hidden");
+  if (artifact.results.length === 1) renderReplayDetail(0);
+}
+
+function renderReplayDetail(index) {
+  const detail = document.getElementById("replay-scenario-detail");
+  if (!detail || !replayArtifact) return;
+  const r = replayArtifact.results[index];
+  if (!r) return;
+  detail.classList.remove("hidden");
+  const statusWord = r.status === "PASS" ? "PASS" : r.status === "FAIL" ? "FAIL" : "NOT VERIFIED";
+  const d = r.diagnosis || {};
+  const firstFailed = (r.assertions || []).find((a) => !a.passed);
+  const expected = d.expected || firstFailed?.expected || (r.assertions[0]?.expected) || "—";
+  const actual = d.actual !== undefined && d.actual !== null ? formatObserved(d.actual)
+    : firstFailed ? formatObserved(firstFailed.actual) : "—";
+  const evidence = r.evidence || {};
+  const evidenceLine = evidence.source
+    ? `${evidence.source} · ${evidence.classification || "evidence"}`
+    : (evidence.classification || "—");
+  const replayItems = (r.replay || []).map((e) =>
+    `<li class="replay-event"><span class="replay-event-at">${escapeHtmlText(e.at)}</span>
+     <div><strong>${escapeHtmlText(e.label)}</strong>
+     <span class="replay-event-io">Expected: ${escapeHtmlText(e.expected)} · Observed: ${escapeHtmlText(e.observed)}</span></div></li>`
+  ).join("");
+  detail.innerHTML = `
+    <div class="replay-detail-head"><span class="replay-status-badge">${escapeHtmlText(statusWord)}</span>
+      <h4 class="replay-detail-title">${escapeHtmlText(r.scenarioId)}</h4></div>
+    <div class="replay-detail-grid">
+      <div class="replay-field"><span class="replay-field-label">WHAT HAPPENED</span>
+        <span>${r.status === "PASS" ? "The invariant held on this run." : r.status === "FAIL" ? `Invariant violated${d.failureCode ? ` (${escapeHtmlText(d.failureCode)})` : ""}.` : escapeHtmlText(r.reason || "The run could not be verified.")}</span></div>
+      <div class="replay-field"><span class="replay-field-label">EXPECTED</span><span>${escapeHtmlText(expected)}</span></div>
+      <div class="replay-field"><span class="replay-field-label">YOUR APP</span><span>${escapeHtmlText(actual)}</span></div>
+      ${r.status === "FAIL" ? `<div class="replay-field"><span class="replay-field-label">WHY IT FAILED</span><span>${escapeHtmlText(d.rootCause || "—")}</span></div>
+      <div class="replay-field"><span class="replay-field-label">HOW TO FIX THE ASSUMPTION</span><span>${escapeHtmlText(d.guidance || "—")}</span></div>` : ""}
+      <div class="replay-field"><span class="replay-field-label">EVIDENCE / SOURCE</span><span>${escapeHtmlText(evidenceLine)}${evidence.source_url ? ` · ${escapeHtmlText(evidence.source_url)}` : ""}</span></div>
+    </div>
+    <h5 class="replay-timeline-title">REPLAY</h5>
+    <ol class="replay-timeline">${replayItems}</ol>`;
+  detail.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function showReplayError(message) {
+  const errBox = document.getElementById("replay-error");
+  if (errBox) {
+    errBox.textContent = message;
+    errBox.classList.remove("hidden");
+  }
+  document.getElementById("replay-report")?.classList.add("hidden");
+}
+
+function loadReplayArtifact(obj, isSample) {
+  const problem = validateResultArtifact(obj);
+  if (problem) {
+    showReplayError(`That file is not a JustFair result artifact: ${problem}`);
+    return;
+  }
+  renderReplayReport(obj, isSample);
+}
+
+const replayFileInput = document.getElementById("replay-file-input");
+if (replayFileInput) replayFileInput.addEventListener("change", () => {
+  const file = replayFileInput.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      loadReplayArtifact(JSON.parse(reader.result), false);
+    } catch {
+      showReplayError("That file is not valid JSON. Open a --json / --out artifact from the CLI.");
+    }
+  };
+  reader.readAsText(file);
+  replayFileInput.value = "";
+});
+
+document.querySelectorAll(".replay-sample-btn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const sample = btn.dataset.sample;
+    try {
+      const res = await fetch(`/samples/${sample}.json`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      loadReplayArtifact(await res.json(), true);
+    } catch {
+      showReplayError("Sample report could not be loaded. Check your connection and retry.");
+    }
+  });
+});
+
+// DBC Stress: real server-side execution of DBC_OPENING_WHALE.
+const dbcForm = document.getElementById("dbc-stress-form");
+if (dbcForm) dbcForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errBox = document.getElementById("dbc-error");
+  const outBox = document.getElementById("dbc-result");
+  const runBtn = document.getElementById("dbc-run-btn");
+  if (errBox) errBox.classList.add("hidden");
+  if (outBox) outBox.classList.add("hidden");
+  const btnText = runBtn?.querySelector(".btn-text");
+  const spinner = runBtn?.querySelector(".btn-spinner");
+  if (runBtn) runBtn.disabled = true;
+  if (spinner) spinner.classList.remove("hidden");
+  try {
+    const body = {
+      configAddress: document.getElementById("dbc-config-input")?.value?.trim() || "",
+      tradeSizeQuoteUnits: document.getElementById("dbc-size-input")?.value?.trim() || "",
+      maxPriceImpactPct: Number(document.getElementById("dbc-policy-input")?.value)
+    };
+    const res = await fetch("/api/v1/dbc/whale", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.request_status !== "SUCCESS") throw new Error(data.reason || "Stress test failed.");
+    renderDbcResult(data);
+  } catch (err) {
+    if (errBox) {
+      errBox.textContent = `Stress test could not run: ${err.message}`;
+      errBox.classList.remove("hidden");
+    }
+  } finally {
+    if (runBtn) runBtn.disabled = false;
+    if (spinner) spinner.classList.add("hidden");
+    if (btnText) btnText.textContent = "RUN STRESS TEST";
+  }
+});
+
+function renderDbcResult(data) {
+  const outBox = document.getElementById("dbc-result");
+  if (!outBox) return;
+  outBox.classList.remove("hidden");
+  const statusWord = data.status === "PASS" ? "PASS" : data.status === "FAIL" ? "FAIL" : "NOT VERIFIED";
+  const d = data.diagnosis || {};
+  const a = (data.assertions || [])[0] || {};
+  const ev = data.evidence || {};
+  outBox.innerHTML = `
+    <div class="replay-detail-head"><span class="replay-status-badge">${escapeHtmlText(statusWord)}</span>
+      <h4 class="replay-detail-title">DBC_OPENING_WHALE</h4></div>
+    <div class="replay-detail-grid">
+      <div class="replay-field"><span class="replay-field-label">EXPECTED</span><span>${escapeHtmlText(d.expected || a.expected || "—")}</span></div>
+      <div class="replay-field"><span class="replay-field-label">OBSERVED</span><span>${escapeHtmlText(typeof d.actual === "object" ? formatObserved(d.actual) : (d.actual ?? "—"))}</span></div>
+      ${data.status === "FAIL" ? `<div class="replay-field"><span class="replay-field-label">WHY IT FAILED</span><span>${escapeHtmlText(d.rootCause || "—")}</span></div>
+      <div class="replay-field"><span class="replay-field-label">HOW TO FIX THE ASSUMPTION</span><span>${escapeHtmlText(d.guidance || "—")}</span></div>` : ""}
+      <div class="replay-field"><span class="replay-field-label">EVIDENCE / SOURCE</span><span>${escapeHtmlText(ev.source || "—")} · ${escapeHtmlText(ev.classification || "")} · ${escapeHtmlText(ev.config || "")}</span></div>
+    </div>
+    <h5 class="replay-timeline-title">REPLAY</h5>
+    <ol class="replay-timeline">${(data.replay || []).map((ev2) =>
+      `<li class="replay-event"><span class="replay-event-at">${escapeHtmlText(ev2.at)}</span>
+       <div><strong>${escapeHtmlText(ev2.label)}</strong>
+       <span class="replay-event-io">Expected: ${escapeHtmlText(ev2.expected)} · Observed: ${escapeHtmlText(ev2.observed)}</span></div></li>`).join("")}</ol>`;
+  outBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}

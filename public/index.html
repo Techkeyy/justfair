@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JustFair: Pre-Trade Equity Safety Inspector on Solana</title>
-  <meta name="description" content="Verify the true economic fairness of tokenized stock trades on Solana before execution. Real-time DEX quotes vs independent equity market benchmarks.">
+  <title>JustFair: Crash-test stock apps before the market does</title>
+  <meta name="description" content="JustFair crash-tests stock applications against stock-market events before users find the bugs. Scenarios, replay, root cause, fix guidance.">
   <link rel="stylesheet" href="/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,6 +33,9 @@
 
         <nav class="nav-menu" aria-label="Main Navigation">
           <button type="button" class="nav-link active" id="tab-dashboard-btn" data-target="dashboard">Dashboard</button>
+          <button type="button" class="nav-link" id="tab-test-btn" data-target="test">Test</button>
+          <button type="button" class="nav-link" id="tab-replay-btn" data-target="replay">Replay Lab</button>
+          <button type="button" class="nav-link" id="tab-dbc-btn" data-target="dbc">DBC Stress</button>
           <button type="button" class="nav-link" id="tab-app-btn" data-target="app">App</button>
           <a href="#how-it-works" class="nav-link" id="nav-how-btn">How it Works</a>
           <a href="#api-docs" class="nav-link" id="nav-api-btn">API</a>
@@ -66,14 +69,24 @@
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                 </svg>
-                <span>TWO CHECKS BEFORE YOU BUY</span>
+                <span>FINANCIAL-CORRECTNESS CRASH TESTING</span>
               </div>
-              <h1 class="hero-headline">Know what you're buying.<br>Then check the fill.</h1>
+              <h1 class="hero-headline">Break your stock app<br>before the market does.</h1>
               <p class="hero-subheadline">
-                JustFair checks whether a tokenized stock actually gives you what you expect, then checks whether the trade itself gives you a fair deal.
+                JustFair crash-tests stock applications against stock-market events before your users find the bugs. Scenarios, replay, root cause, fix guidance.
               </p>
               <div class="hero-cta-group">
-                <button type="button" class="btn btn-primary btn-lg" id="hero-open-app-btn">
+                <button type="button" class="btn btn-primary btn-lg" id="hero-run-test-btn">
+                  <span>RUN A TEST</span>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14"></path>
+                    <path d="M12 5l7 7-7 7"></path>
+                  </svg>
+                </button>
+                <button type="button" class="btn btn-secondary btn-lg" id="hero-replay-btn">
+                  <span>OPEN REPLAY LAB</span>
+                </button>
+                <button type="button" class="btn btn-secondary btn-lg" id="hero-open-app-btn">
                   <span>Start a Preflight</span>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M5 12h14"></path>
@@ -815,6 +828,99 @@
           </div>
         </div>
       </div>
+
+      <!-- ========================================== -->
+      <!-- VIEW: TEST (LOCAL RUNNER WORKFLOW)         -->
+      <!-- ========================================== -->
+      <div id="test-view" class="view-section hidden">
+        <section class="jf-page">
+          <div class="jf-eyebrow">JUSTFAIR · TEST</div>
+          <h2 class="jf-title">Run a financial crash test.</h2>
+          <p class="jf-sub">Your app stays on your machine. JustFair runs scenarios against it locally and judges what it actually shows.</p>
+          <ol class="jf-steps">
+            <li><strong>Add the tiny adapter</strong> — two endpoints exposing what your app displays.</li>
+            <li><strong>Run your app locally</strong> — e.g. <code>http://localhost:3000</code>.</li>
+            <li><strong>Run JustFair</strong> — <code id="test-cli-cmd">node src/cli.js test --target http://localhost:3000</code>
+              <button type="button" class="btn btn-secondary btn-sm" id="test-copy-cmd-btn">Copy command</button>
+            </li>
+            <li><strong>Open the report</strong> — <button type="button" class="btn-link" id="test-open-replay-btn">open the result in Replay Lab</button>.</li>
+          </ol>
+          <details class="jf-details">
+            <summary class="jf-details-summary">View adapter spec</summary>
+            <div class="jf-details-body">
+              <p><code>GET /justfair/v1/manifest</code> returns <code>{"adapterVersion": "1", "name": "...", "capabilities": [...]}</code>.</p>
+              <p><code>POST /justfair/v1/evaluate</code> receives <code>{"scenarioId", "scenarioVersion", "inputs"}</code> and returns <strong>only observations</strong> — never a verdict. JustFair owns PASS / FAIL.</p>
+              <p>Localhost targets only. Responses capped at 64 KB. See <code>docs/adapter.md</code> and <code>examples/adapter-basic/</code>.</p>
+            </div>
+          </details>
+        </section>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- VIEW: REPLAY LAB                           -->
+      <!-- ========================================== -->
+      <div id="replay-view" class="view-section hidden">
+        <section class="jf-page">
+          <div class="jf-eyebrow">JUSTFAIR · REPLAY LAB</div>
+          <h2 class="jf-title">Understand a failure.</h2>
+          <p class="jf-sub">Open a JustFair result artifact. Your report stays in this browser.</p>
+          <div class="replay-upload-row">
+            <label class="btn btn-secondary btn-sm replay-upload-label" for="replay-file-input">OPEN RESULT FILE</label>
+            <input type="file" id="replay-file-input" accept="application/json,.json" class="hidden">
+            <span class="replay-upload-hint">Choose a <code>--json</code> / <code>--out</code> artifact from the CLI.</span>
+          </div>
+          <div class="replay-samples-row">
+            <span class="replay-samples-label">No report handy?</span>
+            <button type="button" class="btn-link replay-sample-btn" data-sample="stale-fail">View sample failure</button>
+            <button type="button" class="btn-link replay-sample-btn" data-sample="prestocks-fail">View sample expiry failure</button>
+            <button type="button" class="btn-link replay-sample-btn" data-sample="stale-pass">View sample pass</button>
+          </div>
+          <p class="replay-error hidden" id="replay-error"></p>
+          <div id="replay-report" class="replay-report hidden">
+            <div class="replay-run-header">
+              <span class="replay-sample-badge hidden" id="replay-sample-badge">SAMPLE SCENARIO — SIMULATED EXAMPLE, NOT YOUR RESULT</span>
+              <h3 class="replay-run-title" id="replay-run-title">Run report</h3>
+              <p class="replay-run-meta" id="replay-run-meta"></p>
+              <p class="replay-run-counts" id="replay-run-counts"></p>
+            </div>
+            <div id="replay-scenario-list" class="replay-scenario-list"></div>
+            <div id="replay-scenario-detail" class="replay-scenario-detail hidden"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- VIEW: DBC STRESS                           -->
+      <!-- ========================================== -->
+      <div id="dbc-view" class="view-section hidden">
+        <section class="jf-page">
+          <div class="jf-eyebrow">JUSTFAIR · DBC STRESS</div>
+          <h2 class="jf-title">Test a proposed Meteora DBC.</h2>
+          <p class="jf-sub">Check whether a bonding-curve configuration stays within YOUR maximum price-impact policy during a large early purchase. Read-only: no signing, no funds.</p>
+          <form id="dbc-stress-form" class="dbc-form" novalidate>
+            <div class="dbc-field">
+              <label class="form-label" for="dbc-config-input">DBC config address (mainnet)</label>
+              <input type="text" id="dbc-config-input" class="form-input font-mono" value="DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="dbc-field-row">
+              <div class="dbc-field">
+                <label class="form-label" for="dbc-size-input">Opening trade size (quote raw units)</label>
+                <input type="text" id="dbc-size-input" class="form-input font-mono" value="1000000000" inputmode="numeric" autocomplete="off" spellcheck="false">
+              </div>
+              <div class="dbc-field">
+                <label class="form-label" for="dbc-policy-input">Max price impact % (your policy)</label>
+                <input type="text" id="dbc-policy-input" class="form-input font-mono" value="8" inputmode="decimal" autocomplete="off" spellcheck="false">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg btn-block" id="dbc-run-btn">
+              <span class="btn-text">RUN STRESS TEST</span>
+              <span class="btn-spinner hidden" aria-hidden="true"></span>
+            </button>
+          </form>
+          <p class="replay-error hidden" id="dbc-error"></p>
+          <div id="dbc-result" class="dbc-result hidden"></div>
+        </section>
+      </div>
     </main>
 
     <!-- Site Footer -->
@@ -837,6 +943,9 @@
           <div class="footer-links-col">
             <span class="footer-heading">Navigation</span>
             <a href="#dashboard" class="footer-link">Dashboard</a>
+            <a href="#test" class="footer-link" id="footer-test-link">Run a Test</a>
+            <a href="#replay" class="footer-link" id="footer-replay-link">Replay Lab</a>
+            <a href="#dbc" class="footer-link" id="footer-dbc-link">DBC Stress</a>
             <a href="#app" class="footer-link" id="footer-app-link">Preflight App</a>
             <a href="#how-it-works" class="footer-link">How It Works</a>
           </div>

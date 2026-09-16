@@ -1,0 +1,82 @@
+{
+  "runId": "711e82f0-fb11-40ca-a7b3-6eb2defb9f36",
+  "target": {
+    "url": "sample",
+    "name": "Correct Demo Wallet",
+    "adapterVersion": "1"
+  },
+  "startedAt": "2026-09-16T12:54:39.010Z",
+  "completedAt": "2026-09-16T12:54:39.097Z",
+  "summary": {
+    "passed": 1,
+    "failed": 0,
+    "unable": 0
+  },
+  "results": [
+    {
+      "scenarioId": "STALE_CARRIED_FORWARD_EQUITY",
+      "status": "PASS",
+      "target": "Correct Demo Wallet",
+      "assertions": [
+        {
+          "id": "no-live-claim",
+          "expected": "A carried-forward underlying reference must not be presented as a fresh live underlying price",
+          "actual": {
+            "claimsLive": false,
+            "label": "AAPL reference (market closed — last available)"
+          },
+          "passed": true,
+          "error": null
+        },
+        {
+          "id": "no-invented-price",
+          "expected": "The displayed underlying price equals the supplied reference price",
+          "actual": {
+            "displayedPrice": 329.29
+          },
+          "passed": true,
+          "error": null
+        }
+      ],
+      "diagnosis": null,
+      "replay": [
+        {
+          "at": "T0",
+          "label": "Scenario issued",
+          "expected": "STALE_CARRIED_FORWARD_EQUITY",
+          "observed": "inputs prepared"
+        },
+        {
+          "at": "T+manifest",
+          "label": "Target manifest accepted",
+          "expected": "underlying_price_display",
+          "observed": "underlying_price_display"
+        },
+        {
+          "at": "T+evaluate",
+          "label": "Target observations collected",
+          "expected": "observable behavior only",
+          "observed": "received"
+        },
+        {
+          "at": "T+assert1",
+          "label": "Invariant no-live-claim",
+          "expected": "A carried-forward underlying reference must not be presented as a fresh live underlying price",
+          "observed": "{\"claimsLive\":false,\"label\":\"AAPL reference (market closed — last available)\"}"
+        },
+        {
+          "at": "T+assert2",
+          "label": "Invariant no-invented-price",
+          "expected": "The displayed underlying price equals the supplied reference price",
+          "observed": "{\"displayedPrice\":329.29}"
+        },
+        {
+          "at": "T+verdict",
+          "label": "Invariant satisfied",
+          "expected": "all assertions hold",
+          "observed": "PASS"
+        }
+      ]
+    }
+  ]
+}

@@ -164,17 +164,17 @@ async function runBrowserTests() {
       await page.goto(BASE_URL, { waitUntil: "networkidle" });
 
       const heroText = await page.textContent(".hero-headline");
-      if (!heroText.includes("Know what you're buying.") || !heroText.includes("Then check the fill.")) {
+      if (!heroText.includes("Break your stock app") || !heroText.includes("before the market does.")) {
         throw new Error(`Hero headline mismatch: ${heroText}`);
       }
 
       const subheadline = await page.textContent(".hero-subheadline");
-      if (!subheadline.includes("JustFair checks whether a tokenized stock actually gives you what you expect")) {
+      if (!subheadline.includes("crash-tests stock applications")) {
         throw new Error(`Hero subheadline mismatch: ${subheadline}`);
       }
 
       const badgeText = await page.textContent(".hero-badge span");
-      if (!badgeText.includes("TWO CHECKS BEFORE YOU BUY")) {
+      if (!badgeText.includes("FINANCIAL-CORRECTNESS CRASH TESTING")) {
         throw new Error(`Hero badge mismatch: ${badgeText}`);
       }
 
@@ -2661,6 +2661,162 @@ async function runBrowserTests() {
       await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "20_mobile_execution_handoff.png") });
 
       await mobileContext.close();
+    });
+
+    // ---- Phase 3: new product surfaces (Test / Replay Lab / DBC Stress) ----
+
+    await test("60. New home: crash-testing thesis with RUN A TEST and OPEN REPLAY LAB", async () => {
+      const homeCtx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+      const homePage = await homeCtx.newPage();
+      try {
+        await homePage.goto(BASE_URL, { waitUntil: "networkidle" });
+        for (const sel of ["#hero-run-test-btn", "#hero-replay-btn", "#hero-open-app-btn"]) {
+          if (!await homePage.isVisible(sel)) throw new Error(`Hero CTA must be visible: ${sel}`);
+        }
+        const runText = await homePage.textContent("#hero-run-test-btn");
+        if (!runText.includes("RUN A TEST")) throw new Error(`Primary CTA mismatch: ${runText}`);
+        await homePage.click("#hero-run-test-btn");
+        await homePage.waitForSelector("#test-view:not(.hidden)", { timeout: 10000 });
+        const cmd = await homePage.textContent("#test-cli-cmd");
+        if (!cmd.includes("node src/cli.js test --target")) throw new Error(`Test page must show the CLI flow: ${cmd}`);
+        await homePage.click("#tab-replay-btn");
+        await homePage.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
+        if (!await homePage.$("#replay-file-input")) throw new Error("Replay uploader must exist");
+      } finally {
+        await homeCtx.close();
+      }
+    });
+
+    await test("61. Test page explains local execution without fake browser runs", async () => {
+      await page.click("#tab-test-btn");
+      await page.waitForSelector("#test-view:not(.hidden)", { timeout: 10000 });
+      const body = await page.textContent("#test-view");
+      for (const n of ["localhost", "manifest", "evaluate", "never a verdict", "64 KB"]) {
+        if (!body.includes(n)) throw new Error(`Test page must explain "${n}"`);
+      }
+      if (/npx justfair/i.test(body)) throw new Error("Must not claim npx support before it exists");
+    });
+
+    await test("62. Replay Lab: sample failure renders expected/actual/replay/remediation", async () => {
+      await page.click("#tab-replay-btn");
+      await page.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
+      await page.click('.replay-sample-btn[data-sample="stale-fail"]');
+      await page.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
+      const badge = await page.textContent("#replay-sample-badge");
+      if (!/SAMPLE/.test(badge) || await page.$eval("#replay-sample-badge", el => el.classList.contains("hidden"))) {
+        throw new Error("Sample must be explicitly labelled");
+      }
+      const counts = await page.textContent("#replay-run-counts");
+      if (!counts.includes("1 failed")) throw new Error(`Counts mismatch: ${counts}`);
+      const detail = await page.textContent("#replay-scenario-detail");
+      for (const n of ["WHAT HAPPENED", "EXPECTED", "YOUR APP", "WHY IT FAILED", "HOW TO FIX THE ASSUMPTION", "REPLAY", "EVIDENCE / SOURCE", "Live AAPL price"]) {
+        if (!detail.includes(n)) throw new Error(`FAIL detail must show "${n}"`);
+      }
+      const events = await page.$$("#replay-scenario-detail .replay-event");
+      if (events.length < 5) throw new Error(`Timeline must render engine events, got ${events.length}`);
+    });
+
+    await test("63. Replay Lab: sample pass and malformed upload behave truthfully", async () => {
+      await page.click('.replay-sample-btn[data-sample="stale-pass"]');
+      await page.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
+      const counts = await page.textContent("#replay-run-counts");
+      if (!counts.includes("1 passed")) throw new Error(`Pass counts mismatch: ${counts}`);
+      await page.setInputFiles("#replay-file-input", {
+        name: "bad.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify({ hello: "not an artifact" }))
+      });
+      await page.waitForSelector("#replay-error:not(.hidden)", { timeout: 10000 });
+      const err = await page.textContent("#replay-error");
+      if (!/not a JustFair result artifact/i.test(err)) throw new Error(`Malformed upload must be rejected clearly: ${err}`);
+    });
+
+    await test("64. Replay Lab: UNABLE renders distinctly, never like PASS", async () => {
+      const unableArtifact = {
+        runId: "test-unable-1",
+        target: { url: "http://127.0.0.1:9", name: "Dead", adapterVersion: "1" },
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        summary: { passed: 0, failed: 0, unable: 1 },
+        results: [{
+          scenarioId: "STALE_CARRIED_FORWARD_EQUITY",
+          status: "UNABLE_TO_VERIFY",
+          reason: "Adapter unreachable",
+          reasonCode: "ADAPTER_UNAVAILABLE",
+          assertions: [],
+          diagnosis: null,
+          replay: [{ at: "T0", label: "Scenario issued", expected: "x", observed: "y" }]
+        }]
+      };
+      await page.setInputFiles("#replay-file-input", {
+        name: "unable.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify(unableArtifact))
+      });
+      await page.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
+      const card = await page.textContent(".replay-scenario-card");
+      if (!/UNABLE_TO_VERIFY/.test(card)) throw new Error("UNABLE card must show its status");
+      if (/^PASS/.test(card.trim())) throw new Error("UNABLE must never read as PASS");
+      await page.click(".replay-scenario-card");
+      const detail = await page.textContent("#replay-scenario-detail");
+      if (!/NOT VERIFIED/.test(detail) || !/Adapter unreachable/.test(detail)) {
+        throw new Error(`UNABLE detail must explain + offer retry path: ${detail.slice(0, 200)}`);
+      }
+    });
+
+    await test("65. DBC Stress runs a real check and renders the result model", async () => {
+      await page.route("**/api/v1/dbc/whale", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+          request_status: "SUCCESS", scenarioId: "DBC_OPENING_WHALE", status: "PASS",
+          assertions: [{ id: "within-issuer-policy", expected: "Opening purchase impact ≤ 8% (issuer policy)", actual: { observedImpactPct: 2.5, outputAmount: "1" }, passed: true, error: null }],
+          diagnosis: null,
+          evidence: { classification: "live_dbc_mainnet", source: "METEORA_DBC_PROGRAM", program: "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN", network: "mainnet-beta", config: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU" },
+          replay: [
+            { at: "T0", label: "Whale scenario issued", expected: "DBC_OPENING_WHALE", observed: "inputs prepared" },
+            { at: "T+verdict", label: "Within issuer policy", expected: "x", observed: "y" }
+          ]
+        }) });
+      });
+      try {
+        await page.click("#tab-dbc-btn");
+        await page.waitForSelector("#dbc-view:not(.hidden)", { timeout: 10000 });
+        for (const sel of ["#dbc-config-input", "#dbc-size-input", "#dbc-policy-input", "#dbc-run-btn"]) {
+          if (!await page.isVisible(sel)) throw new Error(`DBC form element must be visible: ${sel}`);
+        }
+        await page.click("#dbc-run-btn");
+        await page.waitForSelector("#dbc-result:not(.hidden)", { timeout: 20000 });
+        const out = await page.textContent("#dbc-result");
+        for (const n of ["PASS", "EXPECTED", "OBSERVED", "EVIDENCE / SOURCE", "REPLAY", "live_dbc_mainnet"]) {
+          if (!out.includes(n)) throw new Error(`DBC result must show "${n}"`);
+        }
+      } finally {
+        await page.unroute("**/api/v1/dbc/whale");
+      }
+    });
+
+    await test("66. New surfaces stay readable at 390px with no horizontal scroll", async () => {
+      const narrowCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
+      const narrowPage = await narrowCtx.newPage();
+      try {
+        await narrowPage.goto(BASE_URL, { waitUntil: "networkidle" });
+        if (!await narrowPage.isVisible("#hero-run-test-btn")) throw new Error("Mobile hero CTA must be visible");
+        await narrowPage.click("#hero-run-test-btn");
+        await narrowPage.waitForSelector("#test-view:not(.hidden)", { timeout: 10000 });
+        await narrowPage.click("#footer-replay-link");
+        await narrowPage.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
+        await narrowPage.click('.replay-sample-btn[data-sample="prestocks-fail"]');
+        await narrowPage.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
+        const overflow = await narrowPage.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (overflow > 1) throw new Error(`Mobile overflow: ${overflow}px`);
+        await narrowPage.click("#footer-dbc-link");
+        await narrowPage.waitForSelector("#dbc-view:not(.hidden)", { timeout: 10000 });
+        if (!await narrowPage.isVisible("#dbc-run-btn")) throw new Error("Mobile DBC CTA must be visible");
+        const overflow2 = await narrowPage.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (overflow2 > 1) throw new Error(`Mobile DBC overflow: ${overflow2}px`);
+      } finally {
+        await narrowCtx.close();
+      }
     });
 
   } finally {

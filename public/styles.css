@@ -4249,3 +4249,310 @@ body {
 
 
 
+
+/* ==========================================
+   PHASE 3: NEW PRODUCT SURFACES (TEST / REPLAY / DBC)
+   Reuses existing tokens, cards, buttons, type.
+   ========================================== */
+.jf-page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 24px 64px 24px;
+}
+
+.jf-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent-primary);
+  margin-bottom: 8px;
+}
+
+.jf-title {
+  margin: 0 0 8px 0;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.jf-sub {
+  margin: 0 0 24px 0;
+  font-size: 15.5px;
+  color: var(--text-secondary);
+}
+
+.jf-steps {
+  margin: 0 0 24px 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.jf-steps code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  background-color: var(--bg-card-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.jf-details {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background-color: #ffffff;
+  padding: 12px 16px;
+}
+
+.jf-details-summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.jf-details-body {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.jf-details-body code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12.5px;
+}
+
+.replay-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.replay-upload-hint {
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.replay-samples-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.replay-error {
+  color: var(--status-bad-text);
+  font-size: 14px;
+}
+
+.replay-run-header {
+  margin-bottom: 16px;
+}
+
+.replay-sample-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border: 1px dashed var(--border-light);
+  border-radius: 6px;
+  padding: 3px 8px;
+  margin-bottom: 8px;
+}
+
+.replay-run-title {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.replay-run-meta,
+.replay-run-counts {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.replay-scenario-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.replay-scenario-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  background-color: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.replay-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background-color: var(--bg-card-subtle);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.status-fail .replay-status-badge {
+  background-color: #fdecec;
+  color: var(--status-bad-text);
+}
+
+.status-pass .replay-status-badge {
+  background-color: #e9f9ef;
+  color: #15803d;
+}
+
+.replay-scenario-id {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+}
+
+.replay-scenario-detail {
+  background-color: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.replay-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.replay-detail-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.replay-detail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.replay-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.replay-field-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.replay-timeline-title {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.replay-timeline {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.replay-event {
+  display: flex;
+  gap: 12px;
+  font-size: 13.5px;
+}
+
+.replay-event-at {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: var(--accent-primary);
+  min-width: 74px;
+}
+
+.replay-event-io {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.dbc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.dbc-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.dbc-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.dbc-result {
+  background-color: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 640px) {
+  .jf-page {
+    padding: 32px 16px 48px 16px;
+  }
+
+  .jf-title {
+    font-size: 25px;
+  }
+
+  .dbc-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .replay-scenario-detail,
+  .dbc-result {
+    padding: 16px;
+  }
+}
