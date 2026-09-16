@@ -16,6 +16,10 @@ async function main() {
     await runScenarioCommand(args.slice(1));
     return;
   }
+  if (command === "whale") {
+    await runWhaleCommand(args.slice(1));
+    return;
+  }
   if (command === "doctor") {
     console.log("=== JustFair System Doctor (Jupiter Swap V2 + Token-2022 Core) ===");
     console.log("Supported Payment Assets:", Object.keys(SUPPORTED_PAYMENTS).join(", "));
@@ -185,8 +189,7 @@ export async function runScenarioCommand(flagArgs) {
   else process.exitCode = 0;
 }
 
-function describeObserved(result) {
-  const d = result.diagnosis || {};
+function describeObserved(result) {  const d = result.diagnosis || {};
   if (d.actual && typeof d.actual === "object") {
     const parts = [];
     if (d.actual.claimsLive !== undefined) parts.push(`claimsLive: ${d.actual.claimsLive}`);
@@ -201,6 +204,65 @@ function describeObserved(result) {
   return typeof d.actual === "string" ? d.actual : "See replay timeline.";
 }
 
+/**
+ * DBC whale check: `node src/cli.js whale --config ADDR --size UNITS
+ * --max-impact PCT [--rpc URL] [--json] [--out file]`.
+ * Read-only Meteora quote math over a live config. Exit 0/1/2 = PASS/FAIL/UNABLE.
+ */
+export async function runWhaleCommand(flagArgs) {
+  const { runDbcWhale } = await import("./scenarios/dbc-live.js");
+  let configAddress = null;
+  let tradeSizeQuoteUnits = null;
+  let maxPriceImpactPct = null;
+  let rpcUrl = null;
+  let asJson = false;
+  let outFile = null;
+  for (let i = 0; i < flagArgs.length; i++) {
+    if (flagArgs[i] === "--config" && flagArgs[i + 1]) configAddress = flagArgs[++i];
+    else if (flagArgs[i] === "--size" && flagArgs[i + 1]) tradeSizeQuoteUnits = flagArgs[++i];
+    else if (flagArgs[i] === "--max-impact" && flagArgs[i + 1]) maxPriceImpactPct = flagArgs[++i];
+    else if (flagArgs[i] === "--rpc" && flagArgs[i + 1]) rpcUrl = flagArgs[++i];
+    else if (flagArgs[i] === "--json") asJson = true;
+    else if (flagArgs[i] === "--out" && flagArgs[i + 1]) outFile = flagArgs[++i];
+  }
+  if (!configAddress || !tradeSizeQuoteUnits || maxPriceImpactPct === null) {
+    console.error("Usage: node src/cli.js whale --config ADDR --size QUOTE_UNITS --max-impact PCT [--rpc URL] [--json] [--out file]");
+    process.exitCode = 2;
+    return;
+  }
+  const result = await runDbcWhale({ rpcUrl, configAddress, tradeSizeQuoteUnits, maxPriceImpactPct });
+  const artifact = {
+    runId: randomUUID(),
+    target: { config: configAddress },
+    startedAt: new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+    summary: {
+      passed: result.status === "PASS" ? 1 : 0,
+      failed: result.status === "FAIL" ? 1 : 0,
+      unable: result.status === "UNABLE_TO_VERIFY" ? 1 : 0
+    },
+    results: [{ scenarioId: "DBC_OPENING_WHALE", ...result }]
+  };
+  if (outFile) writeFileSync(outFile, JSON.stringify(artifact, null, 2) + "\n");
+  if (asJson) {
+    console.log(JSON.stringify(artifact, null, 2));
+  } else if (result.status === "PASS") {
+    const a = result.assertions[0];
+    console.log(`\nJUSTFAIR\n\nPASS  DBC_OPENING_WHALE\n  Opening impact ${a.actual.observedImpactPct.toFixed(3)}% within issuer policy.\n`);
+  } else if (result.status === "FAIL") {
+    const d = result.diagnosis || {};
+    console.log(`\nJUSTFAIR\n\nFAIL  DBC_OPENING_WHALE\n\nPolicy\nMaximum allowed price impact: ${maxPriceImpactPct}%\n\nObserved\n${typeof d.actual === "object" ? JSON.stringify(d.actual) : d.actual}\n\nExpected\n${d.expected || ""}\n\nRoot cause\n${d.rootCause || ""}\n\nFix guidance\n${d.guidance || ""}\n\nReplay\n${result.replay.length} events recorded.\n`);
+  } else {
+    console.log(`\nJUSTFAIR\n\nUNABLE TO VERIFY\n${result.reason || "could not verify"}\n`);
+  }
+  process.exitCode = result.status === "PASS" ? 0 : result.status === "FAIL" ? 1 : 2;
+}
+
+/**
+ * DBC whale check: `node src/cli.js whale --config ADDR --size UNITS
+ * --max-impact PCT [--rpc URL] [--json] [--out file]`.
+ * Read-only Meteora quote math over a live config. Exit 0/1/2 = PASS/FAIL/UNABLE.
+ */
 main().catch(err => {
   console.error("Fatal CLI Error:", err);
   process.exit(1);

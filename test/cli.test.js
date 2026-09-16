@@ -7,9 +7,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { runScenarioCommand } from "../src/cli.js";
+import { runScenarioCommand, runWhaleCommand } from "../src/cli.js";
 import { startFixtureTarget, startLifecycleTarget, closeFixtureTarget } from "./fixtures/adapter-targets.js";
 
+const WHALE_CONFIG = "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU";
+
+async function runWhaleInProcess(args) {
+  const lines = [];
+  const origLog = console.log;
+  const origErr = console.error;
+  console.log = (...a) => { lines.push(a.join(" ")); };
+  console.error = (...a) => { lines.push(a.join(" ")); };
+  const savedCode = process.exitCode;
+  process.exitCode = undefined;
+  try {
+    await runWhaleCommand(args);
+    return { code: process.exitCode ?? 0, stdout: lines.join("\n") };
+  } finally {
+    console.log = origLog;
+    console.error = origErr;
+    process.exitCode = savedCode;
+  }
+}
 async function runCLIInProcess(args) {
   const lines = [];
   const origLog = console.log;
@@ -89,4 +108,22 @@ test("cli multiple-scenario summary counts passes and skips honestly", async () 
   } finally {
     await closeFixtureTarget(h);
   }
+});
+
+test("cli whale exits 0 on within-policy opening (live config)", async () => {
+  const r = await runWhaleInProcess(["whale", "--config", WHALE_CONFIG, "--size", "1000000000", "--max-impact", "8"]);
+  assert.equal(r.code, 0);
+  assert.ok(r.stdout.includes("PASS") && r.stdout.includes("DBC_OPENING_WHALE"));
+});
+
+test("cli whale exits 1 on capacity-exceeding opening (live config)", async () => {
+  const r = await runWhaleInProcess(["whale", "--config", WHALE_CONFIG, "--size", "206185567000", "--max-impact", "8"]);
+  assert.equal(r.code, 1);
+  assert.ok(r.stdout.includes("FAIL"));
+});
+
+test("cli whale exits 2 on bad address without network use", async () => {
+  const r = await runWhaleInProcess(["whale", "--config", "NOTANADDRESS", "--size", "1000", "--max-impact", "8"]);
+  assert.equal(r.code, 2);
+  assert.ok(/UNABLE/i.test(r.stdout));
 });

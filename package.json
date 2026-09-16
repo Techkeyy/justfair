@@ -24,7 +24,10 @@
   "author": "Techkeyy",
   "license": "MIT",
   "dependencies": {
-    "@solana/kit": "^8.3.0"
+    "@meteora-ag/dynamic-bonding-curve-sdk": "^1.5.12",
+    "@solana/kit": "^8.3.0",
+    "@solana/web3.js": "^1.99.0",
+    "bn.js": "^5.2.5"
   },
   "devDependencies": {
     "playwright": "^1.63.0"
