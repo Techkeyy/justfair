@@ -608,17 +608,13 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
   Legacy app code/tests untouched and green; entry via footer legacy
   link. Section tests 2-7 rewritten to current truth; absence regressions
   added (no preflight narrative/badge/CTA on homepage).
-- UAT FIX 001 (homepage coherence): removed 7 legacy consumer sections
-  (two-mistakes, pillars, two-layer comparison, $500 example, old 4-step
-  how-it-works, proof stats, wallet-framed API) + Preflight badge, Open
-  App header CTA, Start-a-Preflight hero CTA, legacy footer framing.
-  Replaced with HOW IT WORKS (CONNECT/TEST/BREAK/FIX/VERIFY), WHAT
-  JUSTFAIR TESTS (5 packs), engine-sampled failure example (populated
-  from /samples/tessera-fail.json at runtime), dev integration block,
-  subtle sponsor proof, rewritten API drawer (/api/v1/dbc/whale).
-  Legacy app code/tests untouched and green; entry via footer legacy
-  link (all 12 app-entry test clicks repointed). Stale section tests
-  2-7 rewritten to current truth; new absence regressions added.
+- UAT FIX 001A (public legacy entry removed): footer "Trade-check app
+  (legacy)" link deleted; 12 app-entry test clicks repointed to direct
+  #app navigation; dead listener removed; legacy code/tests untouched.
+- UAT FIX 001B (hero image removed): Lady Justice art column deleted, hero
+  is one-column (content ≤880px, verified 880px desktop); no replacement
+  graphics; mobile still zero-overflow. Test 1 rewritten (absence +
+  balance assertions).
 
 ## 23. BLOCKERS
 
