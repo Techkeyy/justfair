@@ -4,6 +4,9 @@
   "description": "Consumer-facing tokenized-stock pre-trade safety application and Equity Preflight API on Solana",
   "main": "src/preflight.js",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "test": "node test/preflight.test.js",
     "test:e2e": "node test/e2e.test.js",
