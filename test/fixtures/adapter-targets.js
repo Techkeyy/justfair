@@ -73,6 +73,61 @@ export function closeFixtureTarget(handle) {
 }
 
 /**
+ * Fee fixture target for TESSERA_TRANSFER_FEE_ACCOUNTING.
+ * naive: reports the gross transfer amount as the recipient amount,
+ * ignoring the Token-2022 fee (the bug).
+ * correct: applies the supplied fee semantics with exact integer math
+ * (ceil division + maximum-fee cap).
+ */
+export function startFeeTarget({ behavior = "naive" } = {}) {
+  const server = http.createServer(async (req, res) => {
+    if (req.method === "GET" && req.url === "/justfair/v1/manifest") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        adapterVersion: "1",
+        name: behavior === "naive" ? "Naive Fee Wallet" : "Correct Fee Wallet",
+        capabilities: ["transfer_fee_accounting"]
+      }));
+      return;
+    }
+    if (req.method === "POST" && req.url === "/justfair/v1/evaluate") {
+      const raw = await readBody(req);
+      let payload = null;
+      try { payload = JSON.parse(raw); } catch { /* fall through */ }
+      const inputs = payload?.inputs || {};
+      let observations;
+      if (behavior === "naive") {
+        observations = {
+          reportedNetRecipientAmount: inputs.transferAmountUnits ?? null,
+          label: "Recipient gets gross amount"
+        };
+      } else {
+        const amount = BigInt(String(inputs.transferAmountUnits || "0").trim());
+        const bps = BigInt(Number(inputs.feeBasisPoints || 0));
+        const maxFee = BigInt(String(inputs.maximumFeeUnits || "0").trim());
+        const calculated = (amount * bps + 9999n) / 10000n;
+        const fee = calculated < maxFee ? calculated : maxFee;
+        observations = {
+          reportedNetRecipientAmount: (amount - fee).toString(),
+          reportedFeeUnits: fee.toString(),
+          label: "Recipient gets net amount after transfer fee"
+        };
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(observations));
+      return;
+    }
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "not found" }));
+  });
+  return new Promise(resolve => {
+    server.listen(0, "127.0.0.1", () => {
+      resolve({ server, baseUrl: `http://127.0.0.1:${server.address().port}` });
+    });
+  });
+}
+
+/**
  * Lifecycle fixture target for PRESTOCKS_EXPIRY_* scenarios.
  * naive: always presents the position as an ordinary live holding (the bug).
  * correct: time-aware — preserves conversion state before the deadline,

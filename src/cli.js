@@ -94,11 +94,24 @@ export async function runScenarioCommand(flagArgs) {
   let scenarioId = null;
   let asJson = false;
   let outFile = null;
+  let tesseraMint = null;
+  let tesseraAmount = "1000";
+  const takeValue = (idx) => {
+    const next = flagArgs[idx + 1];
+    if (next && !next.startsWith("--")) return { value: next, nextIndex: idx + 1 };
+    return { value: null, nextIndex: idx };
+  };
   for (let i = 0; i < flagArgs.length; i++) {
-    if (flagArgs[i] === "--target" && flagArgs[i + 1]) target = flagArgs[++i];
-    else if (flagArgs[i] === "--scenario" && flagArgs[i + 1]) scenarioId = flagArgs[++i];
+    if (flagArgs[i] === "--target") { const r = takeValue(i); if (r.value) target = r.value; i = r.nextIndex; }
+    else if (flagArgs[i] === "--scenario") { const r = takeValue(i); if (r.value) scenarioId = r.value; i = r.nextIndex; }
     else if (flagArgs[i] === "--json") asJson = true;
-    else if (flagArgs[i] === "--out" && flagArgs[i + 1]) outFile = flagArgs[++i];
+    else if (flagArgs[i] === "--out") { const r = takeValue(i); if (r.value) outFile = r.value; i = r.nextIndex; }
+    else if (flagArgs[i] === "--tessera-mint") {
+      const r = takeValue(i);
+      tesseraMint = r.value || "T-OpenAI";
+      i = r.nextIndex;
+    }
+    else if (flagArgs[i] === "--tessera-amount") { const r = takeValue(i); if (r.value) tesseraAmount = r.value; i = r.nextIndex; }
   }
   if (!target) {
     console.error("Usage: node src/cli.js test --target http://localhost:PORT [--scenario ID] [--json] [--out file]");
@@ -135,14 +148,38 @@ export async function runScenarioCommand(flagArgs) {
   }
 
   let selected = SCENARIOS;
-  if (scenarioId) {
+  const wantsTessera = tesseraMint && (!scenarioId || scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING");
+  if (scenarioId && scenarioId !== "TESSERA_TRANSFER_FEE_ACCOUNTING") {
     const found = findScenario(scenarioId);
     if (!found) {
-      console.error(`Unknown scenario: ${scenarioId} (available: ${SCENARIOS.map(s => s.id).join(", ")})`);
+      console.error(`Unknown scenario: ${scenarioId} (available: ${SCENARIOS.map(s => s.id).join(", ")}, TESSERA_TRANSFER_FEE_ACCOUNTING with --tessera-mint)`);
       process.exitCode = 2;
       return;
     }
     selected = [found];
+  } else if (scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING" && !tesseraMint) {
+    console.error("TESSERA_TRANSFER_FEE_ACCOUNTING needs live fee state: pass --tessera-mint <symbol|mint> [--tessera-amount UNITS]");
+    process.exitCode = 2;
+    return;
+  } else if (scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING") {
+    selected = [];
+  }
+  // Tessera fee scenario is built live per run (evidence carries the
+  // on-chain capture time), only when explicitly requested.
+  if (wantsTessera) {
+    const { TESSERA_PRODUCTS, getTesseraTransferFeeState, buildTesseraScenario } = await import("./scenarios/tessera.js");
+    const product = TESSERA_PRODUCTS[tesseraMint] || { symbol: tesseraMint, mint: tesseraMint };
+    try {
+      const feeState = await getTesseraTransferFeeState(product.mint);
+      selected = [...selected, buildTesseraScenario({
+        symbol: product.symbol, mint: product.mint,
+        transferAmountUnits: tesseraAmount, feeState
+      })];
+    } catch (err) {
+      console.error(`Tessera fee state unreadable: ${err.message} (${err.code || "UNKNOWN"})`);
+      process.exitCode = 2;
+      return;
+    }
   }
   const skipped = selected.filter(s => s.requiresCapabilities.some(c => !manifest.capabilities.includes(c)));
   const runnable = selected.filter(s => !skipped.includes(s));
@@ -192,13 +229,13 @@ export async function runScenarioCommand(flagArgs) {
 function describeObserved(result) {  const d = result.diagnosis || {};
   if (d.actual && typeof d.actual === "object") {
     const parts = [];
-    if (d.actual.claimsLive !== undefined) parts.push(`claimsLive: ${d.actual.claimsLive}`);
-    if (d.actual.label) parts.push(`label: "${d.actual.label}"`);
-    if (d.actual.expired !== undefined) parts.push(`expired: ${d.actual.expired}`);
-    if (d.actual.ordinaryValuation !== undefined) parts.push(`ordinaryValuation: ${d.actual.ordinaryValuation}`);
-    if (d.actual.conversionRequired !== undefined) parts.push(`conversionRequired: ${d.actual.conversionRequired}`);
-    if (d.actual.deadlineUs !== undefined && d.actual.deadlineUs !== null) parts.push(`deadlineUs: ${d.actual.deadlineUs}`);
-    if (d.actual.displayedPrice !== undefined) parts.push(`displayedPrice: ${d.actual.displayedPrice}`);
+    for (const [k, v] of Object.entries(d.actual)) {
+      if (v === null || v === undefined) continue;
+      if (["claimsLive", "label", "expired", "ordinaryValuation", "conversionRequired", "deadlineUs", "displayedPrice"].includes(k)
+        || k.startsWith("reported") || k.startsWith("displayed")) {
+        parts.push(`${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`);
+      }
+    }
     if (parts.length > 0) return `Target observations — ${parts.join(", ")}.`;
   }
   return typeof d.actual === "string" ? d.actual : "See replay timeline.";
@@ -217,13 +254,18 @@ export async function runWhaleCommand(flagArgs) {
   let rpcUrl = null;
   let asJson = false;
   let outFile = null;
+  const takeValue = (idx) => {
+    const next = flagArgs[idx + 1];
+    if (next && !next.startsWith("--")) return { value: next, nextIndex: idx + 1 };
+    return { value: null, nextIndex: idx };
+  };
   for (let i = 0; i < flagArgs.length; i++) {
-    if (flagArgs[i] === "--config" && flagArgs[i + 1]) configAddress = flagArgs[++i];
-    else if (flagArgs[i] === "--size" && flagArgs[i + 1]) tradeSizeQuoteUnits = flagArgs[++i];
-    else if (flagArgs[i] === "--max-impact" && flagArgs[i + 1]) maxPriceImpactPct = flagArgs[++i];
-    else if (flagArgs[i] === "--rpc" && flagArgs[i + 1]) rpcUrl = flagArgs[++i];
+    if (flagArgs[i] === "--config") { const r = takeValue(i); if (r.value) configAddress = r.value; i = r.nextIndex; }
+    else if (flagArgs[i] === "--size") { const r = takeValue(i); if (r.value) tradeSizeQuoteUnits = r.value; i = r.nextIndex; }
+    else if (flagArgs[i] === "--max-impact") { const r = takeValue(i); if (r.value) maxPriceImpactPct = r.value; i = r.nextIndex; }
+    else if (flagArgs[i] === "--rpc") { const r = takeValue(i); if (r.value) rpcUrl = r.value; i = r.nextIndex; }
     else if (flagArgs[i] === "--json") asJson = true;
-    else if (flagArgs[i] === "--out" && flagArgs[i + 1]) outFile = flagArgs[++i];
+    else if (flagArgs[i] === "--out") { const r = takeValue(i); if (r.value) outFile = r.value; i = r.nextIndex; }
   }
   if (!configAddress || !tradeSizeQuoteUnits || maxPriceImpactPct === null) {
     console.error("Usage: node src/cli.js whale --config ADDR --size QUOTE_UNITS --max-impact PCT [--rpc URL] [--json] [--out file]");

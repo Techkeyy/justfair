@@ -31,7 +31,7 @@ export function validateScenario(def) {
   if (!def.evidence || typeof def.evidence !== "object" || typeof def.evidence.classification !== "string") {
     return { ok: false, error: "Scenario 'evidence' must carry a classification" };
   }
-  const allowedEvidence = ["live", "historical", "simulated", "authoritative_event_fixture"];
+  const allowedEvidence = ["live", "historical", "simulated", "authoritative_event_fixture", "live_dbc_mainnet", "live_tessera_token2022"];
   if (!allowedEvidence.includes(def.evidence.classification)) {
     return { ok: false, error: `Evidence classification must be one of ${allowedEvidence.join(", ")}` };
   }
@@ -141,6 +141,7 @@ export async function runScenario(def, baseUrl, { timeoutMs = ADAPTER_TIMEOUT_MS
       target: manifest.name,
       assertions: assertionResults,
       diagnosis: null,
+      evidence: def.evidence,
       replay: [...replay, { at: "T+verdict", label: "Invariant satisfied", expected: "all assertions hold", observed: "PASS" }]
     };
   }
@@ -160,6 +161,7 @@ export async function runScenario(def, baseUrl, { timeoutMs = ADAPTER_TIMEOUT_MS
       rootCause: failure.rootCause,
       guidance: failure.guidance
     },
+    evidence: def.evidence,
     replay: [...replay, { at: "T+verdict", label: "Invariant violated", expected: first.expected, observed: first.error ? `check error: ${first.error}` : JSON.stringify(first.actual) }]
   };
 }

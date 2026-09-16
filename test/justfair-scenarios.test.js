@@ -333,8 +333,8 @@ test("dbc whale policy: within, violation, boundary, and non-numeric handling", 
 test("committed scenario code has no signing/broadcast path", () => {
   const files = ["src/scenarios/adapter.js", "src/scenarios/scenario.js", "src/scenarios/pyth.js",
     "src/scenarios/first-scenario.js", "src/scenarios/prestocks.js", "src/scenarios/dbc.js",
-    "src/scenarios/dbc-live.js", "src/scenarios/index.js", "src/cli.js", "examples/adapter-basic/server.mjs",
-    "test/fixtures/adapter-targets.js"];
+    "src/scenarios/dbc-live.js", "src/scenarios/tessera.js", "src/scenarios/index.js", "src/cli.js",
+    "examples/adapter-basic/server.mjs", "test/fixtures/adapter-targets.js"];
   for (const f of files) {
     const src = readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
     assert.ok(!/\bsign\b/i.test(src), `${f} must not contain signing`);

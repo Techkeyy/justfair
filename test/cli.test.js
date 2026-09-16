@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { runScenarioCommand, runWhaleCommand } from "../src/cli.js";
-import { startFixtureTarget, startLifecycleTarget, closeFixtureTarget } from "./fixtures/adapter-targets.js";
+import { startFixtureTarget, startLifecycleTarget, startFeeTarget, closeFixtureTarget } from "./fixtures/adapter-targets.js";
 
 const WHALE_CONFIG = "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU";
 
@@ -126,4 +126,27 @@ test("cli whale exits 2 on bad address without network use", async () => {
   const r = await runWhaleInProcess(["whale", "--config", "NOTANADDRESS", "--size", "1000", "--max-impact", "8"]);
   assert.equal(r.code, 2);
   assert.ok(/UNABLE/i.test(r.stdout));
+});
+
+test("cli tessera naive FAILs with fee-adjusted expected amount (live fee state)", async () => {
+  const h = await startFeeTarget({ behavior: "naive" });
+  try {
+    const r = await runCLIInProcess(["test", "--target", h.baseUrl, "--tessera-mint", "T-OpenAI", "--tessera-amount", "1000", "--scenario", "TESSERA_TRANSFER_FEE_ACCOUNTING"]);
+    assert.equal(r.code, 1);
+    assert.ok(r.stdout.includes("TESSERA_TRANSFER_FEE_ACCOUNTING"));
+    assert.ok(r.stdout.includes("998"));
+  } finally {
+    await closeFixtureTarget(h);
+  }
+});
+
+test("cli tessera correct PASSES (live fee state)", async () => {
+  const h = await startFeeTarget({ behavior: "correct" });
+  try {
+    const r = await runCLIInProcess(["test", "--target", h.baseUrl, "--tessera-mint", "T-OpenAI", "--tessera-amount", "1000", "--scenario", "TESSERA_TRANSFER_FEE_ACCOUNTING"]);
+    assert.equal(r.code, 0);
+    assert.ok(r.stdout.includes("1 passed"));
+  } finally {
+    await closeFixtureTarget(h);
+  }
 });
