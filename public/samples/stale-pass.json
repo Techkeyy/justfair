@@ -1,12 +1,12 @@
 {
-  "runId": "711e82f0-fb11-40ca-a7b3-6eb2defb9f36",
+  "runId": "215d5e6e-a381-49d0-aeb5-819770fa4392",
   "target": {
     "url": "sample",
     "name": "Correct Demo Wallet",
     "adapterVersion": "1"
   },
-  "startedAt": "2026-09-16T12:54:39.010Z",
-  "completedAt": "2026-09-16T12:54:39.097Z",
+  "startedAt": "2026-09-16T14:56:32.298Z",
+  "completedAt": "2026-09-16T14:56:32.316Z",
   "summary": {
     "passed": 1,
     "failed": 0,
@@ -39,6 +39,26 @@
         }
       ],
       "diagnosis": null,
+      "evidence": {
+        "classification": "simulated",
+        "source": "Pyth Pro field semantics (docs.pyth.network: carried-forward when feedUpdateTimestamp differs from timestampUs)",
+        "provenance": "deterministic fixture modeling Equity.US.AAPL/USD availability behavior; NOT a live Pyth response",
+        "pythShapedUpdate": {
+          "symbol": "Equity.US.AAPL/USD",
+          "price": 329.29,
+          "timestampUs": 1789449600000000,
+          "feedUpdateTimestamp": 1789423800000000,
+          "marketSession": "overnight"
+        },
+        "interpreted": {
+          "usable": true,
+          "timestampUs": 1789449600000000,
+          "feedUpdateTimestamp": 1789423800000000,
+          "marketSession": "overnight",
+          "carriedForward": true,
+          "freshLiveReference": false
+        }
+      },
       "replay": [
         {
           "at": "T0",

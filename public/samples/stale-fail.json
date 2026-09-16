@@ -1,12 +1,12 @@
 {
-  "runId": "e2ffb8b9-e3ca-4ffb-aae5-1233df724b62",
+  "runId": "f759b4cc-dae3-4b9e-a6ac-5a51ea44b1a6",
   "target": {
     "url": "sample",
     "name": "Naive Demo Wallet",
     "adapterVersion": "1"
   },
-  "startedAt": "2026-09-16T12:54:38.623Z",
-  "completedAt": "2026-09-16T12:54:39.005Z",
+  "startedAt": "2026-09-16T14:56:32.195Z",
+  "completedAt": "2026-09-16T14:56:32.293Z",
   "summary": {
     "passed": 0,
     "failed": 1,
@@ -47,6 +47,26 @@
         },
         "rootCause": "The target labeled a carried-forward underlying price as fresh.",
         "guidance": "Check source freshness/session state (feed generation time vs consumption time) before presenting the underlying value as a live reference."
+      },
+      "evidence": {
+        "classification": "simulated",
+        "source": "Pyth Pro field semantics (docs.pyth.network: carried-forward when feedUpdateTimestamp differs from timestampUs)",
+        "provenance": "deterministic fixture modeling Equity.US.AAPL/USD availability behavior; NOT a live Pyth response",
+        "pythShapedUpdate": {
+          "symbol": "Equity.US.AAPL/USD",
+          "price": 329.29,
+          "timestampUs": 1789449600000000,
+          "feedUpdateTimestamp": 1789423800000000,
+          "marketSession": "overnight"
+        },
+        "interpreted": {
+          "usable": true,
+          "timestampUs": 1789449600000000,
+          "feedUpdateTimestamp": 1789423800000000,
+          "marketSession": "overnight",
+          "carriedForward": true,
+          "freshLiveReference": false
+        }
       },
       "replay": [
         {

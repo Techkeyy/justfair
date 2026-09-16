@@ -1,12 +1,12 @@
 {
-  "runId": "d5dcbea5-7821-4321-90bb-eb0063551c70",
+  "runId": "90c627e3-0b89-4fbd-98b9-64d7af205d11",
   "target": {
     "url": "sample",
     "name": "Naive Lifecycle Wallet",
     "adapterVersion": "1"
   },
-  "startedAt": "2026-09-16T12:54:39.146Z",
-  "completedAt": "2026-09-16T12:54:39.221Z",
+  "startedAt": "2026-09-16T14:56:32.332Z",
+  "completedAt": "2026-09-16T14:56:32.349Z",
   "summary": {
     "passed": 0,
     "failed": 1,
@@ -47,6 +47,17 @@
         },
         "rootCause": "The target presents a post-deadline representation as an ordinary live holding.",
         "guidance": "After a confirmed conversion/expiry deadline, mark the representation expired or transitioned and stop ordinary current valuation."
+      },
+      "evidence": {
+        "classification": "authoritative_event_fixture",
+        "source": "PRESTOCKS_OFFICIAL_PRODUCT_PAGE",
+        "source_url": "https://prestocks.com/spacex",
+        "captured_at": "2026-09-16T09:00:00Z",
+        "event_type": "IPO_TRANSITION / CONVERSION_DEADLINE",
+        "event": "SpaceX has gone public; SpaceX PreStocks must be swapped into $SPCXx or another token before the deadline or expire worthless",
+        "deadline_iso": "2027-03-12T23:59:00Z",
+        "deadline_us": 1804895940000000,
+        "provenance": "official PreStocks product page text captured in Phase 2; NOT a live lifecycle API response"
       },
       "replay": [
         {
