@@ -383,9 +383,10 @@ explicitly revises it.
   products, full schema) + official SpaceX page IPO/conversion/expiry case
   (§21B). Lifecycle modeled as authoritative event fixtures, not live API.
 - ASSUMPTION 4 — DBC SDK/config logic usable without custody or funded
-  launch. STATUS: CONFIRMED (Phase 1, capability-level). Evidence: SDK
-  v1.5.12 on npm; read-only inspection + quote sim + devnet per official
-  docs (§21B). No pool constructed yet (correctly out of scope).
+  launch. STATUS: CONFIRMED (Phase 3, mainnet state read). Evidence: live
+  mainnet pool+config reads + pre-pool quote math via official SDK, zero
+  signing/broadcast/funds (§21B). Live quote on graduated pools correctly
+  refused per state; active-pool quoting proven via the same math path.
 - ASSUMPTION 5 — arbitrary dev apps integrate via a small adapter/test-
   target contract. STATUS: LIKELY (was UNVERIFIED). Evidence: v1 HTTP
   contract + two independent fixture targets + generic runner proven
@@ -492,6 +493,28 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
 - Pyth: key STILL ABSENT at Phase 2 close → Scenario #1 stays
   SIMULATED_PYTH_SEMANTICS; skip-truthful live probe test added (runs only
   with a key, never commits credentials). INTEGRATION PROVEN still blocked.
+- Phase 3 Meteora mainnet: discovery via public meteora-dbc pool listing
+  (GeckoTerminal, third-party), VERIFIED on-chain (owner = DBC program +
+  SDK decode). Burpee/SOL pool 2yy2jaV8EQY64twJ2fxTbykBFyatPSnmtLicmRXkh3LW
+  (+4 more): all graduated (progress 3) — active bonding pools graduate in
+  minutes. Full state+config read on mainnet-beta (reserves, sqrtPrice,
+  migration state, poolType, quoteMint SOL, migrationOption DAMM v2).
+  Quote on graduated pool honestly refused by SDK ("Virtual pool is
+  completed") → state-read PASS / quote-unavailable-per-state. Quote math
+  proven on the same code path via pre-pool simulation for the whale.
+- DBC_OPENING_WHALE executable: real PoolConfig → SwapQuoteConfig mapping
+  → getQuoteFromInputAmount (marginal probe + size) → impact vs issuer
+  policy. Live: 1 SOL on Burpee config = 2.500% → PASS vs 8%; $20k-equiv =
+  SDK "Insufficient Liquidity" → FAIL CURVE_CAPACITY_EXCEEDED (documented
+  mapping: unexecutable size is a violation, not UNABLE). CLI `whale`
+  command (0/1/2) + POST /api/v1/dbc/whale (validated, rate-limited, no
+  secrets/keys/URLs in input). SDK added as repo dep (1.5.12 + web3.js
+  1.99 + bn 5.2.5) — explicitly ordered, manifests recorded.
+- Web reconstruction: new hero/nav (RUN A TEST / OPEN REPLAY LAB), Test +
+  Replay Lab (client-side parse, privacy note true) + DBC Stress views;
+  engine-generated samples in public/samples/; legacy Steps UI + all 59
+  legacy browser tests KEPT GREEN (demote-not-delete: full retirement is a
+  later-phase call; rationale: harness + prod behavior depend on it).
 
 ## 22. COMPLETED PHASES
 
@@ -510,6 +533,32 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
   real DBC state+quote proof without custody/funds/signing, all suites
   green (preflight 49, streaming 6, product 52, browser 59, e2e 14,
   scenarios 25, cli 6).
+- PHASE 3: PASS (Pyth live leg still blocked on the same owner key).
+  Proven: mainnet DBC state+config read, executable whale (PASS 2.500% /
+  FAIL capacity / UNABLE inputs) via CLI + server endpoint + web UI,
+  reconstructed surfaces (home/test/replay/dbc) with 7 new browser tests,
+  all suites green (preflight 49, streaming 6, product 52, browser 66,
+  e2e 15, scenarios 25, cli 9, dbc 5, smoke clean).
+- PHASE 2 CORRECTION (recorded Phase 3): the Phase 2 Meteora proof ran on
+  DEVNET, not mainnet. Mainnet integration was NOT proven in Phase 2.
+- PHASE 3 (in progress): mainnet DBC proof via direct known-pool reads;
+  DBC_OPENING_WHALE executable on real SDK math; web reconstruction
+  (home/test/replay/dbc-stress); legacy consumer UI demoted, not deleted.
+- Phase 3 production incident + fix: /api/v1/dbc/whale failed live with
+  ERR_REQUIRE_ESM (Vercel runtime predates require(esm); rpc-websockets
+  pulls ESM-only uuid v14). Fixed with engines node 22.x AND a targeted
+  npm override (rpc-websockets -> uuid ^9 CJS, v1() API-stable); local
+  behavior identical (whale PASS 2.500% before/after). Lesson: local Node
+  24 masked a serverless-runtime gap — verify deploy-target runtime for
+  new native/CJS-mixed deps.
+- Phase 3 legacy decision (explicit): legacy Steps UI + its 59 browser
+  tests stay served and green (demote-not-delete). Rationale: harness +
+  prod behavior depend on it; full retirement is a later-phase director
+  call. New thesis is primary (hero/nav/CTAs).
+- Phase 3 test maintenance: legacy "no @solana/web3.js" hygiene test now
+  encodes the ordered Meteora exception (SDK present + imports confined to
+  src/scenarios/dbc-live.js). One transient browser flake observed (65/66,
+  unidentified, non-repeating; 3 subsequent full runs 66/66).
 
 ## 23. BLOCKERS
 
@@ -554,6 +603,16 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
   `examples/adapter-basic/` (sample target); `docs/adapter.md`;
   `test/cli.test.js` + `test/justfair-scenarios.test.js` (Phase 2 cover);
   `test/fixtures/adapter-targets.js` (+lifecycle target).
+- Phase 3: `src/scenarios/dbc-live.js` (executable whale) +
+  `src/cli.js` (`whale` cmd) + `src/server.js` (`POST /api/v1/dbc/whale`);
+  `package.json`/`package-lock.json` (SDK trio, ordered);
+  `public/index.html` (new hero/nav/test/replay/dbc views + footer) +
+  `public/app.js` (view routing, Replay Lab, DBC form) +
+  `public/styles.css` (Phase 3 section) + `public/samples/*.json`
+  (engine-generated); `test/browser.test.js` (7 new surface tests) +
+  `test/e2e.test.js` (hero + whale-route tests) + `test/dbc.test.js` +
+  `test/cli.test.js` (whale CLI tests); `package.json` engines 22.x +
+  uuid override (serverless compat).
 
 ## 26. IMPORTANT COMMITS
 
