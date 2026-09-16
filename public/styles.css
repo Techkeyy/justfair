@@ -4429,6 +4429,8 @@ body {
 .replay-scenario-id {
   font-family: "JetBrains Mono", monospace;
   font-size: 13px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .replay-scenario-detail {
@@ -4450,6 +4452,8 @@ body {
   margin: 0;
   font-size: 17px;
   font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .replay-detail-grid {

@@ -2824,7 +2824,7 @@ async function runBrowserTests() {
         await narrowPage.waitForSelector("#test-view:not(.hidden)", { timeout: 10000 });
         await narrowPage.click("#footer-replay-link");
         await narrowPage.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
-        await narrowPage.click('.replay-sample-btn[data-sample="prestocks-fail"]');
+        await narrowPage.click('.replay-sample-btn[data-sample="tessera-fail"]');
         await narrowPage.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
         const overflow = await narrowPage.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         if (overflow > 1) throw new Error(`Mobile overflow: ${overflow}px`);
