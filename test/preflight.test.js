@@ -228,12 +228,31 @@ async function runTests() {
     if (isValidSolanaPublicKey(invalidBase58)) throw new Error("Invalid base58 passed");
     if (isValidSolanaPublicKey(empty)) throw new Error("Empty address passed");
   });
-
-  // --- 8. NO @solana/web3.js DEPENDENCY REMAINS ---
+  // --- 8. NO @solana/web3.js DEPENDENCY REMAINS (except ordered Meteora SDK path) ---
   await test("No legacy @solana/web3.js dependency remains in package.json", async () => {
-    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url),
+      "utf8"));
+    // Phase 3 reconstruction: the official Meteora SDK hard-requires a
+    // web3.js Connection for read-only RPC. That ordered exception is the
+    // ONLY permitted web3.js presence; the kit-first codebase rule stands.
     if (pkg.dependencies && pkg.dependencies["@solana/web3.js"]) {
-      throw new Error("Found legacy @solana/web3.js in dependencies");
+      if (!pkg.dependencies["@meteora-ag/dynamic-bonding-curve-sdk"]) {
+        throw new Error("Found legacy @solana/web3.js without the ordering Meteora SDK dependency");
+      }
+      const { execFileSync } = await import("node:child_process");
+      let hits = [];
+      try {
+        // Real imports only (mentions in comments/strings do not count).
+        const out = execFileSync("git", ["grep", "-l", "-E", "(from|require\\()[\"']@solana/web3\\.js[\"']", "--", "src", "test"],
+          { cwd: new URL("..", import.meta.url), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+        hits = out.split("\n").map(s => s.trim()).filter(Boolean);
+      } catch (e) {
+        if (e.status !== 1) throw e; // status 1 = no matches, which is fine
+      }
+      const allowed = new Set(["src/scenarios/dbc-live.js"]);
+      for (const h of hits) {
+        if (!allowed.has(h)) throw new Error(`@solana/web3.js used outside the ordered DBC path: ${h}`);
+      }
     }
     if (pkg.devDependencies && pkg.devDependencies["@solana/web3.js"]) {
       throw new Error("Found legacy @solana/web3.js in devDependencies");

@@ -2787,7 +2787,7 @@ async function runBrowserTests() {
         await page.click("#dbc-run-btn");
         await page.waitForSelector("#dbc-result:not(.hidden)", { timeout: 20000 });
         const out = await page.textContent("#dbc-result");
-        for (const n of ["PASS", "EXPECTED", "OBSERVED", "EVIDENCE / SOURCE", "REPLAY", "live_dbc_mainnet"]) {
+        for (const n of ["PASS", "EXPECTED", "OBSERVED", "EVIDENCE / SOURCE", "REPLAY", "live_dbc_mainnet", "2.5"]) {
           if (!out.includes(n)) throw new Error(`DBC result must show "${n}"`);
         }
       } finally {

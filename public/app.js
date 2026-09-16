@@ -3877,7 +3877,9 @@ function renderReplayDetail(index) {
   const d = r.diagnosis || {};
   const firstFailed = (r.assertions || []).find((a) => !a.passed);
   const expected = d.expected || firstFailed?.expected || (r.assertions[0]?.expected) || "—";
-  const actual = d.actual !== undefined && d.actual !== null ? formatObserved(d.actual)
+  const actualSource = d.actual !== undefined && d.actual !== null ? d.actual
+    : firstFailed ? firstFailed.actual : r.assertions[0]?.actual;
+  const actual = actualSource !== undefined && actualSource !== null ? formatObserved(actualSource)
     : firstFailed ? formatObserved(firstFailed.actual) : "—";
   const evidence = r.evidence || {};
   const evidenceLine = evidence.source
@@ -3998,13 +4000,15 @@ function renderDbcResult(data) {
   const statusWord = data.status === "PASS" ? "PASS" : data.status === "FAIL" ? "FAIL" : "NOT VERIFIED";
   const d = data.diagnosis || {};
   const a = (data.assertions || [])[0] || {};
+  const observedShown = d.actual !== undefined && d.actual !== null ? d.actual
+    : a.actual !== undefined && a.actual !== null ? a.actual : null;
   const ev = data.evidence || {};
   outBox.innerHTML = `
     <div class="replay-detail-head"><span class="replay-status-badge">${escapeHtmlText(statusWord)}</span>
       <h4 class="replay-detail-title">DBC_OPENING_WHALE</h4></div>
     <div class="replay-detail-grid">
       <div class="replay-field"><span class="replay-field-label">EXPECTED</span><span>${escapeHtmlText(d.expected || a.expected || "—")}</span></div>
-      <div class="replay-field"><span class="replay-field-label">OBSERVED</span><span>${escapeHtmlText(typeof d.actual === "object" ? formatObserved(d.actual) : (d.actual ?? "—"))}</span></div>
+      <div class="replay-field"><span class="replay-field-label">OBSERVED</span><span>${escapeHtmlText(typeof observedShown === "object" ? formatObserved(observedShown) : (observedShown ?? "—"))}</span></div>
       ${data.status === "FAIL" ? `<div class="replay-field"><span class="replay-field-label">WHY IT FAILED</span><span>${escapeHtmlText(d.rootCause || "—")}</span></div>
       <div class="replay-field"><span class="replay-field-label">HOW TO FIX THE ASSUMPTION</span><span>${escapeHtmlText(d.guidance || "—")}</span></div>` : ""}
       <div class="replay-field"><span class="replay-field-label">EVIDENCE / SOURCE</span><span>${escapeHtmlText(ev.source || "—")} · ${escapeHtmlText(ev.classification || "")} · ${escapeHtmlText(ev.config || "")}</span></div>
