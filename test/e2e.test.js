@@ -205,19 +205,19 @@ async function runE2ETests() {
       if (!html.includes("RUN A TEST") || !html.includes("OPEN REPLAY LAB")) {
         throw new Error("Missing new-surface hero CTAs");
       }
-      if (!html.includes("Start a Preflight")) {
-        throw new Error("Missing approved Start a Preflight CTA");
+      if (html.includes("Start a Preflight")) {
+        throw new Error("Legacy hero CTA must not remain on the homepage");
       }
       if (!html.includes("stock-cards-container") || !html.includes("feed-controls-bar")) {
         throw new Error("Missing stock feed container or controls bar");
       }
-      if (!html.includes("USDC")) {
-        throw new Error("Missing payment asset options in interface");
+      if (!html.includes("TESSERA_TRANSFER_FEE_ACCOUNTING") || !html.includes("dbc-config-input")) {
+        throw new Error("Missing product surface markers in interface");
       }
       if (!html.includes("PREVIEW ONLY · NO FUNDS MOVED")) {
         throw new Error("Missing non-custodial safety banner");
       }
-      if (!html.includes("Built for users. Embeddable by wallets.")) {
+      if (!html.includes("Deterministic scenario endpoints.")) {
         throw new Error("Missing secondary API showcase section");
       }
     });

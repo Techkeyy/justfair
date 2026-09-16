@@ -828,10 +828,15 @@ if (bottomOpenAppBtn) bottomOpenAppBtn.addEventListener("click", (e) => {
   e.preventDefault();
   navigateToSection("app");
 });
-const footerAppLink = document.getElementById("footer-app-link");
+const footerAppLink = document.getElementById("footer-legacy-app-link");
 if (footerAppLink) footerAppLink.addEventListener("click", (e) => {
   e.preventDefault();
   navigateToSection("app");
+});
+const footerDbcLink2 = document.getElementById("footer-dbc-link-2");
+if (footerDbcLink2) footerDbcLink2.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("dbc");
 });
 
 // Phase 3: new product surfaces (Test / Replay Lab / DBC Stress).
@@ -862,6 +867,49 @@ if (testOpenReplayBtn) testOpenReplayBtn.addEventListener("click", (e) => {
   e.preventDefault();
   navigateToSection("replay");
 });
+const devOpenTestBtn = document.getElementById("dev-open-test-btn");
+if (devOpenTestBtn) devOpenTestBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("test");
+});
+const bottomRunTestBtn = document.getElementById("bottom-run-test-btn");
+if (bottomRunTestBtn) bottomRunTestBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  navigateToSection("test");
+});
+const homeViewReplayBtn = document.getElementById("home-view-replay-btn");
+if (homeViewReplayBtn) homeViewReplayBtn.addEventListener("click", async (e) => {
+  e.preventDefault();
+  navigateToSection("replay");
+  await new Promise((res) => setTimeout(res, 60));
+  const sampleBtn = document.querySelector('.replay-sample-btn[data-sample="tessera-fail"]');
+  if (sampleBtn) sampleBtn.click();
+});
+
+// Homepage failure example renders from the canonical engine sample.
+(async function populateHomeFailureExample() {
+  try {
+    const res = await fetch("/samples/tessera-fail.json");
+    if (!res.ok) return;
+    const artifact = await res.json();
+    const r = artifact?.results?.[0];
+    if (!r || r.status !== "FAIL") return;
+    const expectedEl = document.getElementById("home-fail-expected");
+    const actualEl = document.getElementById("home-fail-actual");
+    const codeEl = document.getElementById("home-fail-code");
+    const actual = r.diagnosis?.actual || {};
+    const expectedMatch = String(r.diagnosis?.expected || "").match(/(\d[\d,]*) base units/);
+    if (expectedEl && expectedMatch) expectedEl.textContent = expectedMatch[1];
+    if (actualEl && actual.reportedNetRecipientAmount != null) {
+      actualEl.textContent = String(actual.reportedNetRecipientAmount);
+    }
+    if (codeEl && r.diagnosis?.failureCode === "TRANSFER_FEE_IGNORED") {
+      codeEl.textContent = "Token-2022 transfer fee ignored";
+    }
+  } catch {
+    // Static fallback copy in markup stays.
+  }
+})();
 const testCopyCmdBtn = document.getElementById("test-copy-cmd-btn");
 if (testCopyCmdBtn) testCopyCmdBtn.addEventListener("click", async () => {
   const cmd = document.getElementById("test-cli-cmd")?.textContent?.trim() || "";

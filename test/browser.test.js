@@ -191,67 +191,76 @@ async function runBrowserTests() {
       await page.screenshot({ path: path.join(EVIDENCE_DIR, "01_desktop_hero.png") });
     });
 
-    // 2. Two Mistakes Story Section (Screenshot 02)
-    await test("2. Dashboard: Two Mistakes Story Section renders cleanly", async () => {
-      const mistakeCards = await page.$$(".mistake-card");
-      if (mistakeCards.length !== 2) throw new Error(`Expected 2 mistake cards, found: ${mistakeCards.length}`);
+    // 2. Homepage coherence: ONE product, no legacy narrative (Screenshot 02)
+    await test("2. Homepage shows one product and no legacy preflight narrative", async () => {
+      const homeText = await page.$eval("#dashboard-view", el => el.innerText);
+      for (const banned of ["Start a Preflight", "Product Preflight", "Execution Preflight", "Two ways to lose money",
+        "Right company. Wrong product.", "Right product. Bad trade.", "Two-layer preflight",
+        "Know what you're buying before you trade it."]) {
+        if (homeText.includes(banned)) throw new Error(`Legacy homepage narrative still present: "${banned}"`);
+      }
+      if (await page.$(".brand-badge")) throw new Error("Preflight brand badge must be gone");
+      for (const sel of ["#tab-test-btn", "#tab-replay-btn", "#tab-dbc-btn"]) {
+        if (!await page.isVisible(sel)) throw new Error(`Primary nav must show ${sel}`);
+      }
+      const workflow = await page.textContent("#how-it-works");
+      for (const n of ["Connect", "Test", "Break", "Fix", "Verify"]) {
+        if (!workflow.includes(n)) throw new Error(`Developer workflow must show "${n}"`);
+      }
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "02_homepage_coherence.png") });
+    });
 
-      const m1 = await page.textContent(".mistakes-grid .mistake-card:nth-child(1) .mistake-title");
-      const m2 = await page.textContent(".mistakes-grid .mistake-card:nth-child(2) .mistake-title");
-      if (!m1.includes("Right company. Wrong product.")) throw new Error(`Mistake 1 mismatch: ${m1}`);
-      if (!m2.includes("Right product. Bad trade.")) throw new Error(`Mistake 2 mismatch: ${m2}`);
+    // 3. What JustFair Tests (Screenshot 03)
+    await test("3. Homepage: tested-coverage categories without overclaiming", async () => {
+      const cards = await page.$$("#what-tested .why-pillar-card");
+      if (cards.length !== 5) throw new Error(`Expected 5 coverage cards, found: ${cards.length}`);
 
-      const bottomBarText = await page.textContent(".mistakes-bottom-bar .bottom-bar-text");
-      if (!bottomBarText.includes("JustFair checks both before money moves")) {
-        throw new Error(`Bottom bar mismatch: ${bottomBarText}`);
+      const titles = await page.$$eval("#what-tested .why-pillar-title", els => els.map(e => e.textContent));
+      for (const n of ["MARKET DATA", "CORPORATE ACTIONS", "TOKEN BEHAVIOR", "MARKET STRUCTURE", "AGENT SAFETY"]) {
+        if (!titles.some(t => t.includes(n))) throw new Error(`Coverage must list "${n}": ${titles.join("|")}`);
       }
 
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "02_desktop_two_mistakes.png") });
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "03_what_tested.png") });
     });
 
-    // 3. Why JustFair 3 Pillars (Screenshot 03)
-    await test("3. Dashboard: Why JustFair 3 Pillars (Product, Asset, Trade)", async () => {
-      const pillars = await page.$$(".why-pillar-card");
-      if (pillars.length !== 3) throw new Error(`Expected 3 pillars, found: ${pillars.length}`);
+    // 4. Real Failure Example (Screenshot 04)
+    await test("4. Homepage: engine-sampled failure example with replay path", async () => {
+      await page.waitForFunction(() => {
+        const el = document.querySelector("#home-fail-actual");
+        return el && el.textContent.trim() === "1000";
+      }, { timeout: 15000 });
+      const expected = await page.textContent("#home-fail-expected");
+      if (!expected.includes("998")) throw new Error(`Failure example expected mismatch: ${expected}`);
+      const code = await page.textContent("#home-fail-code");
+      if (!/transfer fee ignored/i.test(code)) throw new Error(`Failure code mismatch: ${code}`);
+      await page.click("#home-view-replay-btn");
+      await page.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
+      await page.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
+      const badge = await page.textContent("#replay-sample-badge");
+      if (!/SAMPLE/.test(badge)) throw new Error("VIEW REPLAY must open the labelled sample");
 
-      const p1 = await page.textContent(".why-pillar-card:nth-child(1) .why-pillar-title");
-      const p2 = await page.textContent(".why-pillar-card:nth-child(2) .why-pillar-title");
-      const p3 = await page.textContent(".why-pillar-card:nth-child(3) .why-pillar-title");
-
-      if (!p1.includes("VERIFY THE PRODUCT")) throw new Error(`Pillar 1 mismatch: ${p1}`);
-      if (!p2.includes("VERIFY THE ASSET")) throw new Error(`Pillar 2 mismatch: ${p2}`);
-      if (!p3.includes("VERIFY THE TRADE")) throw new Error(`Pillar 3 mismatch: ${p3}`);
-
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "03_desktop_why_justfair.png") });
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "04_failure_example.png") });
     });
 
-    // 4. How It Works 4 Steps (Screenshot 04)
-    await test("4. Dashboard: How It Works 4-Step sequence", async () => {
-      const stepCards = await page.$$(".steps-container-5 .step-card");
-      if (stepCards.length !== 4) throw new Error(`Expected 4 step cards, found: ${stepCards.length}`);
+    // 5. Built For Developers + Sponsor Proof (Screenshot 05)
+    await test("5. Homepage: developer integration block and subtle sponsor proof", async () => {
+      await page.click("#nav-brand-link");
+      await page.waitForSelector("#dashboard-view:not(.hidden)", { timeout: 10000 });
+      const dev = await page.textContent("#dev-integrate");
+      if (!dev.includes("node src/cli.js test --target")) throw new Error("Dev block must show the real command");
+      if (/npx justfair/i.test(dev)) throw new Error("Must not claim npx support");
+      const proof = await page.textContent("#sponsor-proof");
+      for (const n of ["PRESTOCKS", "METEORA DBC", "TESSERA"]) {
+        if (!proof.includes(n)) throw new Error(`Sponsor proof must name "${n}" functionally`);
+      }
 
-      const isTruthCalloutVisible = await page.isVisible(".truthfulness-callout");
-      if (!isTruthCalloutVisible) throw new Error("Truthful Market Stance callout missing");
-
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "04_desktop_how_it_works.png") });
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "05_dev_sponsors.png") });
     });
 
-    // 5. What JustFair Checks (Layer 1 vs Layer 2 & $500 Example) (Screenshot 05)
-    await test("5. Dashboard: What JustFair Checks two-layer comparison and illustrative example", async () => {
-      const compCards = await page.$$(".comparison-card");
-      if (compCards.length !== 2) throw new Error(`Expected 2 comparison cards, found: ${compCards.length}`);
-
-      const isExVisible = await page.isVisible(".example-card");
-      if (!isExVisible) throw new Error("Example card not visible");
-
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "05_desktop_what_justfair_checks.png") });
-    });
-
-    // 6. Developer / API Section & Product Proof (Screenshot 06)
-    await test("6. Dashboard: Product Proof and Developer / API area", async () => {
-      const proofCards = await page.$$(".proof-metric-card");
-      if (proofCards.length !== 6) throw new Error(`Expected 6 proof metric cards, found: ${proofCards.length}`);
-
+    // 6. Developer / API Section (Screenshot 06)
+    await test("6. Homepage: deterministic scenario API area", async () => {
+      await page.click("#nav-brand-link");
+      await page.waitForSelector("#dashboard-view:not(.hidden)", { timeout: 10000 });
       const isApiVisible = await page.isVisible(".api-compact-card");
       if (!isApiVisible) throw new Error("API compact card missing");
 
@@ -260,26 +269,35 @@ async function runBrowserTests() {
 
       const isCodeVisible = await page.isVisible("#api-code-drawer");
       if (!isCodeVisible) throw new Error("API code drawer failed to open");
+      const code = await page.textContent("#api-code-drawer");
+      if (!code.includes("/api/v1/dbc/whale")) throw new Error("API drawer must show the DBC check endpoint");
 
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "06_desktop_api_section.png") });
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "06_api_section.png") });
     });
 
     // 7. Final CTA and Footer (Screenshot 07)
-    await test("7. Dashboard: Final CTA and Footer layout", async () => {
+    await test("7. Homepage: final developer CTA and coherent footer", async () => {
+      await page.click("#nav-brand-link");
+      await page.waitForSelector("#dashboard-view:not(.hidden)", { timeout: 10000 });
       const ctaTitle = await page.textContent("#final-cta .cta-headline");
-      if (!ctaTitle.includes("Know what you're buying before you trade it.")) {
+      if (!ctaTitle.includes("Break it here before the market does it for you.")) {
         throw new Error(`Final CTA headline mismatch: ${ctaTitle}`);
       }
 
       const isFooterVisible = await page.isVisible(".site-footer");
       if (!isFooterVisible) throw new Error("Footer not visible");
+      const footer = await page.textContent(".site-footer");
+      if (/Preflight App|Dashboard/.test(footer)) throw new Error("Footer must not present the legacy product");
+      for (const sel of ["#footer-test-link", "#footer-replay-link", "#footer-dbc-link", "#footer-legacy-app-link"]) {
+        if (!await page.$(sel)) throw new Error(`Footer must link ${sel}`);
+      }
 
-      await page.screenshot({ path: path.join(EVIDENCE_DIR, "07_desktop_final_cta.png") });
+      await page.screenshot({ path: path.join(EVIDENCE_DIR, "07_final_cta.png") });
     });
 
     // 7b. Single four-step app entry (013.9A)
     await test("7b. App Entry: no mode choice, tracker visible, Step 1 active", async () => {
-      await page.click("#hero-open-app-btn");
+      await page.click("#footer-legacy-app-link");
       await page.waitForSelector("#step-1-container:not(.hidden)", { timeout: 15000 });
 
       if (await page.$("#entry-choice-container")) {
@@ -928,7 +946,7 @@ async function runBrowserTests() {
       });
       try {
         await freshPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await freshPage.click("#hero-open-app-btn");
+        await freshPage.click("#footer-legacy-app-link");
         await freshPage.waitForSelector("#tracker-step-4", { timeout: 15000 });
         await freshPage.click("#tracker-step-4");
         await freshPage.click("#stock-card-AAPLx .stock-card-header");
@@ -957,7 +975,7 @@ async function runBrowserTests() {
         const widePage = await wideContext.newPage();
         try {
           await widePage.goto(BASE_URL, { waitUntil: "networkidle" });
-          await widePage.click("#hero-open-app-btn");
+          await widePage.click("#footer-legacy-app-link");
           await widePage.waitForSelector("#tracker-step-4", { timeout: 15000 });
           await widePage.click("#tracker-step-4");
           await widePage.waitForSelector("#stock-cards-container .stock-card-standalone", { timeout: 15000 });
@@ -1836,7 +1854,7 @@ async function runBrowserTests() {
           await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(revalQuoteFixture()) });
         });
         await mobPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await mobPage.click("#hero-open-app-btn");
+        await mobPage.click("#footer-legacy-app-link");
         await mobPage.click("#tracker-step-4");
         await mobPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
         await mobPage.click("#stock-card-AAPLx .stock-card-header");
@@ -2254,7 +2272,7 @@ async function runBrowserTests() {
       const uatPage = await uatCtx.newPage();
       try {
         await uatPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await uatPage.click("#hero-open-app-btn");
+        await uatPage.click("#footer-legacy-app-link");
         await uatPage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
         await uatPage.click("#underlying-card-AAPL");
         await uatPage.waitForSelector("#step-2-container", { timeout: 15000 });
@@ -2293,7 +2311,7 @@ async function runBrowserTests() {
       const stalePage = await staleCtx.newPage();
       try {
         await stalePage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await stalePage.click("#hero-open-app-btn");
+        await stalePage.click("#footer-legacy-app-link");
         await stalePage.waitForSelector("#underlying-card-TSLA", { timeout: 15000 });
         await stalePage.click("#underlying-card-TSLA");
         await stalePage.waitForSelector("#step-2-container", { timeout: 15000 });
@@ -2333,7 +2351,7 @@ async function runBrowserTests() {
       const compPage = await compCtx.newPage();
       try {
         await compPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await compPage.click("#hero-open-app-btn");
+        await compPage.click("#footer-legacy-app-link");
         await compPage.click("#tracker-step-4");
         await compPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
         await compPage.click("#stock-card-AAPLx .stock-card-header");
@@ -2418,7 +2436,7 @@ async function runBrowserTests() {
       const mobPage = await mobCtx.newPage();
       try {
         await mobPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await mobPage.click("#hero-open-app-btn");
+        await mobPage.click("#footer-legacy-app-link");
         await mobPage.click("#tracker-step-4");
         await mobPage.waitForSelector("#stock-card-AAPLx", { timeout: 15000 });
         await mobPage.click("#stock-card-AAPLx .stock-card-header");
@@ -2503,7 +2521,7 @@ async function runBrowserTests() {
       const truthPage = await truthContext.newPage();
       try {
         await truthPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await truthPage.click("#hero-open-app-btn");
+        await truthPage.click("#footer-legacy-app-link");
         await truthPage.waitForSelector("#tracker-step-4", { timeout: 15000 });
         await truthPage.click("#tracker-step-4");
         await truthPage.waitForSelector("#step-4-container:not(.hidden)", { timeout: 15000 });
@@ -2534,7 +2552,7 @@ async function runBrowserTests() {
       const flowPage = await flowContext.newPage();
       try {
         await flowPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await flowPage.click("#hero-open-app-btn");
+        await flowPage.click("#footer-legacy-app-link");
         await flowPage.waitForSelector("#underlying-card-AAPL", { timeout: 15000 });
         await flowPage.click("#underlying-card-AAPL");
         await flowPage.waitForSelector("#exp-card-SELF_CUSTODY", { timeout: 15000 });
@@ -2581,7 +2599,7 @@ async function runBrowserTests() {
       const guardPage = await guardContext.newPage();
       try {
         await guardPage.goto(BASE_URL, { waitUntil: "networkidle" });
-        await guardPage.click("#hero-open-app-btn");
+        await guardPage.click("#footer-legacy-app-link");
         await guardPage.waitForSelector("#tracker-step-3", { timeout: 15000 });
         await guardPage.click("#tracker-step-3");
         await guardPage.waitForSelector("#step-2-container:not(.hidden)", { timeout: 15000 });
@@ -2612,15 +2630,15 @@ async function runBrowserTests() {
       if (isOverflow) throw new Error("Mobile Dashboard Hero exhibits horizontal overflow");
       await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "15_mobile_hero.png") });
 
-      // 16. Mobile Dashboard Story (Two Mistakes + Why JustFair)
-      await mobilePage.evaluate(() => document.getElementById("two-mistakes-story")?.scrollIntoView());
+      // 16. Mobile Homepage Sections (How It Works + Coverage)
+      await mobilePage.evaluate(() => document.getElementById("how-it-works")?.scrollIntoView());
       await settleScroll(mobilePage);
       isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-      if (isOverflow) throw new Error("Mobile Dashboard Story exhibits horizontal overflow");
-      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "16_mobile_story_section.png") });
+      if (isOverflow) throw new Error("Mobile homepage sections exhibit horizontal overflow");
+      await mobilePage.screenshot({ path: path.join(EVIDENCE_DIR, "16_mobile_sections.png") });
 
       // 17. Mobile Entry + Step 1 (013.9K: single app, tracker shortcut)
-      await mobilePage.click("#hero-open-app-btn");
+      await mobilePage.click("#footer-legacy-app-link");
       await mobilePage.waitForSelector("#step-1-container:not(.hidden)", { timeout: 15000 });
       isOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       if (isOverflow) throw new Error("Mobile Step 1 exhibits horizontal overflow");
@@ -2670,7 +2688,7 @@ async function runBrowserTests() {
       const homePage = await homeCtx.newPage();
       try {
         await homePage.goto(BASE_URL, { waitUntil: "networkidle" });
-        for (const sel of ["#hero-run-test-btn", "#hero-replay-btn", "#hero-open-app-btn"]) {
+        for (const sel of ["#hero-run-test-btn", "#hero-replay-btn"]) {
           if (!await homePage.isVisible(sel)) throw new Error(`Hero CTA must be visible: ${sel}`);
         }
         const runText = await homePage.textContent("#hero-run-test-btn");
