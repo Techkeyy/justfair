@@ -71,3 +71,57 @@ export function startFixtureTarget({ behavior = "naive", manifest: manifestOverr
 export function closeFixtureTarget(handle) {
   return new Promise(resolve => handle.server.close(() => resolve()));
 }
+
+/**
+ * Lifecycle fixture target for PRESTOCKS_EXPIRY_* scenarios.
+ * naive: always presents the position as an ordinary live holding (the bug).
+ * correct: time-aware — preserves conversion state before the deadline,
+ * marks expired + drops ordinary valuation after it.
+ */
+export function startLifecycleTarget({ behavior = "naive" } = {}) {
+  const server = http.createServer(async (req, res) => {
+    if (req.method === "GET" && req.url === "/justfair/v1/manifest") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        adapterVersion: "1",
+        name: behavior === "naive" ? "Naive Lifecycle Wallet" : "Correct Lifecycle Wallet",
+        capabilities: ["lifecycle_position_state"]
+      }));
+      return;
+    }
+    if (req.method === "POST" && req.url === "/justfair/v1/evaluate") {
+      const raw = await readBody(req);
+      let payload = null;
+      try { payload = JSON.parse(raw); } catch { /* fall through */ }
+      const inputs = payload?.inputs || {};
+      let observations;
+      if (behavior === "naive") {
+        observations = {
+          conversionRequired: false, deadlineUs: null, expired: false,
+          ordinaryValuation: true, label: "Live SPACEX position"
+        };
+      } else {
+        const past = Number(inputs.evaluatedAtUs) >= Number(inputs.deadlineUs);
+        observations = past
+          ? {
+            conversionRequired: true, deadlineUs: inputs.deadlineUs ?? null, expired: true,
+            ordinaryValuation: false, label: "SPACEX PreStocks expired — conversion required"
+          }
+          : {
+            conversionRequired: true, deadlineUs: inputs.deadlineUs ?? null, expired: false,
+            ordinaryValuation: true, label: "SPACEX PreStocks — conversion required before deadline"
+          };
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(observations));
+      return;
+    }
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "not found" }));
+  });
+  return new Promise(resolve => {
+    server.listen(0, "127.0.0.1", () => {
+      resolve({ server, baseUrl: `http://127.0.0.1:${server.address().port}` });
+    });
+  });
+}

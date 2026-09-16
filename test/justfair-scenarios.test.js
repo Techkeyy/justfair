@@ -3,6 +3,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   validateManifest,
@@ -13,8 +14,19 @@ import {
 import { validateScenario, runScenario, SCENARIO_RESULT } from "../src/scenarios/scenario.js";
 import { interpretPythUpdate, fetchPythPriceAt } from "../src/scenarios/pyth.js";
 import { STALE_CARRIED_FORWARD_EQUITY } from "../src/scenarios/first-scenario.js";
-import { startFixtureTarget, closeFixtureTarget } from "./fixtures/adapter-targets.js";
-
+import {
+  PRESTOCKS_EXPIRY_BEFORE,
+  PRESTOCKS_EXPIRY_NEAR,
+  PRESTOCKS_EXPIRY_AFTER,
+  PRESTOCKS_SOURCE_URL,
+  PRESTOCKS_DEADLINE_US,
+  PRESTOCKS_EVAL_BEFORE_US,
+  PRESTOCKS_EVAL_NEAR_US,
+  PRESTOCKS_EVAL_AFTER_US,
+  fetchPrestocksListing
+} from "../src/scenarios/prestocks.js";
+import { DBC_OPENING_WHALE, evaluateWhalePolicy } from "../src/scenarios/dbc.js";
+import { startFixtureTarget, startLifecycleTarget, closeFixtureTarget } from "./fixtures/adapter-targets.js";
 const LOCAL = { allowLocal: true, timeoutMs: 5000 };
 
 async function withTargets(fn) {
@@ -229,3 +241,114 @@ test("no secret ever travels to a test target", async () => {
     await closeFixtureTarget(h);
   }
 });
+
+// ---------------- Phase 2: PreStocks lifecycle ----------------
+
+test("prestocks before-deadline: correct target preserves conversion state", async () => {
+  const h = await startLifecycleTarget({ behavior: "correct" });
+  try {
+    const result = await runScenario(PRESTOCKS_EXPIRY_BEFORE, h.baseUrl, LOCAL);
+    assert.equal(result.status, SCENARIO_RESULT.PASS);
+    assert.ok(result.assertions.every(a => a.passed));
+  } finally {
+    await closeFixtureTarget(h);
+  }
+});
+
+test("prestocks near-deadline: event is not silently ignored", async () => {
+  const h = await startLifecycleTarget({ behavior: "correct" });
+  try {
+    const result = await runScenario(PRESTOCKS_EXPIRY_NEAR, h.baseUrl, LOCAL);
+    assert.equal(result.status, SCENARIO_RESULT.PASS);
+  } finally {
+    await closeFixtureTarget(h);
+  }
+});
+
+test("prestocks after-deadline naive FAILS with expiry failure code + provenance", async () => {
+  const h = await startLifecycleTarget({ behavior: "naive" });
+  try {
+    const result = await runScenario(PRESTOCKS_EXPIRY_AFTER, h.baseUrl, LOCAL);
+    assert.equal(result.status, SCENARIO_RESULT.FAIL);
+    assert.equal(result.diagnosis.failureCode, "EXPIRED_REPRESENTATION_TREATED_AS_LIVE");
+    assert.ok(result.diagnosis.rootCause.length > 10);
+    assert.ok(result.diagnosis.guidance.length > 10);
+    assert.ok(result.replay.length >= 5);
+  } finally {
+    await closeFixtureTarget(h);
+  }
+});
+
+test("prestocks after-deadline correct target PASSES (expired + no ordinary value)", async () => {
+  const h = await startLifecycleTarget({ behavior: "correct" });
+  try {
+    const result = await runScenario(PRESTOCKS_EXPIRY_AFTER, h.baseUrl, LOCAL);
+    assert.equal(result.status, SCENARIO_RESULT.PASS);
+  } finally {
+    await closeFixtureTarget(h);
+  }
+});
+
+test("prestocks evidence is an authoritative event fixture, never live API data", () => {
+  for (const def of [PRESTOCKS_EXPIRY_BEFORE, PRESTOCKS_EXPIRY_NEAR, PRESTOCKS_EXPIRY_AFTER]) {
+    assert.equal(def.evidence.classification, "authoritative_event_fixture");
+    assert.equal(def.evidence.source, "PRESTOCKS_OFFICIAL_PRODUCT_PAGE");
+    assert.equal(def.evidence.source_url, PRESTOCKS_SOURCE_URL);
+    assert.equal(def.evidence.deadline_iso, "2027-03-12T23:59:00Z");
+    assert.ok(def.evidence.provenance.includes("NOT a live lifecycle API"));
+    assert.ok(validateScenario(def).ok);
+  }
+  // Deterministic injected timestamps: near is exactly 59 min before deadline.
+  assert.equal(PRESTOCKS_EVAL_NEAR_US, PRESTOCKS_DEADLINE_US - 59 * 60 * 1000000);
+  assert.ok(PRESTOCKS_EVAL_BEFORE_US < PRESTOCKS_EVAL_NEAR_US);
+  assert.ok(PRESTOCKS_EVAL_AFTER_US > PRESTOCKS_DEADLINE_US);
+});
+
+test("prestocks listing liveness is reported truthfully (live shape or honest unreachable)", async () => {
+  const live = await fetchPrestocksListing({ timeoutMs: 15000 });
+  if (live.reachable && live.spacex) {
+    assert.equal(live.spacex.symbol, "SPACEX");
+    assert.ok(typeof live.spacex.contract_address === "string" && live.spacex.contract_address.length > 20);
+    assert.ok(Number.isFinite(Number(live.spacex.tokenPrice)));
+    assert.ok(live.productCount >= 8);
+  } else {
+    // Upstream down: the reporter must say so instead of fabricating.
+    assert.equal(live.reachable, false);
+  }
+});
+
+// ---------------- Phase 2: DBC contract ----------------
+
+test("dbc whale policy: within, violation, boundary, and non-numeric handling", () => {
+  assert.equal(evaluateWhalePolicy({ observedImpactPct: 5, maxPriceImpactPct: 8 }).withinPolicy, true);
+  assert.equal(evaluateWhalePolicy({ observedImpactPct: 8, maxPriceImpactPct: 8 }).withinPolicy, true);
+  assert.equal(evaluateWhalePolicy({ observedImpactPct: 8.01, maxPriceImpactPct: 8 }).withinPolicy, false);
+  const bad = evaluateWhalePolicy({ observedImpactPct: NaN, maxPriceImpactPct: 8 });
+  assert.equal(bad.withinPolicy, null);
+  assert.ok(DBC_OPENING_WHALE.failureCatalog.IMPACT_POLICY_VIOLATED.rootCause.length > 10);
+  assert.ok(DBC_OPENING_WHALE.failureCatalog.IMPACT_POLICY_VIOLATED.guidance.length > 10);
+  assert.equal(DBC_OPENING_WHALE.status, "CONTRACT_ONLY");
+});
+
+test("committed scenario code has no signing/broadcast path", () => {
+  const files = ["src/scenarios/adapter.js", "src/scenarios/scenario.js", "src/scenarios/pyth.js",
+    "src/scenarios/first-scenario.js", "src/scenarios/prestocks.js", "src/scenarios/dbc.js",
+    "src/scenarios/index.js", "src/cli.js", "examples/adapter-basic/server.mjs",
+    "test/fixtures/adapter-targets.js"];
+  for (const f of files) {
+    const src = readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
+    assert.ok(!/\bsign\b/i.test(src), `${f} must not contain signing`);
+    assert.ok(!/sendTransaction|Keypair|secretKey|mnemonic/i.test(src), `${f} must not contain broadcast/custody primitives`);
+  }
+});
+
+// ---------------- Phase 2: Pyth live probe (skips truthfully without key) ----------------
+
+test("pyth live probe parses real fields into the scenario engine when a key exists", { skip: !process.env.PYTH_API_KEY }, async () => {
+  // Only runs with an owner-supplied key; never commits credentials.
+  const r = await fetchPythPriceAt({ feedId: 1, timestampUs: 1704067200000000 });
+  assert.ok(r.ok, `Probe must succeed with a valid key: ${r.code} ${r.message || ""}`);
+  const parsed = interpretPythUpdate({ timestampUs: 1, feedUpdateTimestamp: 1, marketSession: "regular", ...(typeof r.update === "object" ? r.update : {}) });
+  assert.equal(parsed.usable, true);
+});
+

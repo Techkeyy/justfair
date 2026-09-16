@@ -31,7 +31,7 @@ export function validateScenario(def) {
   if (!def.evidence || typeof def.evidence !== "object" || typeof def.evidence.classification !== "string") {
     return { ok: false, error: "Scenario 'evidence' must carry a classification" };
   }
-  const allowedEvidence = ["live", "historical", "simulated"];
+  const allowedEvidence = ["live", "historical", "simulated", "authoritative_event_fixture"];
   if (!allowedEvidence.includes(def.evidence.classification)) {
     return { ok: false, error: `Evidence classification must be one of ${allowedEvidence.join(", ")}` };
   }
