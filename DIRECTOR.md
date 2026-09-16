@@ -394,9 +394,9 @@ explicitly revises it.
   carried-forward semantics (docs); Nasdaq/indicative ladder already live in
   repo. Needs: Pro key + entitlement for target feeds.
 - ASSUMPTION 2 — Pyth covers current+historical/session needs for first
-  Public Markets scenarios. STATUS: LIKELY. Evidence: §17 Pyth findings
-  (sessions per update, 60s range windows, OHLC, indices). Needs: key;
-  design around 60s range limit + entitlement 403s.
+  Public Markets scenarios. STATUS: SUPERSEDED (Phase 4 sponsor
+  realignment — Pyth is not a sponsor track). Research preserved in §17;
+  market-data scenario remains a truthfully labeled SIMULATED sample.
 - ASSUMPTION 3 — PreStocks data suffices for ≥1 meaningful private-market
   scenario. STATUS: CONFIRMED (Phase 1). Evidence: live listing API (8
   products, full schema) + official SpaceX page IPO/conversion/expiry case
@@ -529,22 +529,6 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
   command (0/1/2) + POST /api/v1/dbc/whale (validated, rate-limited, no
   secrets/keys/URLs in input). SDK added as repo dep (1.5.12 + web3.js
   1.99 + bn 5.2.5) — explicitly ordered, manifests recorded.
-- Phase 4 Tessera truth (official API + docs + mainnet, 2026-09-16):
-  T-OpenAI mint oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ ($812.79,
-  8259 holders) + T-Kalshi TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ;
-  both Token-2022, 9 decimals, TransferFeeConfig 20bps, max u64MAX
-  (cap unreachable naturally → covered in unit tests), epochs 987/922
-  vs chain 1035. Docs: 0.20% standard, sender-pays, changeable on-chain.
-  Scenario TESSERA_TRANSFER_FEE_ACCOUNTING (live_tessera_token2022):
-  1000 units → fee 2 → net 998; naive FAIL / correct PASS proven via
-  real spawned CLI (exits 1/0) + in-process suites (13/13 incl. official
-  spl-token calculateFee cross-check, rounding edges, cap, coded
-  NO_TRANSFER_FEE/NOT_TOKEN2022/BAD_MINT states). No signing/broadcast/
-  funds. Sample tessera-fail.json engine-generated with capture time.
-- Phase 4 GitHub: `gh auth status` = logged in as Techkeyy, but
-  techkeyy/justfair does NOT resolve and no justfair repo exists in the
-  account listing → OWNER ACTION REQUIRED — GITHUB REPOSITORY ACCESS.
-  Nothing created, nothing pushed.
 
 ## 22. COMPLETED PHASES
 
@@ -608,17 +592,22 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
 - Phase 4 nav coherence: Dashboard/App/How/API tabs removed from primary
   nav (no test depended on them); Test / Replay Lab / DBC Stress remain;
   legacy app reachable via hero + footer (secondary, not flagship).
+- PHASE 4: PASS — OWNER UAT PENDING. Tessera live end-to-end, all suites
+  green (preflight 49, streaming 6, product 52, browser 67, e2e 15,
+  scenarios 25, cli 11, dbc 5, tessera 13, smoke clean), README rewritten,
+  release hardening done. Pyth explicitly NOT a blocker (sponsor
+  realignment); GitHub access is the remaining release blocker.
 
 ## 23. BLOCKERS
 
-1. Git remote: `git ls-remote https://github.com/techkeyy/justfair.git` →
-   "Repository not found" (Phase 1, read-only probe). NO remote added.
-   Submission needs a public repo link — owner/director must resolve
-   (private? renamed? never pushed?).
-2. Pyth Pro credential: legacy prod key authenticates but is NOT entitled
-   to equity feeds (live 403 proof, §21B); no local key. OWNER ACTION:
-   Terminal trial key → server env. INTEGRATION PROVEN gate blocked until
-   one real authenticated request succeeds (fixtures carry Phase 1).
+1. Git remote / GitHub repo: `git ls-remote
+   https://github.com/techkeyy/justfair.git` → "Repository not found";
+   `gh auth status` = logged in as Techkeyy, but no justfair repo exists
+   in the account listing. NO remote added, nothing created/pushed.
+   Submission needs a public repo link — OWNER ACTION REQUIRED.
+2. Pyth Pro credential: HISTORICAL ONLY — legacy prod key proven NOT
+   entitled to equity feeds; no local key. Per sponsor realignment this
+   blocks NOTHING (not a sponsor track, not required for release).
 
 ## 24. OPEN RISKS
 
