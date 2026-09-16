@@ -330,17 +330,17 @@ body {
 }
 
 .hero-split-container {
-  max-width: 1240px;
+  max-width: 880px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1.08fr 0.92fr;
+  grid-template-columns: 1fr;
   align-items: center;
-  gap: 36px;
-  min-height: 560px;
+  gap: 0;
+  min-height: 0;
 }
 
 .hero-content-col {
-  padding: 24px 0 48px 0;
+  padding: 64px 0 72px 0;
   z-index: 2;
 }
 
