@@ -423,10 +423,18 @@ async function runE2ETests() {
             return;
           }
           if (data.benchmark.source !== "Alpaca Market Data") throw new Error(`Alpaca must win, got: ${data.benchmark.source}`);
-          if (data.benchmark.upstream_source !== "Alpaca Market Data (IEX)") {
-            throw new Error(`Upstream provenance missing: ${data.benchmark.upstream_source}`);
+          // Session-agnostic feed contract: OVERNIGHT resolves the overnight
+          // derived feed; all other eligible sessions resolve IEX. The engine
+          // selects by session (benchmark.js); the test must not hardcode one.
+          const expectOvernight = session === "OVERNIGHT";
+          const expectUpstream = expectOvernight
+            ? "Alpaca Market Data (overnight derived feed)"
+            : "Alpaca Market Data (IEX)";
+          const expectFeed = expectOvernight ? "overnight" : "iex";
+          if (data.benchmark.upstream_source !== expectUpstream) {
+            throw new Error(`Upstream provenance missing: ${data.benchmark.upstream_source} (session ${session})`);
           }
-          if (data.benchmark.feed !== "iex") throw new Error(`Feed must be iex, got: ${data.benchmark.feed}`);
+          if (data.benchmark.feed !== expectFeed) throw new Error(`Feed must be ${expectFeed}, got: ${data.benchmark.feed} (session ${session})`);
           if (data.benchmark.reference_price_type !== "ASK") throw new Error("Buy-side reference must be ASK");
           if (data.benchmark.ask_price !== 330.70 || data.benchmark.bid_price !== 330.50) {
             throw new Error("Bid/ask must echo fixture");
