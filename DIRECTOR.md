@@ -379,21 +379,85 @@ explicitly revises it.
   (sessions per update, 60s range windows, OHLC, indices). Needs: key;
   design around 60s range limit + entitlement 403s.
 - ASSUMPTION 3 — PreStocks data suffices for ≥1 meaningful private-market
-  scenario. STATUS: LIKELY for product/price/divergence (live API verified
-  this phase); lifecycle/acquisition/conversion/IPO/expiry API UNVERIFIED.
-  Phase 1 check: product detail pages + FAQ.
+  scenario. STATUS: CONFIRMED (Phase 1). Evidence: live listing API (8
+  products, full schema) + official SpaceX page IPO/conversion/expiry case
+  (§21B). Lifecycle modeled as authoritative event fixtures, not live API.
 - ASSUMPTION 4 — DBC SDK/config logic usable without custody or funded
-  launch. STATUS: LIKELY. Evidence: read-only state/quote reads, devnet,
-  no-funds inspection (docs). Creating pools still needs funds — crash-
-  testing others' configs does not.
+  launch. STATUS: CONFIRMED (Phase 1, capability-level). Evidence: SDK
+  v1.5.12 on npm; read-only inspection + quote sim + devnet per official
+  docs (§21B). No pool constructed yet (correctly out of scope).
 - ASSUMPTION 5 — arbitrary dev apps integrate via a small adapter/test-
-  target contract. STATUS: UNVERIFIED. No evidence yet; Phase 1 design task
-  (URL/API-adapter + fixture-injection seam). This is the product's
-  riskiest unknown after the deadline question.
+  target contract. STATUS: LIKELY (was UNVERIFIED). Evidence: v1 HTTP
+  contract + two independent fixture targets + generic runner proven
+  (§21B). Remaining: arbitrary remote-URL path (SSRF-safe hosted
+  execution) NOT YET PROVEN — no public endpoint wired in Phase 1.
 
 ## 21. CURRENT BUILD PHASE
 
-PHASE 0 (this order). No Phase 1 work started.
+PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
+
+## 21B. PHASE 1 WORK LOG (continuous)
+
+- Remote: `git ls-remote https://github.com/techkeyy/justfair.git` →
+  "Repository not found." Subtask STOPPED per order §8; NO remote added.
+  Remote wiring = BLOCKED with evidence (repo inaccessible anonymously —
+  private, renamed, or never pushed; unverifiable from here).
+- E2E flake: reproduced across sessions (OVERNIGHT 13/14 FAIL →
+  PRE_MARKET 14/14 PASS, same code). Root cause PROVEN: engine selects feed
+  by session (`benchmark.js:175`, correct); test hardcoded IEX for all
+  non-CLOSED sessions. Fixed test-only (`test/e2e.test.js` derives
+  expected feed/upstream from live session; covers regular/pre/post/
+  overnight/closed). Commit `0f6144e`. No engine behavior changed.
+- Pyth entitlement probe (non-secret, public prod endpoint): prod
+  `/api/v1/stream` connects; SOL flows via CoinGecko; upstream Pyth equity
+  feed returns **HTTP 403 "Not entitled … asset type 'equity'"**. The
+  legacy production PYTH_API_KEY authenticates but is NOT entitled to
+  equity feeds — it is NOT a valid credential for our target feeds. Local
+  shell has no PYTH_API_KEY at all.
+- Pyth key path (official docs): sign up free at app.pyth.com (Pyth Terminal)
+  → log in → "View your API key" → trial Pro key; use as
+  `Authorization: Bearer` server-side ONLY (frontend must use short-lived
+  JWT via POST /auth/token). Note tension: May-2026 Pyth post says API
+  access needs paid Starter/Pro (from $500/mo, 14-day trial). OWNER ACTION
+  REQUIRED — PYTH PRO KEY. Phase 1 continues on deterministic fixtures;
+  INTEGRATION PROVEN gate cannot pass without a key.
+- Adapter decision (MAIN PRODUCT DECISION): versioned HTTP test adapter —
+  `GET /justfair/v1/manifest` (`adapterVersion/name/capabilities`) +
+  `POST /justfair/v1/evaluate` (`scenarioId/scenarioVersion/inputs` →
+  observations object). Smallest workable: no SDK, no auth, no DB; target
+  owns only observable behavior; JustFair never reads target verdicts
+  (runner has no verdict field at all). Rejected: uploaded-code execution,
+  full-app exposure, SDK ceremony. SSRF: scheme allowlist (http/https),
+  localhost/private/metadata blocked without explicit test-only opt-in,
+  10s timeout, 64KB cap, JSON-only; NO public endpoint wired in Phase 1,
+  so arbitrary-user URL support is NOT YET PROVEN (runner is a library +
+  localhost fixtures only).
+- Scenario core: `src/scenarios/` — `adapter.js` (contract + guards),
+  `scenario.js` (schema + `runScenario`: manifest gate → evaluate → judge),
+  `pyth.js` (official carried-forward semantics parser + keyed fetcher),
+  `first-scenario.js` (STALE_CARRIED_FORWARD_EQUITY v1, evidence labeled
+  SIMULATED). Result states PASS/FAIL/UNABLE_TO_VERIFY; timeouts, missing
+  caps, malformed/oversized responses, unreachable targets → UNABLE, never
+  PASS or FAIL. No LLM, no invented patches; deterministic failure catalog
+  (STALE_REFERENCE_TREATED_AS_LIVE + INVENTED_OBSERVATION).
+- Vertical slice (same contract, no target-specific code): naive fixture
+  → FAIL (expected STALE_REFERENCE_TREATED_AS_LIVE + replay + guidance);
+  correct fixture → PASS; re-run deterministic. Suite
+  `test/justfair-scenarios.test.js` 17/17.
+- PreStocks lifecycle: CONFIRMED. Official product page
+  https://prestocks.com/spacex states: "SpaceX has gone public! SpaceX
+  PreStocks tokens must be swapped into $SPCXx or any other token before
+  11:59pm UTC on 12 March 2027, or they will expire worthless." Exact
+  candidate: EXPIRY_DEADLINE_HANDLING (portfolio must surface the
+  conversion deadline; must not value post-deadline holdings at live
+  mark). Lifecycle detail is page-level authoritative content → model as
+  authoritative event fixture, never as live lifecycle API.
+- Meteora kill-gate: CONFIRMED. SDK `@meteora-ag/dynamic-bonding-curve-sdk`
+  v1.5.12 on npm (no funds to install); read-only pool/config inspection +
+  quote simulation + devnet faucets per official docs; program
+  `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`. Intended Phase-later
+  calls: client init → pool/config state reads → swap-quote simulation →
+  graduation-progress reads. No custody, launch, funds, or issuance needed.
 
 ## 22. COMPLETED PHASES
 
@@ -402,12 +466,21 @@ PHASE 0 (this order). No Phase 1 work started.
 - PHASE 0: PASS (this report; criteria §24 all met — deadline contradiction
   recorded as risk, not blocker, since Timeline text + prior spec agree on
   Sep 18 4pm ET and work proceeds against the earlier date).
+- PHASE 1: PARTIALLY BLOCKED — all engineering gates PASS except live Pyth
+  Pro proof, which needs an owner credential (key absent locally; legacy
+  prod key proven NOT entitled to equity feeds). No code reason blocks it:
+  fetcher, parser, and fixture-shaped proofs are green.
 
 ## 23. BLOCKERS
 
-NONE that stop Phase 1 planning. (No remote configured limits push
-verification only; deadline contradiction needs director confirmation but
-building against Sep 18 is the safe posture.)
+1. Git remote: `git ls-remote https://github.com/techkeyy/justfair.git` →
+   "Repository not found" (Phase 1, read-only probe). NO remote added.
+   Submission needs a public repo link — owner/director must resolve
+   (private? renamed? never pushed?).
+2. Pyth Pro credential: legacy prod key authenticates but is NOT entitled
+   to equity feeds (live 403 proof, §21B); no local key. OWNER ACTION:
+   Terminal trial key → server env. INTEGRATION PROVEN gate blocked until
+   one real authenticated request succeeds (fixtures carry Phase 1).
 
 ## 24. OPEN RISKS
 
@@ -430,12 +503,21 @@ building against Sep 18 is the safe posture.)
 
 ## 25. FILES CHANGED
 
-- `DIRECTOR.md` (CREATED, this file). Nothing else touched in Phase 0.
+- Phase 0: `DIRECTOR.md` (created).
+- Phase 1: `test/e2e.test.js` (session-agnostic feed expectations, test-only);
+  `src/scenarios/adapter.js` + `scenario.js` + `pyth.js` +
+  `first-scenario.js` (new engine); `test/fixtures/adapter-targets.js` +
+  `test/justfair-scenarios.test.js` (new proof); `DIRECTOR.md` (continuous).
 
 ## 26. IMPORTANT COMMITS
 
 - Phase 0 commit: `docs(phase0): add DIRECTOR.md takeover document`
   (single commit; hash recorded at commit time).
+- Phase 1: `0f6144e test(e2e): make market-session expectations deterministic`
+  → `9d256e8 feat(adapter): define JustFair test-target contract` →
+  `930b726 feat(scenarios): prove first financial correctness vertical slice`
+  → `9da35c2 feat(pyth): add server-side public-market evidence adapter` →
+  `docs(director): record phase 1 validation state` (this file).
 - Prior history (legacy product, preserved): `840f321` Step 4 clarity
   screenshot → `7bbdc69` Step 4 UX pass → `8e8b3d4` sim-error normalization
   → `e7c7a43` product-match contradiction fix → `192756e` copy
