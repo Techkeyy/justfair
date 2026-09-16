@@ -66,25 +66,44 @@ OPTIONALLY ADD TO CI. Replay + remediation are core features, not extras.
 ## 9. STOCKLANA TRACK STRATEGY
 
 MAIN TRACK: core JustFair product ($100,000, Solana Foundation).
-SPONSOR 1 — PYTH: Public Markets Test Suite (bounty prize = 3 months Pyth
-Pro access, NOT cash).
-SPONSOR 2 — PRESTOCKS: Private Markets Test Suite ($5,000).
-SPONSOR 3 — METEORA DBC: Market Structure / DBC Stress Lab ($5,000).
+SPONSOR 1 — PRESTOCKS: Private Markets Test Suite ($5,000).
+SPONSOR 2 — METEORA DBC: Market Structure / DBC Stress Lab ($5,000).
+SPONSOR 3 — TESSERA: T-Token / Token-2022 financial-behavior correctness
+(bounty: Best Use of Tessera, $6,000 — OpenAI/Kalshi T-Tokens).
 SKIPPED (per standing order, NOT targets): Clawpump "Stocknized Agent"
-($5,000, requires clawpump+Meteora pool launch) and Tessera "Best Use of
-Tessera, Pre-IPO stocks" ($6,000, OpenAI/Kalshi T-Tokens).
+($5,000, requires clawpump+Meteora stock pool launch).
 
-## 10. SPONSOR ROLES
+HISTORICAL SPONSOR PLAN (Phases 0–3):
+Pyth / PreStocks / Meteora.
+- Pyth was investigated thoroughly (parser, session semantics, History
+  API research, skip-truthful probe test). No credential was ever
+  available; legacy prod key proven NOT entitled to equity feeds.
+- STALE_CARRIED_FORWARD_EQUITY remains as a GENERIC MARKET-DATA
+  SAMPLE/SCENARIO with truthful SIMULATED classification. Pyth is not
+  load-bearing and never blocks release.
 
-- PYTH must be load-bearing for: equity reference prices, tokenized-stock
-  prices, freshness, historical data, market sessions, divergence,
-  financial-invariant testing. Never a logo or fetch demo.
+CURRENT SPONSOR PLAN (Phase 4+, locked):
+PreStocks / Meteora DBC / Tessera.
+
+Reason:
+Director decision following sponsor-fit review (Director Order 005).
+
+## 10. SPONSOR ROLES (CURRENT: PreStocks / Meteora DBC / Tessera)
+
 - PRESTOCKS must be load-bearing for: private-company lifecycle, valuation
   changes, acquisition, conversion, IPO/public transition,
   expiration/deadline state, portfolio + agent handling.
 - METEORA DBC must be load-bearing for: real DBC configs, real SDK behavior,
   quote simulation, curve behavior, liquidity stress, price-discovery stress,
   graduation behavior, live mainnet pool inspection where useful.
+- TESSERA must be load-bearing for: T-Token / Token-2022 financial-behavior
+  correctness (live TransferFeeConfig drives fee expectations; gross-vs-net
+  accounting invariants).
+- PYTH (HISTORICAL, Phases 0–3): was investigated as Public Markets suite
+  backbone (parser, session semantics, History API). No entitled credential
+  ever existed; per Director Order 005 it is NOT a sponsor track, blocks
+  nothing, and its market-data scenario remains only as a truthfully
+  labeled SIMULATED sample. Do not reintroduce it as a blocker.
 
 ## 11. MASTER DIRECTOR STANDARD SUMMARY
 
@@ -510,11 +529,22 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
   command (0/1/2) + POST /api/v1/dbc/whale (validated, rate-limited, no
   secrets/keys/URLs in input). SDK added as repo dep (1.5.12 + web3.js
   1.99 + bn 5.2.5) — explicitly ordered, manifests recorded.
-- Web reconstruction: new hero/nav (RUN A TEST / OPEN REPLAY LAB), Test +
-  Replay Lab (client-side parse, privacy note true) + DBC Stress views;
-  engine-generated samples in public/samples/; legacy Steps UI + all 59
-  legacy browser tests KEPT GREEN (demote-not-delete: full retirement is a
-  later-phase call; rationale: harness + prod behavior depend on it).
+- Phase 4 Tessera truth (official API + docs + mainnet, 2026-09-16):
+  T-OpenAI mint oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ ($812.79,
+  8259 holders) + T-Kalshi TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ;
+  both Token-2022, 9 decimals, TransferFeeConfig 20bps, max u64MAX
+  (cap unreachable naturally → covered in unit tests), epochs 987/922
+  vs chain 1035. Docs: 0.20% standard, sender-pays, changeable on-chain.
+  Scenario TESSERA_TRANSFER_FEE_ACCOUNTING (live_tessera_token2022):
+  1000 units → fee 2 → net 998; naive FAIL / correct PASS proven via
+  real spawned CLI (exits 1/0) + in-process suites (13/13 incl. official
+  spl-token calculateFee cross-check, rounding edges, cap, coded
+  NO_TRANSFER_FEE/NOT_TOKEN2022/BAD_MINT states). No signing/broadcast/
+  funds. Sample tessera-fail.json engine-generated with capture time.
+- Phase 4 GitHub: `gh auth status` = logged in as Techkeyy, but
+  techkeyy/justfair does NOT resolve and no justfair repo exists in the
+  account listing → OWNER ACTION REQUIRED — GITHUB REPOSITORY ACCESS.
+  Nothing created, nothing pushed.
 
 ## 22. COMPLETED PHASES
 
@@ -559,6 +589,25 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
   encodes the ordered Meteora exception (SDK present + imports confined to
   src/scenarios/dbc-live.js). One transient browser flake observed (65/66,
   unidentified, non-repeating; 3 subsequent full runs 66/66).
+- Phase 4 Tessera truth (official API + docs + mainnet, 2026-09-16):
+  T-OpenAI mint oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ ($812.79,
+  8259 holders) + T-Kalshi TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ;
+  both Token-2022, 9 decimals, TransferFeeConfig 20bps, max u64MAX
+  (cap unreachable naturally → covered in unit tests), epochs 987/922
+  vs chain 1035. Docs: 0.20% standard, sender-pays, changeable on-chain.
+  Scenario TESSERA_TRANSFER_FEE_ACCOUNTING (live_tessera_token2022):
+  1000 units → fee 2 → net 998; naive FAIL / correct PASS proven via
+  real spawned CLI (exits 1/0) + suites (13/13 incl. official spl-token
+  calculateFee cross-check, rounding edges, cap, coded
+  NO_TRANSFER_FEE/NOT_TOKEN2022/BAD_MINT states). No signing/broadcast/
+  funds. Sample tessera-fail.json engine-generated with capture time.
+- Phase 4 GitHub: `gh auth status` = logged in as Techkeyy, but
+  techkeyy/justfair does NOT resolve and no justfair repo exists in the
+  account listing → OWNER ACTION REQUIRED — GITHUB REPOSITORY ACCESS.
+  Nothing created, nothing pushed.
+- Phase 4 nav coherence: Dashboard/App/How/API tabs removed from primary
+  nav (no test depended on them); Test / Replay Lab / DBC Stress remain;
+  legacy app reachable via hero + footer (secondary, not flagship).
 
 ## 23. BLOCKERS
 

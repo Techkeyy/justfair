@@ -2715,12 +2715,19 @@ async function runBrowserTests() {
       const events = await page.$$("#replay-scenario-detail .replay-event");
       if (events.length < 5) throw new Error(`Timeline must render engine events, got ${events.length}`);
     });
-
     await test("63. Replay Lab: sample pass and malformed upload behave truthfully", async () => {
       await page.click('.replay-sample-btn[data-sample="stale-pass"]');
       await page.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
       const counts = await page.textContent("#replay-run-counts");
       if (!counts.includes("1 passed")) throw new Error(`Pass counts mismatch: ${counts}`);
+      await page.setInputFiles("#replay-file-input", {
+        name: "huge.json",
+        mimeType: "application/json",
+        buffer: Buffer.alloc(1048577, 120)
+      });
+      await page.waitForSelector("#replay-error:not(.hidden)", { timeout: 10000 });
+      const sizeErr = await page.textContent("#replay-error");
+      if (!/larger than 1 MB/i.test(sizeErr)) throw new Error(`Oversize upload must be refused: ${sizeErr}`);
       await page.setInputFiles("#replay-file-input", {
         name: "bad.json",
         mimeType: "application/json",
@@ -2729,6 +2736,18 @@ async function runBrowserTests() {
       await page.waitForSelector("#replay-error:not(.hidden)", { timeout: 10000 });
       const err = await page.textContent("#replay-error");
       if (!/not a JustFair result artifact/i.test(err)) throw new Error(`Malformed upload must be rejected clearly: ${err}`);
+    });
+
+    await test("63b. Replay Lab: Tessera fee sample renders live on-chain provenance", async () => {
+      await page.click('.replay-sample-btn[data-sample="tessera-fail"]');
+      await page.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
+      const detail = await page.textContent("#replay-scenario-detail");
+      for (const n of ["TRANSFER_FEE_IGNORED", "live_tessera_token2022", "998"]) {
+        if (!detail.includes(n)) throw new Error(`Tessera sample must show "${n}"`);
+      }
+      if (!/SAMPLE/.test(await page.textContent("#replay-sample-badge"))) {
+        throw new Error("Tessera sample must carry the sample badge");
+      }
     });
 
     await test("64. Replay Lab: UNABLE renders distinctly, never like PASS", async () => {

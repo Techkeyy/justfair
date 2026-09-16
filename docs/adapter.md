@@ -25,7 +25,8 @@ nothing is uploaded, signed, or broadcast.
 ```
 
 `capabilities` lists what your app can report (e.g.
-`underlying_price_display`, `lifecycle_position_state`). JustFair only
+`underlying_price_display`, `lifecycle_position_state`,
+`transfer_fee_accounting`). JustFair only
 runs scenarios your adapter claims to support; anything else is skipped,
 never failed.
 

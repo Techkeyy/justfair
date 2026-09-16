@@ -3929,6 +3929,11 @@ const replayFileInput = document.getElementById("replay-file-input");
 if (replayFileInput) replayFileInput.addEventListener("change", () => {
   const file = replayFileInput.files?.[0];
   if (!file) return;
+  if (file.size > 1048576) {
+    showReplayError("That report is larger than 1 MB. Open a CLI --json / --out artifact instead.");
+    replayFileInput.value = "";
+    return;
+  }
   const reader = new FileReader();
   reader.onload = () => {
     try {

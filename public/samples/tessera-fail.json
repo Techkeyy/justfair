@@ -1,0 +1,88 @@
+{
+  "runId": "652d2333-115c-4996-aff5-b2fba265a218",
+  "target": {
+    "url": "sample",
+    "name": "Naive Fee Wallet",
+    "adapterVersion": "1"
+  },
+  "startedAt": "2026-09-16T14:56:34.999Z",
+  "completedAt": "2026-09-16T14:56:35.034Z",
+  "summary": {
+    "passed": 0,
+    "failed": 1,
+    "unable": 0
+  },
+  "results": [
+    {
+      "scenarioId": "TESSERA_TRANSFER_FEE_ACCOUNTING",
+      "status": "FAIL",
+      "target": "Naive Fee Wallet",
+      "assertions": [
+        {
+          "id": "net-recipient-equals",
+          "expected": "Reported net recipient amount equals the fee-adjusted amount (998 base units)",
+          "actual": {
+            "reportedNetRecipientAmount": "1000"
+          },
+          "passed": false,
+          "error": null
+        }
+      ],
+      "diagnosis": {
+        "failureCode": "TRANSFER_FEE_IGNORED",
+        "expected": "Reported net recipient amount equals the fee-adjusted amount (998 base units)",
+        "actual": {
+          "reportedNetRecipientAmount": "1000"
+        },
+        "rootCause": "The application treated a fee-bearing Token-2022 transfer as a standard fee-free token movement.",
+        "guidance": "Read and apply the active TransferFeeConfig (rate and maximum fee) when calculating the recipient's net amount."
+      },
+      "evidence": {
+        "classification": "live_tessera_token2022",
+        "source": "TESSERA_TOKEN2022_TRANSFER_FEE",
+        "mint": "oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ",
+        "program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "transferFeeBasisPoints": 20,
+        "maximumFee": "18446744073709551615",
+        "feeEpoch": "987",
+        "decimals": 9,
+        "chainEpoch": 1035,
+        "captured_at": "2026-09-16T14:56:33.893Z",
+        "productIdentity": "Tessera official product API",
+        "provenance": "fee state: Solana mainnet Token-2022 TransferFeeConfig; product identity: Tessera official product API; docs explain why fees matter, on-chain state decides the current rate"
+      },
+      "replay": [
+        {
+          "at": "T0",
+          "label": "Scenario issued",
+          "expected": "TESSERA_TRANSFER_FEE_ACCOUNTING",
+          "observed": "inputs prepared"
+        },
+        {
+          "at": "T+manifest",
+          "label": "Target manifest accepted",
+          "expected": "transfer_fee_accounting",
+          "observed": "transfer_fee_accounting"
+        },
+        {
+          "at": "T+evaluate",
+          "label": "Target observations collected",
+          "expected": "observable behavior only",
+          "observed": "received"
+        },
+        {
+          "at": "T+assert1",
+          "label": "Invariant net-recipient-equals",
+          "expected": "Reported net recipient amount equals the fee-adjusted amount (998 base units)",
+          "observed": "{\"reportedNetRecipientAmount\":\"1000\"}"
+        },
+        {
+          "at": "T+verdict",
+          "label": "Invariant violated",
+          "expected": "Reported net recipient amount equals the fee-adjusted amount (998 base units)",
+          "observed": "{\"reportedNetRecipientAmount\":\"1000\"}"
+        }
+      ]
+    }
+  ]
+}
