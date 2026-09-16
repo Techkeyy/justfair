@@ -597,6 +597,17 @@ PHASE 1 (Director Order 002, in progress). No Phase 2 work started.
   scenarios 25, cli 11, dbc 5, tessera 13, smoke clean), README rewritten,
   release hardening done. Pyth explicitly NOT a blocker (sponsor
   realignment); GitHub access is the remaining release blocker.
+- UAT FIX 001 (homepage coherence): 7 legacy consumer sections removed
+  from the public homepage (two-mistakes, pillars, two-layer comparison,
+  $500 example, old 4-step, proof stats, wallet-framed API) + Preflight
+  badge, Open App header CTA, Start-a-Preflight hero/footer CTAs, legacy
+  footer framing. Replaced with HOW IT WORKS (CONNECT/TEST/BREAK/FIX/
+  VERIFY), WHAT JUSTFAIR TESTS (5 packs, implemented-labeled), engine-
+  sampled Tessera failure (runtime-populated from canonical sample),
+  dev integration block, subtle sponsor proof, scenario API drawer.
+  Legacy app code/tests untouched and green; entry via footer legacy
+  link. Section tests 2-7 rewritten to current truth; absence regressions
+  added (no preflight narrative/badge/CTA on homepage).
 - UAT FIX 001 (homepage coherence): removed 7 legacy consumer sections
   (two-mistakes, pillars, two-layer comparison, $500 example, old 4-step
   how-it-works, proof stats, wallet-framed API) + Preflight badge, Open
