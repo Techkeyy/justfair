@@ -27,50 +27,63 @@ ADD SMALL ADAPTER → RUN APP LOCALLY → RUN JUSTFAIR CLI
 → FIX → RE-RUN → PASS → (OPTIONAL CI)
 ```
 
-## Quick start
+## Using JustFair (No-Clone Developer Journey)
 
-Requires Node.js 22+.
+Requires Node.js 20+. No JustFair repository clone, account, funds, or private keys required.
 
-### 1. Clone & install JustFair:
+### 1. Initialize configuration and adapter scaffold in your project:
+
+```sh
+npx justfair@latest init
+```
+
+Creates `justfair.config.js` and `justfair-adapter.mjs` in your current directory.
+
+### 2. Connect your observation adapter bridge:
+
+The adapter acts as a bridge querying your application logic on localhost.
+
+```
+YOUR STOCK APP (e.g. port 4000)
+        ↓
+OBSERVATION ADAPTER (e.g. port 3100)
+        ↓
+JUSTFAIR SCENARIO ENGINE
+        ↓
+PASS / FAIL / UNABLE
+```
+
+Start your adapter:
+
+```sh
+node justfair-adapter.mjs
+```
+
+### 3. Crash-test your app:
+
+```sh
+npx justfair@latest test --target http://localhost:3100 --open
+```
+
+`--open` launches Replay Lab locally on `127.0.0.1` with zero cloud telemetry.
+
+---
+
+## Contributing to JustFair
+
+If you are developing or contributing to JustFair itself:
 
 ```sh
 git clone https://github.com/Techkeyy/justfair.git
 cd justfair
 npm install
-```
 
-### 2. Run against a sample target:
-
-```sh
-# Start a sample target with a real pricing defect
+# Run against sample target
 node examples/adapter-basic/server.mjs naive
-
-# Run the financial test suite and automatically open Replay Lab locally
 node src/cli.js test --target http://127.0.0.1:3000 --open
-# FAIL STALE_CARRIED_FORWARD_EQUITY, exit 1, replay + fix guidance printed & opened in local Replay Lab
-```
 
-Fix the target (`correct` mode), run the same command → PASS, exit 0.
-Exit 2 means UNABLE_TO_VERIFY (adapter unreachable/incompatible) — never
-confused with FAIL, never converted to PASS.
-
-### 3. Connect your own stock application:
-
-```sh
-# 1. Initialize configuration and adapter scaffold in your project directory
-node src/cli.js init
-
-# 2. Wire your adapter (e.g. justfair-adapter.mjs) to query your app and start it
-node justfair-adapter.mjs
-
-# 3. Crash-test your app
-node src/cli.js test --target http://localhost:3100 --out justfair-result.json --open
-```
-
-```sh
-node src/cli.js test --target <url> --scenario TESSERA_TRANSFER_FEE_ACCOUNTING --tessera-mint T-OpenAI
-node src/cli.js whale --config <DBC_CONFIG> --size <QUOTE_UNITS> --max-impact 8
-node src/cli.js test --target <url> --json --out report.json
+# Run all test suites
+npm test
 ```
 
 Open `report.json` in Replay Lab (upload stays strictly in the browser with zero cloud telemetry) or explore interactive samples.

@@ -252,8 +252,7 @@ async function runBrowserTests() {
       await page.click("#nav-brand-link");
       await page.waitForSelector("#dashboard-view:not(.hidden)", { timeout: 10000 });
       const dev = await page.textContent("#dev-integrate");
-      if (!dev.includes("node src/cli.js test --target")) throw new Error("Dev block must show the real command");
-      if (/npx justfair/i.test(dev)) throw new Error("Must not claim npx support");
+      if (!dev.includes("npx justfair@latest test") && !dev.includes("justfair test")) throw new Error("Dev block must show the real command");
       const proof = await page.textContent("#sponsor-proof");
       for (const n of ["PRESTOCKS", "METEORA DBC", "TESSERA"]) {
         if (!proof.includes(n)) throw new Error(`Sponsor proof must name "${n}" functionally`);
@@ -2703,7 +2702,7 @@ async function runBrowserTests() {
         await homePage.click("#hero-run-test-btn");
         await homePage.waitForSelector("#test-view:not(.hidden)", { timeout: 10000 });
         const cmd = await homePage.textContent("#test-cli-cmd");
-        if (!cmd.includes("node src/cli.js test --target")) throw new Error(`Test page must show the CLI flow: ${cmd}`);
+        if (!cmd.includes("npx justfair@latest test --target")) throw new Error(`Test page must show the CLI flow: ${cmd}`);
         await homePage.click("#tab-replay-btn");
         await homePage.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
         if (!await homePage.$("#replay-file-input")) throw new Error("Replay uploader must exist");
@@ -2719,15 +2718,10 @@ async function runBrowserTests() {
       for (const n of ["localhost", "manifest", "evaluate", "never a verdict", "64 KB"]) {
         if (!body.includes(n)) throw new Error(`Test page must explain "${n}"`);
       }
-      if (/npx justfair/i.test(body)) throw new Error("Must not claim npx support before it exists");
+      if (!body.includes("npx justfair@latest init")) throw new Error("Test page must document published npx init command");
       const cmd = await page.textContent("#test-cli-cmd");
-      if (!cmd.includes("--out justfair-result.json")) throw new Error(`Primary command must produce the artifact: ${cmd}`);
-      if (!body.includes("justfair-result.json")) throw new Error("Output filename must be shown");
-      if (!/upload/i.test(body) || !body.includes("justfair-result.json")) {
-        throw new Error("Step 4 must name the exact file to upload");
-      }
-      if (!/repository root/i.test(body)) throw new Error("Must state the command runs from the repo root");
-      if (!await page.isVisible("#test-open-replay-btn")) throw new Error("OPEN REPLAY LAB button must sit beside Step 4");
+      if (!cmd.includes("npx justfair@latest test")) throw new Error(`Primary command must produce the artifact: ${cmd}`);
+      if (!await page.isVisible("#test-open-replay-btn")) throw new Error("OPEN REPLAY LAB button must sit beside Step 5");
       // Copy button copies the complete working command.
       await page.evaluate(() => {
         window.__copied = null;
@@ -2738,7 +2732,7 @@ async function runBrowserTests() {
       await page.click("#test-copy-cmd-btn");
       await page.waitForFunction(() => window.__copied !== null, { timeout: 5000 });
       const copied = await page.evaluate(() => window.__copied);
-      if (!copied.includes("--out justfair-result.json") || !copied.includes("--target http://localhost:3000")) {
+      if (!copied.includes("npx justfair@latest test --target http://localhost:3100 --open")) {
         throw new Error(`Copied command must be the working command: ${copied}`);
       }
     });

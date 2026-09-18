@@ -229,7 +229,7 @@
 
               <div class="example-metric-box">
                 <span class="example-metric-label">RUNNER</span>
-                <span class="example-metric-sub"><code>node src/cli.js test --target http://localhost:3000</code></span>
+                <span class="example-metric-sub"><code>npx justfair@latest test --target http://localhost:3100 --open</code></span>
               </div>
 
               <div class="example-metric-box">
@@ -667,42 +667,55 @@
             <div class="onboarding-step-card">
               <div class="onboarding-step-header">
                 <div class="onboarding-step-badge">STEP 1</div>
-                <h3 class="onboarding-step-title">Clone &amp; install JustFair</h3>
+                <h3 class="onboarding-step-title">Set up JustFair in your project</h3>
               </div>
-              <p class="onboarding-step-desc">Clone the repository and install dependencies from your terminal.</p>
+              <p class="onboarding-step-desc">Initialize configuration and a clean protocol adapter scaffold in your project without cloning JustFair. No repo clone required, no account required, no funds, and no private keys.</p>
               <div class="code-snippet-box">
-                <code class="code-snippet-text" id="cmd-clone">git clone https://github.com/Techkeyy/justfair.git && cd justfair && npm install</code>
-                <button type="button" class="btn btn-secondary btn-sm copy-snippet-btn" data-target="cmd-clone">Copy</button>
+                <code class="code-snippet-text" id="cmd-init">npx justfair@latest init</code>
+                <button type="button" class="btn btn-secondary btn-sm copy-snippet-btn" data-target="cmd-init">Copy</button>
               </div>
-              <p class="onboarding-step-note">All test commands are executed from the repository root.</p>
+              <p class="onboarding-step-note">Creates <code>justfair.config.js</code> and <code>justfair-adapter.mjs</code> in your current directory (refuses to overwrite existing files without confirmation).</p>
             </div>
 
             <!-- Step 2 -->
             <div class="onboarding-step-card">
               <div class="onboarding-step-header">
                 <div class="onboarding-step-badge">STEP 2</div>
-                <h3 class="onboarding-step-title">Initialize adapter scaffold</h3>
+                <h3 class="onboarding-step-title">Connect your app (The Observation Bridge)</h3>
               </div>
-              <p class="onboarding-step-desc">Create <code>justfair.config.js</code> and <code>justfair-adapter.mjs</code> protocol scaffold.</p>
-              <div class="code-snippet-box">
-                <code class="code-snippet-text" id="cmd-init">node src/cli.js init</code>
-                <button type="button" class="btn btn-secondary btn-sm copy-snippet-btn" data-target="cmd-init">Copy</button>
+              <p class="onboarding-step-desc">JustFair needs a small observation adapter that reads values your real application calculates or displays.</p>
+              
+              <div class="mental-model-box">
+                <div class="mental-model-flow">
+                  <span class="mm-node">YOUR STOCK APP</span>
+                  <span class="mm-arrow">&rarr;</span>
+                  <span class="mm-node highlight">OBSERVATION ADAPTER</span>
+                  <span class="mm-arrow">&rarr;</span>
+                  <span class="mm-node">JUSTFAIR</span>
+                  <span class="mm-arrow">&rarr;</span>
+                  <span class="mm-node status">PASS / FAIL / UNABLE</span>
+                </div>
               </div>
-              <p class="onboarding-step-note">Scaffold refuses to overwrite existing files without explicit confirmation.</p>
+
+              <ul class="onboarding-points-list">
+                <li><strong>The adapter is the bridge:</strong> It translates your internal data into raw observations.</li>
+                <li><strong>The adapter is NOT the product being tested:</strong> Your real application supplies the values.</li>
+                <li><strong>Observations only:</strong> Your app supplies what it displays; JustFair owns the financial judgment.</li>
+              </ul>
             </div>
 
             <!-- Step 3 -->
             <div class="onboarding-step-card">
               <div class="onboarding-step-header">
                 <div class="onboarding-step-badge">STEP 3</div>
-                <h3 class="onboarding-step-title">Wire your adapter bridge to your app</h3>
+                <h3 class="onboarding-step-title">Start your app &amp; adapter</h3>
               </div>
-              <p class="onboarding-step-desc">Open <code>justfair-adapter.mjs</code> and query your stock app (e.g. on port 4000). Return <strong>observations only</strong> — JustFair owns the financial verdict.</p>
+              <p class="onboarding-step-desc">Run your application (e.g. on port 4000) and start the observation adapter on localhost (e.g. port 3100).</p>
               <div class="code-snippet-box">
                 <code class="code-snippet-text" id="cmd-run-adapter">node justfair-adapter.mjs</code>
                 <button type="button" class="btn btn-secondary btn-sm copy-snippet-btn" data-target="cmd-run-adapter">Copy</button>
               </div>
-              <p class="onboarding-step-note">Adapter exposes <code>GET /justfair/v1/manifest</code> and <code>POST /justfair/v1/evaluate</code> on localhost (e.g. <code>http://localhost:3000</code> or <code>http://localhost:3100</code>).</p>
+              <p class="onboarding-step-note">Adapter exposes <code>GET /justfair/v1/manifest</code> and <code>POST /justfair/v1/evaluate</code> on localhost (e.g. <code>http://localhost:3100</code>).</p>
             </div>
 
             <!-- Step 4 -->
@@ -711,9 +724,9 @@
                 <div class="onboarding-step-badge">STEP 4</div>
                 <h3 class="onboarding-step-title">Run the financial crash test</h3>
               </div>
-              <p class="onboarding-step-desc">From the repository root, run the test suite against your running adapter. Save the canonical artifact to <code>justfair-result.json</code> or add <code>--open</code> to launch Replay Lab locally.</p>
+              <p class="onboarding-step-desc">Execute scenarios against your running adapter. Compatible scenarios run, incompatible scenarios skip honestly, invariants are evaluated with zero funds and zero signing, and Replay Lab launches locally at <code>127.0.0.1</code>.</p>
               <div class="code-snippet-box">
-                <code class="code-snippet-text" id="test-cli-cmd">node src/cli.js test --target http://localhost:3000 --out justfair-result.json</code>
+                <code class="code-snippet-text" id="test-cli-cmd">npx justfair@latest test --target http://localhost:3100 --open</code>
                 <button type="button" class="btn btn-secondary btn-sm copy-snippet-btn" id="test-copy-cmd-btn" data-target="test-cli-cmd">Copy</button>
               </div>
               <p class="onboarding-step-note">Tests stale equity oracles, PreStocks conversion expiries, Meteora DBC price impact, and Tessera Token-2022 transfer fees.</p>
@@ -723,12 +736,12 @@
             <div class="onboarding-step-card">
               <div class="onboarding-step-header">
                 <div class="onboarding-step-badge">STEP 5</div>
-                <h3 class="onboarding-step-title">Inspect failures, fix app &amp; automate in CI</h3>
+                <h3 class="onboarding-step-title">Fix &rarr; Rerun &rarr; Pass</h3>
               </div>
-              <p class="onboarding-step-desc">When an invariant fails, upload <code>justfair-result.json</code> to Replay Lab to see root cause and remediation guidance. Fix your stock app, re-run to verify PASS (exit code 0), and integrate into CI/CD.</p>
+              <p class="onboarding-step-desc">When an invariant fails, see the exact breakdown: <strong>FAIL &rarr; WHAT HAPPENED &rarr; EXPECTED VS YOUR APP &rarr; ROOT CAUSE &rarr; FIX GUIDANCE &rarr; REPLAY</strong>. Fix your stock app, run the exact same command, and watch it turn green.</p>
               <div class="onboarding-action-row">
                 <button type="button" class="btn btn-secondary btn-sm" id="test-open-replay-btn">Open Replay Lab</button>
-                <span class="onboarding-step-note">Upload your <code>justfair-result.json</code> artifact or view interactive sample replays.</span>
+                <span class="onboarding-step-note">Upload your <code>justfair-result.json</code> artifact manually or explore interactive sample failures.</span>
               </div>
             </div>
           </div>
@@ -753,6 +766,18 @@
           <h2 class="jf-title">Understand a failure.</h2>
           <p class="jf-sub">Inspect financial invariant violations, root causes, and remediation guidance. Your reports stay strictly local in this browser.</p>
 
+          <div class="replay-controls-bar">
+            <label class="btn btn-primary btn-sm replay-upload-label" for="replay-file-input">
+              <span>Open result artifact (.json)</span>
+            </label>
+            <input type="file" id="replay-file-input" accept="application/json,.json" class="hidden">
+            <span class="replay-or">or view sample:</span>
+            <button type="button" class="btn btn-secondary btn-sm replay-sample-btn" data-sample="stale-fail">Stale Oracle Failure</button>
+            <button type="button" class="btn btn-secondary btn-sm replay-sample-btn" data-sample="prestocks-fail">PreStocks Expiry Failure</button>
+            <button type="button" class="btn btn-secondary btn-sm replay-sample-btn" data-sample="tessera-fail">Token-2022 Fee Failure</button>
+            <button type="button" class="btn btn-secondary btn-sm replay-sample-btn" data-sample="stale-pass">Passing Run</button>
+          </div>
+
           <div id="replay-empty-state" class="replay-empty-state">
             <div class="replay-empty-card">
               <div class="replay-empty-icon">
@@ -764,23 +789,10 @@
                   <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
               </div>
-              <h3 class="replay-empty-title">No result artifact loaded</h3>
+              <h3 class="replay-empty-title">Have a JustFair result?</h3>
               <p class="replay-empty-desc">
-                Run <code>justfair test --open</code> from the CLI to automatically load results here, upload a <code>justfair-result.json</code> file, or explore sample scenario failures below.
+                Using <code>npx justfair@latest test --open</code>? Your result opens automatically and stays local. Or select an artifact or sample above.
               </p>
-              <div class="replay-upload-row">
-                <label class="btn btn-primary btn-md replay-upload-label" for="replay-file-input">
-                  <span>OPEN RESULT FILE</span>
-                </label>
-                <input type="file" id="replay-file-input" accept="application/json,.json" class="hidden">
-              </div>
-              <div class="replay-samples-row">
-                <span class="replay-samples-label">Explore sample artifacts:</span>
-                <button type="button" class="btn-link replay-sample-btn" data-sample="stale-fail">Stale oracle failure</button>
-                <button type="button" class="btn-link replay-sample-btn" data-sample="prestocks-fail">PreStocks expiry failure</button>
-                <button type="button" class="btn-link replay-sample-btn" data-sample="tessera-fail">Token-2022 fee failure</button>
-                <button type="button" class="btn-link replay-sample-btn" data-sample="stale-pass">Passing invariant run</button>
-              </div>
             </div>
           </div>
 
