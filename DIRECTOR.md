@@ -290,15 +290,16 @@ Technical proof executed:
 - Repository: `https://github.com/Techkeyy/justfair`
 - Remote: `origin` (`https://github.com/Techkeyy/justfair.git`)
 - Production branch: `main` (tracked)
-- Local commits through `21e237d` (UAT Fix 002 committed and pushed).
+- Local commits through `aadd460` (UAT Fix 002 committed and release pipeline documented).
 
 ## 29. FILES CHANGED RECENTLY
 
 - `21e237d`: `public/index.html` (executable Test page: `--out` command, Step-4 upload wording, repo-root note, OPEN REPLAY LAB button, repo-local adapter paths), `public/styles.css` (step-note style), `test/browser.test.js` (Test page assertions + clipboard copy check + content-aware wait in test 62), `DIRECTOR.md` (UAT Step 2 proof records & current state).
-- Current: `DIRECTOR.md` (GitHub repository and Vercel Git integration release pipeline documented).
+- `aadd460`: `DIRECTOR.md` (GitHub repository and Vercel Git integration release pipeline documented).
 
 ## 30. IMPORTANT COMMITS
 
+`aadd460` docs(pipeline): record GitHub and Vercel Git-integrated release pipeline ·
 `21e237d` feat(test-page): document CLI artifact flow and complete UAT Fix 002 ·
 `32a73b0` docs UAT fixes 001A/001B proof · `860fd8a` one-column hero ·
 `f7d1ecd` remove legacy entry + hero image · `b068310` coherence captures ·
