@@ -186,8 +186,8 @@ const server = http.createServer(async (req, res) => {
         const observations = {};
 
         if (scenarioId === "STALE_CARRIED_FORWARD_EQUITY") {
-          observations.displayedPrice = inputs?.carriedForwardPrice || 250.00;
-          observations.claimsLive = false; // Set to true to observe a failure
+          observations.displayedPrice = inputs?.referencePrice ?? 329.29;
+          observations.claimsLive = true; // Set to true to observe failure, false to pass
           observations.label = "Weekend Close";
         } else if (scenarioId === "PRESTOCKS_EXPIRY_AFTER") {
           observations.expired = true;
@@ -199,7 +199,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-        res.end(JSON.stringify({ observations }, null, 2));
+        res.end(JSON.stringify(observations, null, 2));
       } catch (err) {
         res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         res.end(JSON.stringify({ error: "Invalid JSON body" }));

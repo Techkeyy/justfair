@@ -27,35 +27,45 @@ ADD SMALL ADAPTER → RUN APP LOCALLY → RUN JUSTFAIR CLI
 → FIX → RE-RUN → PASS → (OPTIONAL CI)
 ```
 
-## Quick start (No-Clone Developer Journey)
+## Quick start
 
 Requires Node.js 22+.
 
-### 1. In your own repository (no clone needed):
+### 1. Clone & install JustFair:
 
 ```sh
-# 1. Initialize JustFair scaffold in your project
-npx justfair init
-
-# 2. Start the scaffolded adapter (or wire into your app)
-node justfair-adapter.mjs
-
-# 3. Run the crash test and automatically open Replay Lab locally
-npx justfair test --target http://localhost:3100 --open
+git clone https://github.com/Techkeyy/justfair.git
+cd justfair
+npm install
 ```
 
-### 2. From this repository:
+### 2. Run against a sample target:
 
 ```sh
-npm install
-node examples/adapter-basic/server.mjs naive   # sample target with a real bug
-node src/cli.js test --target http://127.0.0.1:<PORT> --open
+# Start a sample target with a real pricing defect
+node examples/adapter-basic/server.mjs naive
+
+# Run the financial test suite and automatically open Replay Lab locally
+node src/cli.js test --target http://127.0.0.1:3000 --open
 # FAIL STALE_CARRIED_FORWARD_EQUITY, exit 1, replay + fix guidance printed & opened in local Replay Lab
 ```
 
 Fix the target (`correct` mode), run the same command → PASS, exit 0.
 Exit 2 means UNABLE_TO_VERIFY (adapter unreachable/incompatible) — never
 confused with FAIL, never converted to PASS.
+
+### 3. Connect your own stock application:
+
+```sh
+# 1. Initialize configuration and adapter scaffold in your project directory
+node src/cli.js init
+
+# 2. Wire your adapter (e.g. justfair-adapter.mjs) to query your app and start it
+node justfair-adapter.mjs
+
+# 3. Crash-test your app
+node src/cli.js test --target http://localhost:3100 --out justfair-result.json --open
+```
 
 ```sh
 node src/cli.js test --target <url> --scenario TESSERA_TRANSFER_FEE_ACCOUNTING --tessera-mint T-OpenAI

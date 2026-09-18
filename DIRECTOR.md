@@ -252,32 +252,38 @@ footer entry.
 
 ## 24. TEST SUITE STATE
 
-Current verified counts (2026-09-18 UX Upgrade 003 run):
+Current verified counts (2026-09-18 UX Upgrade 003 Correction Gate run):
 - Unit / Scenario / Integration test suite (`npm test` & native suites): 97 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key).
 - CLI test suite (`node --test test/cli.test.js`): 14 PASSED · 0 FAILED (includes `init` scaffold with overwrite protection, `startLocalReportViewer` in-memory serving on 127.0.0.1, and `test --open`).
-- Clean Outside-Repo Proof: Packaged `justfair-1.0.0.tgz` (51 files, 229.2 kB), installed into clean temporary directory outside the repository, executed `npx justfair init`, verified scaffold files, started adapter, ran `npx justfair test --target http://127.0.0.1:3100 --out justfair-result.json`, and verified exact exit codes and disk artifact.
+- Packed-Package Outside-Repo Proof: Packaged `justfair-1.0.0.tgz` (51 files, 229.2 kB), installed into clean temporary directory outside repository, executed `justfair init`, verified scaffold files, started adapter, ran `justfair test --target http://127.0.0.1:3100 --out justfair-result.json`, and verified exact exit codes and disk artifact.
+- Real Developer App Connected Proof (`scratch/full-real-app-proof.mjs`):
+  1. Real Developer Stock App on port 4000 (`http://127.0.0.1:4000/api/stock-display`).
+  2. Adapter bridge on port 3100 deriving observations from port 4000.
+  3. Phase 1 (Buggy App): App claims `isLive: true` for carried-forward weekend close -> `node src/cli.js test --target http://127.0.0.1:3100 --open` exited `1` (FAIL `STALE_REFERENCE_TREATED_AS_LIVE`), ephemeral viewer launched on `http://127.0.0.1:60383/#replay`, `/api/v1/local-artifact` served in-memory report with zero cloud upload.
+  4. Phase 2 (Fixed App): App corrected to `isLive: false` -> exact same test command rerun -> exited `0` (PASS `STALE_CARRIED_FORWARD_EQUITY`), invariant held.
 
 ## 25. OWNER UAT STATE
 
 - UAT STEP 1 — PASS (homepage coherence: one product, no legacy narrative).
 - UAT STEP 2 — PASS (technical proof complete & verified; human UAT revealed onboarding friction).
-- UX UPGRADE 003 — TECHNICAL PROOF COMPLETE · PENDING HUMAN OWNER UAT REVALIDATION:
-  1. No-clone CLI packaging implemented with `"bin": { "justfair": "src/cli.js" }` and clean `files` whitelist (51 files, zero secrets).
+- UX UPGRADE 003 CORRECTION GATE — PROVEN LOCALLY · NPM AUTH BLOCKED:
+  1. Local CLI packaging implemented with `"bin": { "justfair": "src/cli.js" }` and clean `files` whitelist (51 files, zero secrets).
   2. `justfair init` scaffolds `justfair.config.js` and `justfair-adapter.mjs` with overwrite protection.
-  3. `justfair test --target <url> --open` serves Replay Lab locally from memory on ephemeral port `127.0.0.1:0` with zero remote uploads / cloud telemetry.
-  4. `#test-view` rebuilt into a 5-step guided developer onboarding flow with one-click copyable commands.
-  5. Replay Lab empty state modernized to prevent unprompted failure rendering while offering interactive samples and local upload.
+  3. `justfair test --target <url> --open` serves Replay Lab locally from memory on ephemeral port `127.0.0.1:0` with zero remote uploads / cloud telemetry. Windows verified.
+  4. `#test-view` on production and local updated to truthful repository commands (`git clone ... && cd justfair && npm install` + `node src/cli.js ...`) — zero unpublished `npx` commands shown.
+  5. Mental model clarified across website and docs: the adapter is a small bridge that queries the developer's app, not the developer app itself.
+  6. Replay Lab empty state modernized to prevent unprompted failure rendering while offering interactive samples and local upload.
 
 ## 26. CURRENT BLOCKERS
 
-1. Post-UX-003 owner UAT revalidation.
-2. npm registry authentication: npm token in `~/.npmrc` returned 401 Unauthorized against `registry.npmjs.org`. Packaging and local tarball execution are fully functional; public `npx` commands on production are documented accurately.
-3. Final submission materials and final compliance verification.
+1. **npm Registry Publication Blocker**: npm token in `~/.npmrc` returns `401 Unauthorized` against `registry.npmjs.org`. Packaging and local tarball execution are fully functional, but public `npx justfair` commands cannot run for external developers until the package owner authenticates (`npm login`) and publishes (`npm publish`).
+2. Production onboarding copy is safely reconciled to the working clone-based workflow until public npm publication is completed.
+3. Post-correction owner review and decision on npm publish vs clone-based distribution.
 
 ## 27. RELEASE / SUBMISSION BLOCKERS
 
 - GITHUB / PUBLIC DISTRIBUTION: Public repository live at `https://github.com/Techkeyy/justfair`, tracks local `main`, connected to Vercel.
-- NPM REGISTRY DISTRIBUTION: Packaged via npm tarball; registry publication gated on valid npm auth.
+- NPM REGISTRY DISTRIBUTION: Blocked on interactive owner npm authentication (`npm login` / `npm publish`).
 - Deadline contradiction (official page: SEP 25 header vs Sep 18 4pm ET timeline) — build against Sep 18; confirm with organizer.
 
 ## 28. REPOSITORY / GITHUB STATE
@@ -291,12 +297,12 @@ Current verified counts (2026-09-18 UX Upgrade 003 run):
 ## 29. FILES CHANGED RECENTLY
 
 - `package.json`: added binary entrypoint `"bin": { "justfair": "src/cli.js" }`, `"files"` whitelist, keywords, and description.
-- `src/cli.js`: added `runInitCommand` (`justfair init`), `startLocalReportViewer`, and `--open` flag for local Replay Lab viewing.
-- `public/index.html`: updated `#test-view` to 5-step guided developer onboarding; updated `#replay-view` with clean instructional empty state.
+- `src/cli.js`: added `runInitCommand` (`justfair init`), `startLocalReportViewer`, updated scaffold protocol response to return raw observations object directly, and `--open` flag for local Replay Lab viewing.
+- `public/index.html`: updated `#test-view` to 5-step guided developer onboarding using truthful repository commands without unpublished `npx`; updated `#replay-view` with clean instructional empty state.
 - `public/styles.css`: added styles for onboarding step cards, code snippet boxes, and Replay empty state.
 - `public/app.js`: wired snippet copy buttons, report close button, and `/api/v1/local-artifact` local-first auto-open listener.
 - `test/cli.test.js`: added 3 test cases for `init`, `startLocalReportViewer`, and `test --open`.
-- `README.md`: updated quickstart with no-clone developer journey.
+- `README.md`: updated quickstart with tested repository commands.
 
 ## 30. IMPORTANT COMMITS
 
@@ -310,7 +316,7 @@ Current verified counts (2026-09-18 UX Upgrade 003 run):
 ## 31. LOCAL SKILLS USED
 
 `C:\Users\HomePC\Desktop\skill\`. Materially applied this session:
-- `build-process`: implemented `init` command, in-memory local report viewer (`--open`), packaged tarball with `npm pack`, executed clean outside-repo installation in temporary environment, verified scenario execution, and ensured continuous auto-deployment pipeline.
+- `build-process`: implemented `init` command, in-memory local report viewer (`--open`), packed package tarball with `npm pack`, executed clean outside-repo installation in temporary environment, verified scenario execution, and ensured continuous auto-deployment pipeline.
 - `project-understanding`: resolved developer onboarding friction by structuring a clear 5-step journey and zero-egress local Replay Lab viewer.
 - `audit-skill`: verified tarball contents against `.env` and test captures, checked schema compliance, and validated exit codes.
 
@@ -328,11 +334,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-UX UPGRADE 003 READY FOR OWNER UAT.
+UX UPGRADE 003 IMPLEMENTATION PROVEN LOCALLY | PUBLIC DISTRIBUTION BLOCKED BY NPM AUTH | OWNER UAT NOT YET READY.
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Submit UX Upgrade 003 implementation and proofs to Human Owner for UAT revalidation.
+Report NPM OWNER AUTH REQUIRED status to owner, present full outside-app proof and reconciled production commands.
 
 
