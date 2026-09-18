@@ -2712,7 +2712,7 @@ async function runBrowserTests() {
       }
     });
 
-    await test("61. Test page explains local execution without fake browser runs", async () => {
+    await test("61. Test page documents the executable artifact flow truthfully", async () => {
       await page.click("#tab-test-btn");
       await page.waitForSelector("#test-view:not(.hidden)", { timeout: 10000 });
       const body = await page.textContent("#test-view");
@@ -2720,13 +2720,34 @@ async function runBrowserTests() {
         if (!body.includes(n)) throw new Error(`Test page must explain "${n}"`);
       }
       if (/npx justfair/i.test(body)) throw new Error("Must not claim npx support before it exists");
+      const cmd = await page.textContent("#test-cli-cmd");
+      if (!cmd.includes("--out justfair-result.json")) throw new Error(`Primary command must produce the artifact: ${cmd}`);
+      if (!body.includes("justfair-result.json")) throw new Error("Output filename must be shown");
+      if (!/upload/i.test(body) || !body.includes("justfair-result.json")) {
+        throw new Error("Step 4 must name the exact file to upload");
+      }
+      if (!/repository root/i.test(body)) throw new Error("Must state the command runs from the repo root");
+      if (!await page.isVisible("#test-open-replay-btn")) throw new Error("OPEN REPLAY LAB button must sit beside Step 4");
+      // Copy button copies the complete working command.
+      await page.evaluate(() => {
+        window.__copied = null;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText = (t) => { window.__copied = t; return Promise.resolve(); };
+        }
+      });
+      await page.click("#test-copy-cmd-btn");
+      await page.waitForFunction(() => window.__copied !== null, { timeout: 5000 });
+      const copied = await page.evaluate(() => window.__copied);
+      if (!copied.includes("--out justfair-result.json") || !copied.includes("--target http://localhost:3000")) {
+        throw new Error(`Copied command must be the working command: ${copied}`);
+      }
     });
 
     await test("62. Replay Lab: sample failure renders expected/actual/replay/remediation", async () => {
       await page.click("#tab-replay-btn");
       await page.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
       await page.click('.replay-sample-btn[data-sample="stale-fail"]');
-      await page.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
+      await page.waitForFunction(() => document.querySelector("#replay-scenario-detail")?.innerText?.includes("STALE_REFERENCE_TREATED_AS_LIVE"), { timeout: 10000 });
       const badge = await page.textContent("#replay-sample-badge");
       if (!/SAMPLE/.test(badge) || await page.$eval("#replay-sample-badge", el => el.classList.contains("hidden"))) {
         throw new Error("Sample must be explicitly labelled");
@@ -2742,7 +2763,7 @@ async function runBrowserTests() {
     });
     await test("63. Replay Lab: sample pass and malformed upload behave truthfully", async () => {
       await page.click('.replay-sample-btn[data-sample="stale-pass"]');
-      await page.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
+      await page.waitForFunction(() => document.querySelector("#replay-run-counts")?.textContent?.includes("1 passed"), { timeout: 10000 });
       const counts = await page.textContent("#replay-run-counts");
       if (!counts.includes("1 passed")) throw new Error(`Pass counts mismatch: ${counts}`);
       await page.setInputFiles("#replay-file-input", {
@@ -2765,7 +2786,7 @@ async function runBrowserTests() {
 
     await test("63b. Replay Lab: Tessera fee sample renders live on-chain provenance", async () => {
       await page.click('.replay-sample-btn[data-sample="tessera-fail"]');
-      await page.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
+      await page.waitForFunction(() => document.querySelector("#replay-scenario-detail")?.innerText?.includes("TRANSFER_FEE_IGNORED"), { timeout: 10000 });
       const detail = await page.textContent("#replay-scenario-detail");
       for (const n of ["TRANSFER_FEE_IGNORED", "live_tessera_token2022", "998"]) {
         if (!detail.includes(n)) throw new Error(`Tessera sample must show "${n}"`);
@@ -2797,7 +2818,7 @@ async function runBrowserTests() {
         mimeType: "application/json",
         buffer: Buffer.from(JSON.stringify(unableArtifact))
       });
-      await page.waitForSelector("#replay-report:not(.hidden)", { timeout: 10000 });
+      await page.waitForFunction(() => document.querySelector(".replay-scenario-card")?.textContent?.includes("UNABLE_TO_VERIFY"), { timeout: 10000 });
       const card = await page.textContent(".replay-scenario-card");
       if (!/UNABLE_TO_VERIFY/.test(card)) throw new Error("UNABLE card must show its status");
       if (/^PASS/.test(card.trim())) throw new Error("UNABLE must never read as PASS");

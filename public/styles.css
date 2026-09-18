@@ -4301,6 +4301,13 @@ body {
   padding: 2px 8px;
 }
 
+.jf-step-note {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .jf-details {
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);

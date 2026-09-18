@@ -664,17 +664,20 @@
           <ol class="jf-steps">
             <li><strong>Add the tiny adapter</strong> — two endpoints exposing what your app displays.</li>
             <li><strong>Run your app locally</strong> — e.g. <code>http://localhost:3000</code>.</li>
-            <li><strong>Run JustFair</strong> — <code id="test-cli-cmd">node src/cli.js test --target http://localhost:3000</code>
+            <li><strong>Run JustFair</strong> — <code id="test-cli-cmd">node src/cli.js test --target http://localhost:3000 --out justfair-result.json</code>
               <button type="button" class="btn btn-secondary btn-sm" id="test-copy-cmd-btn">Copy command</button>
+              <span class="jf-step-note">Run from the JustFair repository root. Creates <code>justfair-result.json</code> in that folder.</span>
             </li>
-            <li><strong>Open the report</strong> — <button type="button" class="btn-link" id="test-open-replay-btn">open the result in Replay Lab</button>.</li>
+            <li><strong>Open the report</strong> — upload <code>justfair-result.json</code> in Replay Lab.
+              <button type="button" class="btn btn-secondary btn-sm" id="test-open-replay-btn">OPEN REPLAY LAB</button>
+            </li>
           </ol>
           <details class="jf-details">
             <summary class="jf-details-summary">View adapter spec</summary>
             <div class="jf-details-body">
               <p><code>GET /justfair/v1/manifest</code> returns <code>{"adapterVersion": "1", "name": "...", "capabilities": [...]}</code>.</p>
               <p><code>POST /justfair/v1/evaluate</code> receives <code>{"scenarioId", "scenarioVersion", "inputs"}</code> and returns <strong>only observations</strong> — never a verdict. JustFair owns PASS / FAIL.</p>
-              <p>Localhost targets only. Responses capped at 64 KB. See <code>docs/adapter.md</code> and <code>examples/adapter-basic/</code>.</p>
+              <p>Localhost targets only. Responses capped at 64 KB. Full contract in <code>docs/adapter.md</code> and the runnable sample in <code>examples/adapter-basic/</code> — both paths inside the JustFair repository.</p>
             </div>
           </details>
         </section>
