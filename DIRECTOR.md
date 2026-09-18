@@ -245,12 +245,10 @@ footer entry.
 
 ## 23. PRODUCTION URL + DEPLOYMENT STATE
 
-`https://justfair-theta.vercel.app` (Vercel; Node 22; `/api/*` →
-serverless, static → `/public`; no build step). Verified deploy serves
-the coherent homepage, executable Test page (`--out justfair-result.json`,
-repo-root note, Step 4 upload wording), working Replay Lab with live artifact
-upload, live whale endpoint PASS, smoke clean. `npx vercel --prod --yes` is
-the deploy path.
+- Production URL: `https://justfair-theta.vercel.app` (Vercel; Node 22; `/api/*` → serverless, static → `/public`; no build step).
+- Deployment Behavior: Git-integrated auto-deploy on push to `main`.
+- Vercel Project: `prj_tpi4meN9oQoKPi4HIntgPHLAM5yP` (`justfair`), linked to GitHub repository `Techkeyy/justfair` on production branch `main`.
+- Fallback/Debug Deploy Path: `npx vercel --prod --yes`.
 
 ## 24. TEST SUITE STATE
 
@@ -278,48 +276,30 @@ Technical proof executed:
 ## 26. CURRENT BLOCKERS
 
 1. UAT Step 2 director/owner review & signoff (see §25).
-2. Public developer distribution / GitHub unresolved (see §27).
-3. Remaining owner UAT (owner/human authority; Steps beyond 2).
-4. Final submission materials and final compliance verification.
+2. Remaining owner UAT (owner/human authority; Steps beyond 2).
+3. Final submission materials and final compliance verification.
 
 ## 27. RELEASE / SUBMISSION BLOCKERS
 
-- GITHUB / PUBLIC DISTRIBUTION: RELEASE-QUALITY BLOCKER / STRONGLY
-  DESIRED — not an official eligibility blocker. Official submission
-  guidance lists GitHub Repo, Live Demo, Pitch Video, Technical Video,
-  Team Members, and Sponsor Tracks (up to 3) all as Optional. Separately:
-  the documented CLI requires the JustFair repository, so an external
-  developer/judge needs a practical way to obtain the code (`gh auth
-  status` = logged in as Techkeyy, but `techkeyy/justfair` does not
-  resolve and no justfair repo exists in the account; no remote added,
-  nothing created/pushed).
-- Deadline contradiction (official page: SEP 25 header vs Sep 18 4pm ET
-  timeline) — build against Sep 18; confirm with organizer.
-- PUBLIC DEVELOPER DISTRIBUTION: BLOCKED until repository/package access is
-  resolved (CLI documented truthfully as repo-root command; no npx/global
-  claimed; no download link invented).
+- GITHUB / PUBLIC DISTRIBUTION: RESOLVED (Public repository live at `https://github.com/Techkeyy/justfair`, tracks local `main`, connected to Vercel).
+- Deadline contradiction (official page: SEP 25 header vs Sep 18 4pm ET timeline) — build against Sep 18; confirm with organizer.
 
 ## 28. REPOSITORY / GITHUB STATE
 
-Branch `main`, local commits through `32a73b0` (see §30). No remote
-configured (see §26.2). Uncommitted at last check: `DIRECTOR.md`,
-`public/index.html`, `public/styles.css`, `test/browser.test.js` (the UAT
-Fix 002 tree — commit only when director orders). No untracked files.
-Evidence PNGs churn on every browser run (browser regenerates captures).
+- GitHub: PUBLIC / CONNECTED
+- Repository: `https://github.com/Techkeyy/justfair`
+- Remote: `origin` (`https://github.com/Techkeyy/justfair.git`)
+- Production branch: `main` (tracked)
+- Local commits through `21e237d` (UAT Fix 002 committed and pushed).
 
 ## 29. FILES CHANGED RECENTLY
 
-UAT Fix 002 tree (uncommitted): `public/index.html` (executable Test page:
-`--out` command, Step-4 upload wording, repo-root note, OPEN REPLAY LAB
-button, repo-local adapter paths), `public/styles.css` (step-note style),
-`test/browser.test.js` (rewritten Test-page test incl. real clipboard-copy
-assertion; content-aware wait for replay detail async load), `DIRECTOR.md`
-(UAT Step 2 proof records & current state). Prior: homepage coherence
-rebuild, hero one-column, Tessera scenario + sample, Replay/DBC surfaces,
-whale endpoint, SDK dep additions.
+- `21e237d`: `public/index.html` (executable Test page: `--out` command, Step-4 upload wording, repo-root note, OPEN REPLAY LAB button, repo-local adapter paths), `public/styles.css` (step-note style), `test/browser.test.js` (Test page assertions + clipboard copy check + content-aware wait in test 62), `DIRECTOR.md` (UAT Step 2 proof records & current state).
+- Current: `DIRECTOR.md` (GitHub repository and Vercel Git integration release pipeline documented).
 
 ## 30. IMPORTANT COMMITS
 
+`21e237d` feat(test-page): document CLI artifact flow and complete UAT Fix 002 ·
 `32a73b0` docs UAT fixes 001A/001B proof · `860fd8a` one-column hero ·
 `f7d1ecd` remove legacy entry + hero image · `b068310` coherence captures ·
 `de0ff38`, `9b2fe42` homepage coherence records · `85d4bf7` single coherent
@@ -335,9 +315,9 @@ Phase 0 baseline. (Full log: `git log --oneline`.)
 ## 31. LOCAL SKILLS USED
 
 `C:\Users\HomePC\Desktop\skill\`. Materially applied this session:
-- `build-process`: verified against reality with real fixture server (`examples/adapter-basic/server.mjs naive`), executed real CLI command, captured exit code, verified disk artifact, and uploaded fresh file to live production Replay Lab. Zero mocked proof.
+- `build-process`: verified against reality with real fixture server (`examples/adapter-basic/server.mjs naive`), executed real CLI command, captured exit code, verified disk artifact, uploaded fresh file to live production Replay Lab, created real public GitHub repo, connected existing Vercel project to Git, and verified auto-deployment pipeline. Zero mocked proof.
 - `project-understanding`: preserved exact product thesis, sponsor scope, and contract boundaries without scope inflation.
-- `audit-skill`: verified production deployment, live Test page text, copy command clipboard behavior, and verified test suites.
+- `audit-skill`: verified repository hygiene, absence of secrets, production deployment, live Test page text, copy command clipboard behavior, and verified test suites.
 
 ## 32. OFFICIAL DOCS / SOURCES THAT GOVERN CURRENT IMPLEMENTATION
 
@@ -364,11 +344,12 @@ surface; Replay text-only rendering; green baselines (§24).
 ## 34. CURRENT BUILD STATUS
 
 BUILDING. UAT Step 1 PASS; UAT Step 2 TECHNICAL PROOF COMPLETE, DIRECTOR/OWNER
-REVIEW PENDING (§25). Never report DONE, FINISHED, PRODUCTION READY, or
-SUBMISSION READY — owner human UAT is final authority.
+REVIEW PENDING (§25). Release pipeline connected (GitHub + Vercel Git auto-deploy).
+Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner
+human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
 Await Director/Owner review and authorization on UAT Step 2. Do not proceed to
-UAT Step 3 or add features until directed. Commit UAT Fix 002 tree only when
-director orders.
+UAT Step 3 or add features until directed.
+
