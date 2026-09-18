@@ -300,8 +300,8 @@ None. All technical, packaging, npm registry distribution, and test validation g
 
 ## 29. FILES CHANGED RECENTLY
 
+- `public/index.html`: updated `#test-view` onboarding copy per Owner UAT: truthful headline without claiming completion time, accurate description of deterministic scenarios and real market infra, and accurate `init` non-interactive skip notice.
 - `package.json`: normalized repository URL via `npm pkg fix`, published `justfair@1.0.0` to npm registry.
-- `public/index.html`: restored 5-step `npx justfair@latest` developer onboarding on `#test-view` with mental model flow diagram; updated persistent Replay Lab controls bar and empty state.
 - `public/styles.css`: added styles for onboarding steps, code snippets, mental model diagram, and Replay Lab empty state.
 - `public/app.js`: wired snippet copy buttons, report close button, and `/api/v1/local-artifact` local-first auto-open listener.
 - `README.md`: separated into "Using JustFair (No-Clone Developer Journey)" and "Contributing to JustFair".
@@ -322,7 +322,7 @@ None. All technical, packaging, npm registry distribution, and test validation g
 `C:\Users\HomePC\Desktop\skill\`. Materially applied this session:
 - `build-process`: verified public npm release, ran real developer app FAIL -> Fix -> PASS lifecycle against registry package, and executed complete multi-suite regression.
 - `project-understanding`: restored developer mental model and seamless no-clone onboarding flow across production surfaces.
-- `audit-skill`: verified registry tarball manifest, confirmed zero secret leaks, and validated all 155 automated tests.
+- `audit-skill`: verified registry tarball manifest, confirmed zero secret leaks, and validated all test suites.
 
 ## 32. OFFICIAL DOCS / SOURCES THAT GOVERN CURRENT IMPLEMENTATION
 
@@ -338,11 +338,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-UX UPGRADE 003 READY FOR OWNER UAT — PUBLIC NPM VERIFIED.
+UX UPGRADE 003 — OWNER UAT COPY CORRECTIONS APPLIED.
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Present UX Upgrade 003 public npm release verification, real-app FAIL -> Fix -> PASS proof, and restored production onboarding to owner for human UAT.
+Commit and push copy fixes to `origin main`, verify live production on `https://justfair-theta.vercel.app`, and present to owner for final human UAT.
 
 
