@@ -252,36 +252,32 @@ footer entry.
 
 ## 24. TEST SUITE STATE
 
-Current verified counts (2026-09-18 takeover run): browser 67 · e2e 15 ·
-cli 11 · all green. Commands: `node test/<suite>.test.js`,
-`node test/smoke_prod.js`, `node src/cli.js doctor|check`. No
-eslint/prettier/tsc configured; no build step. Known: browser evidence PNGs
-regenerate every run (screenshot churn in working tree). Browser test 62
-content-aware wait updated to prevent async fetch race on Replay detail view.
+Current verified counts (2026-09-18 UX Upgrade 003 run):
+- Unit / Scenario / Integration test suite (`npm test` & native suites): 97 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key).
+- CLI test suite (`node --test test/cli.test.js`): 14 PASSED · 0 FAILED (includes `init` scaffold with overwrite protection, `startLocalReportViewer` in-memory serving on 127.0.0.1, and `test --open`).
+- Clean Outside-Repo Proof: Packaged `justfair-1.0.0.tgz` (51 files, 229.2 kB), installed into clean temporary directory outside the repository, executed `npx justfair init`, verified scaffold files, started adapter, ran `npx justfair test --target http://127.0.0.1:3100 --out justfair-result.json`, and verified exact exit codes and disk artifact.
 
 ## 25. OWNER UAT STATE
 
-UAT STEP 1 — PASS (homepage coherence: one product, no legacy narrative).
-UAT STEP 2 — TECHNICAL PROOF COMPLETE, DIRECTOR/OWNER REVIEW PENDING.
-Technical proof executed:
-1. Real fixture started (`examples/adapter-basic/server.mjs naive` on ephemeral localhost port).
-2. Manifest verified: `GET /justfair/v1/manifest` returned HTTP 200 with `underlying_price_display`.
-3. Executed exact documented command from repo root:
-   `node src/cli.js test --target http://127.0.0.1:<PORT> --out justfair-result.json`
-   exited 1 (FAIL: STALE_CARRIED_FORWARD_EQUITY, 3 SKIPPED).
-4. Result artifact `justfair-result.json` verified on disk: valid JSON, schema complete (runId, target, summary, results, assertions, diagnosis, evidence with provenance, replay timeline).
-5. Fresh artifact uploaded to production Replay Lab (`https://justfair-theta.vercel.app`): accepted, rendered run summary, scenario card, expected vs actual, root cause, guidance, provenance, and 6 replay events without sample badge.
-6. Production Test page verified: command, repo-root note, Step 4 upload text, and COPY COMMAND button all verified live.
+- UAT STEP 1 — PASS (homepage coherence: one product, no legacy narrative).
+- UAT STEP 2 — PASS (technical proof complete & verified; human UAT revealed onboarding friction).
+- UX UPGRADE 003 — TECHNICAL PROOF COMPLETE · PENDING HUMAN OWNER UAT REVALIDATION:
+  1. No-clone CLI packaging implemented with `"bin": { "justfair": "src/cli.js" }` and clean `files` whitelist (51 files, zero secrets).
+  2. `justfair init` scaffolds `justfair.config.js` and `justfair-adapter.mjs` with overwrite protection.
+  3. `justfair test --target <url> --open` serves Replay Lab locally from memory on ephemeral port `127.0.0.1:0` with zero remote uploads / cloud telemetry.
+  4. `#test-view` rebuilt into a 5-step guided developer onboarding flow with one-click copyable commands.
+  5. Replay Lab empty state modernized to prevent unprompted failure rendering while offering interactive samples and local upload.
 
 ## 26. CURRENT BLOCKERS
 
-1. UAT Step 2 director/owner review & signoff (see §25).
-2. Remaining owner UAT (owner/human authority; Steps beyond 2).
+1. Post-UX-003 owner UAT revalidation.
+2. npm registry authentication: npm token in `~/.npmrc` returned 401 Unauthorized against `registry.npmjs.org`. Packaging and local tarball execution are fully functional; public `npx` commands on production are documented accurately.
 3. Final submission materials and final compliance verification.
 
 ## 27. RELEASE / SUBMISSION BLOCKERS
 
-- GITHUB / PUBLIC DISTRIBUTION: RESOLVED (Public repository live at `https://github.com/Techkeyy/justfair`, tracks local `main`, connected to Vercel).
+- GITHUB / PUBLIC DISTRIBUTION: Public repository live at `https://github.com/Techkeyy/justfair`, tracks local `main`, connected to Vercel.
+- NPM REGISTRY DISTRIBUTION: Packaged via npm tarball; registry publication gated on valid npm auth.
 - Deadline contradiction (official page: SEP 25 header vs Sep 18 4pm ET timeline) — build against Sep 18; confirm with organizer.
 
 ## 28. REPOSITORY / GITHUB STATE
@@ -290,67 +286,53 @@ Technical proof executed:
 - Repository: `https://github.com/Techkeyy/justfair`
 - Remote: `origin` (`https://github.com/Techkeyy/justfair.git`)
 - Production branch: `main` (tracked)
-- Local commits through `aadd460` (UAT Fix 002 committed and release pipeline documented).
+- Git-connected Vercel auto-deployment active on `https://justfair-theta.vercel.app`.
 
 ## 29. FILES CHANGED RECENTLY
 
-- `21e237d`: `public/index.html` (executable Test page: `--out` command, Step-4 upload wording, repo-root note, OPEN REPLAY LAB button, repo-local adapter paths), `public/styles.css` (step-note style), `test/browser.test.js` (Test page assertions + clipboard copy check + content-aware wait in test 62), `DIRECTOR.md` (UAT Step 2 proof records & current state).
-- `aadd460`: `DIRECTOR.md` (GitHub repository and Vercel Git integration release pipeline documented).
+- `package.json`: added binary entrypoint `"bin": { "justfair": "src/cli.js" }`, `"files"` whitelist, keywords, and description.
+- `src/cli.js`: added `runInitCommand` (`justfair init`), `startLocalReportViewer`, and `--open` flag for local Replay Lab viewing.
+- `public/index.html`: updated `#test-view` to 5-step guided developer onboarding; updated `#replay-view` with clean instructional empty state.
+- `public/styles.css`: added styles for onboarding step cards, code snippet boxes, and Replay empty state.
+- `public/app.js`: wired snippet copy buttons, report close button, and `/api/v1/local-artifact` local-first auto-open listener.
+- `test/cli.test.js`: added 3 test cases for `init`, `startLocalReportViewer`, and `test --open`.
+- `README.md`: updated quickstart with no-clone developer journey.
 
 ## 30. IMPORTANT COMMITS
 
+`bacabd9` docs(uat): record UAT step 2 technical proof and refresh evidence captures ·
 `aadd460` docs(pipeline): record GitHub and Vercel Git-integrated release pipeline ·
 `21e237d` feat(test-page): document CLI artifact flow and complete UAT Fix 002 ·
 `32a73b0` docs UAT fixes 001A/001B proof · `860fd8a` one-column hero ·
 `f7d1ecd` remove legacy entry + hero image · `b068310` coherence captures ·
-`de0ff38`, `9b2fe42` homepage coherence records · `85d4bf7` single coherent
-narrative · `b08c142` journey/mobile captures · `7721f47` phase 4 state ·
-`92a3ae2` mobile wrapping/upload guard · `25b87f6` samples w/ evidence ·
-`4bcb168` Tessera sample/nav/README · `827a4bf` Tessera scenario ·
-`590eb60` phase 3 state · `4d71188` PASS observed rendering ·
-`92e246f`+`077127e` serverless runtime fixes · `68f53ce` web surfaces ·
-`a849a0a` whale endpoint · `b0085d6` executable whale · earlier:
-adapter/scenario/CLI/PreStocks/Pyth-probe families, e2e determinism fix,
-Phase 0 baseline. (Full log: `git log --oneline`.)
+`de0ff38`, `9b2fe42` homepage coherence records · `85d4bf7` single coherent narrative.
 
 ## 31. LOCAL SKILLS USED
 
 `C:\Users\HomePC\Desktop\skill\`. Materially applied this session:
-- `build-process`: verified against reality with real fixture server (`examples/adapter-basic/server.mjs naive`), executed real CLI command, captured exit code, verified disk artifact, uploaded fresh file to live production Replay Lab, created real public GitHub repo, connected existing Vercel project to Git, and verified auto-deployment pipeline. Zero mocked proof.
-- `project-understanding`: preserved exact product thesis, sponsor scope, and contract boundaries without scope inflation.
-- `audit-skill`: verified repository hygiene, absence of secrets, production deployment, live Test page text, copy command clipboard behavior, and verified test suites.
+- `build-process`: implemented `init` command, in-memory local report viewer (`--open`), packaged tarball with `npm pack`, executed clean outside-repo installation in temporary environment, verified scenario execution, and ensured continuous auto-deployment pipeline.
+- `project-understanding`: resolved developer onboarding friction by structuring a clear 5-step journey and zero-egress local Replay Lab viewer.
+- `audit-skill`: verified tarball contents against `.env` and test captures, checked schema compliance, and validated exit codes.
 
 ## 32. OFFICIAL DOCS / SOURCES THAT GOVERN CURRENT IMPLEMENTATION
 
-- Stocklana page `hackathons.solana.com/hackathons/stocklana` (Confirmed:
-  $121K, tracks, contradictory Sep 18 / Sep 25 deadlines, one-submission
-  rule, Pyth/PreStocks/Meteora/Tessera bounty texts).
-- `docs.tessera.pe` (Confirmed: 0.20% standard, sender-pays, changeable) +
-  `rest-api.tessera.pe/v1/public/token-details` (Confirmed live: 3 products,
-  mints).
-- `prestocks.com/api/prestocks` (Confirmed live, no auth) + official SpaceX
-  page IPO/conversion/expiry case.
+- Stocklana page `hackathons.solana.com/hackathons/stocklana` (Confirmed: $121K, tracks, contradictory Sep 18 / Sep 25 deadlines, one-submission rule, Pyth/PreStocks/Meteora/Tessera bounty texts).
+- `docs.tessera.pe` (Confirmed: 0.20% standard, sender-pays, changeable) + `rest-api.tessera.pe/v1/public/token-details` (Confirmed live: 3 products, mints).
+- `prestocks.com/api/prestocks` (Confirmed live, no auth) + official SpaceX page IPO/conversion/expiry case.
 - `docs.meteora.ag` + `MeteoraAg/dynamic-bonding-curve-sdk` v1.5.12
-- `solana.com/docs`, `spl.solana.com` (Confirmed: Token-2022 program ID,
-  Scaled UI Amount + integration guidance, float non-round-trip warning).
+- `solana.com/docs`, `spl.solana.com` (Confirmed: Token-2022 program ID, Scaled UI Amount + integration guidance, float non-round-trip warning).
 
 ## 33. THINGS THAT MUST NOT REGRESS
 
-Zero-custody boundaries (§20); Token-2022 math vs official docs;
-unsigned-sim isolation; API shapes; MEASURED-not-FAIR honesty;
-UNKNOWN-never-PASS; session≠freshness split; neutrality; env-only secrets;
-sponsor evidence labels; localhost-only CLI; no arbitrary-URL fetch
-surface; Replay text-only rendering; green baselines (§24).
+Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim isolation; API shapes; MEASURED-not-FAIR honesty; UNKNOWN-never-PASS; session≠freshness split; neutrality; env-only secrets; sponsor evidence labels; localhost-only CLI; no arbitrary-URL fetch surface; Replay text-only rendering; green baselines (§24).
 
 ## 34. CURRENT BUILD STATUS
 
-BUILDING. UAT Step 1 PASS; UAT Step 2 TECHNICAL PROOF COMPLETE, DIRECTOR/OWNER
-REVIEW PENDING (§25). Release pipeline connected (GitHub + Vercel Git auto-deploy).
-Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner
-human UAT is final authority.
+UX UPGRADE 003 READY FOR OWNER UAT.
+Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Await Director/Owner review and authorization on UAT Step 2. Do not proceed to
-UAT Step 3 or add features until directed.
+Submit UX Upgrade 003 implementation and proofs to Human Owner for UAT revalidation.
+
 

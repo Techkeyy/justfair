@@ -5,13 +5,236 @@ import { SUPPORTED_PAYMENTS, SUPPORTED_STOCKS } from "./config.js";
 import { runScenario } from "./scenarios/scenario.js";
 import { SCENARIOS, findScenario } from "./scenarios/index.js";
 import { fetchManifest } from "./scenarios/adapter.js";
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync, readFileSync, statSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import http from "node:http";
+import path, { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawn } from "node:child_process";
 
 const args = process.argv.slice(2);
 const command = args[0] || "check";
 
+export function openBrowser(url) {
+  try {
+    if (process.platform === "win32") {
+      spawn("cmd.exe", ["/c", "start", "", url], { detached: true, stdio: "ignore" });
+    } else if (process.platform === "darwin") {
+      spawn("open", [url], { detached: true, stdio: "ignore" });
+    } else {
+      spawn("xdg-open", [url], { detached: true, stdio: "ignore" });
+    }
+  } catch {
+    // Non-fatal if headless/sandboxed
+  }
+}
+
+/**
+ * Starts an ephemeral local HTTP server serving Replay Lab on 127.0.0.1:0.
+ * Serves the result artifact in-memory with zero remote upload / telemetry.
+ */
+export function startLocalReportViewer(artifact, options = {}) {
+  return new Promise((resolve, reject) => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const publicDir = path.resolve(__dirname, "../public");
+
+    const mimeTypes = {
+      ".html": "text/html; charset=utf-8",
+      ".js": "application/javascript; charset=utf-8",
+      ".mjs": "application/javascript; charset=utf-8",
+      ".css": "text/css; charset=utf-8",
+      ".json": "application/json; charset=utf-8",
+      ".svg": "image/svg+xml",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".ico": "image/x-icon"
+    };
+
+    const server = http.createServer((req, res) => {
+      const parsedUrl = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
+      const pathname = parsedUrl.pathname;
+
+      if (req.method === "GET" && pathname === "/api/v1/local-artifact") {
+        res.writeHead(200, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          "Access-Control-Allow-Origin": "*"
+        });
+        res.end(JSON.stringify(artifact, null, 2));
+        return;
+      }
+
+      if (req.method === "GET" && pathname === "/api/v1/health") {
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ status: "OK", mode: "local-viewer" }));
+        return;
+      }
+
+      // Serve static files from publicDir
+      let reqPath = pathname === "/" ? "/index.html" : pathname;
+      const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, "");
+      let filePath = path.join(publicDir, safePath);
+
+      if (!existsSync(filePath) || (existsSync(filePath) && statSync(filePath).isDirectory())) {
+        filePath = path.join(publicDir, "index.html");
+      }
+
+      if (!existsSync(filePath)) {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        res.end("Not Found");
+        return;
+      }
+
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = mimeTypes[ext] || "application/octet-stream";
+
+      try {
+        const content = readFileSync(filePath);
+        res.writeHead(200, {
+          "Content-Type": contentType,
+          "Cache-Control": "no-cache",
+          "Access-Control-Allow-Origin": "*"
+        });
+        res.end(content);
+      } catch {
+        res.writeHead(500, { "Content-Type": "text/plain" });
+        res.end("Internal Server Error");
+      }
+    });
+
+    const port = options.port || 0;
+    server.listen(port, "127.0.0.1", () => {
+      const addr = server.address();
+      const actualPort = typeof addr === "object" ? addr.port : port;
+      const url = `http://127.0.0.1:${actualPort}`;
+      resolve({ server, port: actualPort, url, close: () => new Promise(r => server.close(r)) });
+    });
+
+    server.on("error", reject);
+  });
+}
+
+/**
+ * Scaffolds justfair.config.js and justfair-adapter.mjs in the target directory.
+ * Refuses to overwrite existing files.
+ */
+export async function runInitCommand(flagArgs = [], cwd = process.cwd()) {
+  console.log("=== JustFair Scaffold Initializer ===\n");
+  const configPath = path.join(cwd, "justfair.config.js");
+  const adapterPath = path.join(cwd, "justfair-adapter.mjs");
+
+  let createdConfig = false;
+  let createdAdapter = false;
+
+  if (existsSync(configPath)) {
+    console.log("[EXISTS] justfair.config.js already exists. Skipping.");
+  } else {
+    const configContent = `// JustFair Configuration
+export default {
+  target: "http://localhost:3100",
+  scenarios: [
+    "STALE_CARRIED_FORWARD_EQUITY",
+    "PRESTOCKS_EXPIRY_AFTER",
+    "DBC_OPENING_WHALE",
+    "TESSERA_TRANSFER_FEE_ACCOUNTING"
+  ]
+};
+`;
+    writeFileSync(configPath, configContent, "utf-8");
+    console.log("[CREATED] justfair.config.js");
+    createdConfig = true;
+  }
+
+  if (existsSync(adapterPath)) {
+    console.log("[EXISTS] justfair-adapter.mjs already exists. Skipping.");
+  } else {
+    const adapterContent = `// JustFair Protocol Adapter Scaffold
+// Minimal standalone adapter server exposing GET /justfair/v1/manifest and POST /justfair/v1/evaluate.
+import http from "node:http";
+
+const PORT = process.env.PORT || 3100;
+
+const MANIFEST = {
+  adapterVersion: "1",
+  name: "Sample App Adapter",
+  capabilities: [
+    "underlying_price_display",
+    "prestocks_lifecycle_display",
+    "token2022_fee_display"
+  ]
+};
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, \`http://\${req.headers.host}\`);
+
+  if (req.method === "GET" && url.pathname === "/justfair/v1/manifest") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(MANIFEST, null, 2));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/justfair/v1/evaluate") {
+    let body = "";
+    req.on("data", chunk => { body += chunk; });
+    req.on("end", () => {
+      try {
+        const payload = JSON.parse(body || "{}");
+        const { scenarioId, scenarioVersion, inputs } = payload;
+
+        // Return OBSERVATIONS ONLY (what your UI/contract shows). Never return a verdict.
+        const observations = {};
+
+        if (scenarioId === "STALE_CARRIED_FORWARD_EQUITY") {
+          observations.displayedPrice = inputs?.carriedForwardPrice || 250.00;
+          observations.claimsLive = false; // Set to true to observe a failure
+          observations.label = "Weekend Close";
+        } else if (scenarioId === "PRESTOCKS_EXPIRY_AFTER") {
+          observations.expired = true;
+          observations.conversionRequired = true;
+          observations.ordinaryValuation = 0;
+        } else if (scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING") {
+          const gross = Number(inputs?.transferAmountUnits || 1000);
+          observations.reportedNetRecipientAmount = gross; // Return net received amount
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ observations }, null, 2));
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+      }
+    });
+    return;
+  }
+
+  res.writeHead(404, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ error: "Not Found" }));
+});
+
+server.listen(PORT, "127.0.0.1", () => {
+  console.log(\`JustFair Adapter running at http://127.0.0.1:\${PORT}\`);
+  console.log(\`Manifest: http://127.0.0.1:\${PORT}/justfair/v1/manifest\`);
+});
+`;
+    writeFileSync(adapterPath, adapterContent, "utf-8");
+    console.log("[CREATED] justfair-adapter.mjs");
+    createdAdapter = true;
+  }
+
+  console.log("\nJustFair Scaffold Ready.");
+  console.log("Next steps:");
+  console.log("  1. Start your local adapter: node justfair-adapter.mjs");
+  console.log("  2. Run financial crash test: justfair test --target http://localhost:3100 --open\n");
+  process.exitCode = 0;
+  return { createdConfig, createdAdapter, configPath, adapterPath };
+}
+
 async function main() {
+  if (command === "init") {
+    await runInitCommand(args.slice(1));
+    return;
+  }
   if (command === "test") {
     await runScenarioCommand(args.slice(1));
     return;
@@ -50,6 +273,27 @@ async function main() {
     return;
   }
 
+  if (command === "--help" || command === "-h" || command === "help") {
+    console.log(`JustFair CLI — Financial-correctness crash testing
+
+Commands:
+  init                           Scaffold justfair.config.js and justfair-adapter.mjs
+  test --target <url> [--open]   Run scenario audit against local adapter
+  whale --config <addr> ...      Run Meteora DBC opening liquidity stress test
+  doctor                         Run diagnostic health checks
+  check [--input S] [--stock S]  Run preflight quote verification
+
+Options for 'test':
+  --target <url>                 Local adapter URL (e.g. http://localhost:3100)
+  --open                         Open local interactive Replay Lab viewer (127.0.0.1)
+  --scenario <id>                Run a specific scenario ID only
+  --out <file>                   Write result artifact to a JSON file
+  --json                         Emit result artifact to stdout as JSON
+  --tessera-mint <symbol|mint>   Enable live Tessera Token-2022 transfer fee audit
+`);
+    return;
+  }
+
   // Parse check arguments
   let inputSymbol = "USDC";
   let stockSymbol = "AAPLx";
@@ -84,18 +328,19 @@ async function main() {
 
 /**
  * Local scenario runner: `node src/cli.js test --target <url>
- * [--scenario ID] [--json] [--out file]`.
+ * [--open] [--scenario ID] [--json] [--out file]`.
  * Phase 2: localhost/loopback targets only. Exit 0 = all PASS,
  * 1 = any FAIL, 2 = could not verify (config/adapter/infra).
  * Exported for in-process testing (same code path as the CLI).
  */
-export async function runScenarioCommand(flagArgs) {
+export async function runScenarioCommand(flagArgs, options = {}) {
   let target = null;
   let scenarioId = null;
   let asJson = false;
   let outFile = null;
   let tesseraMint = null;
   let tesseraAmount = "1000";
+  let openViewer = false;
   const takeValue = (idx) => {
     const next = flagArgs[idx + 1];
     if (next && !next.startsWith("--")) return { value: next, nextIndex: idx + 1 };
@@ -106,6 +351,7 @@ export async function runScenarioCommand(flagArgs) {
     else if (flagArgs[i] === "--scenario") { const r = takeValue(i); if (r.value) scenarioId = r.value; i = r.nextIndex; }
     else if (flagArgs[i] === "--json") asJson = true;
     else if (flagArgs[i] === "--out") { const r = takeValue(i); if (r.value) outFile = r.value; i = r.nextIndex; }
+    else if (flagArgs[i] === "--open") openViewer = true;
     else if (flagArgs[i] === "--tessera-mint") {
       const r = takeValue(i);
       tesseraMint = r.value || "T-OpenAI";
@@ -114,7 +360,7 @@ export async function runScenarioCommand(flagArgs) {
     else if (flagArgs[i] === "--tessera-amount") { const r = takeValue(i); if (r.value) tesseraAmount = r.value; i = r.nextIndex; }
   }
   if (!target) {
-    console.error("Usage: node src/cli.js test --target http://localhost:PORT [--scenario ID] [--json] [--out file]");
+    console.error("Usage: node src/cli.js test --target http://localhost:PORT [--open] [--scenario ID] [--json] [--out file]");
     process.exitCode = 2;
     return;
   }
@@ -221,12 +467,30 @@ export async function runScenarioCommand(flagArgs) {
     console.log(`${passed} passed · ${failed} failed · ${unable} unable${skipped.length ? ` · ${skipped.length} skipped` : ""}\n`);
   }
 
+  let viewerResult = null;
+  if (openViewer) {
+    viewerResult = await startLocalReportViewer(artifact);
+    if (!asJson) {
+      console.log(`[JustFair] Local Replay Lab viewer started at ${viewerResult.url}/#replay`);
+      console.log("[JustFair] Report served in-memory (zero cloud uploads).");
+    }
+    openBrowser(`${viewerResult.url}/#replay`);
+    if (options.keepAlive !== false && process.env.NODE_ENV !== "test") {
+      console.log("[JustFair] Press Ctrl+C to stop local viewer.\n");
+      // Keep process alive unless in tests
+      await new Promise(() => {});
+    }
+  }
+
   if (failed > 0) process.exitCode = 1;
   else if (unable > 0 || passed === 0) process.exitCode = 2;
   else process.exitCode = 0;
+
+  return { artifact, viewer: viewerResult };
 }
 
-function describeObserved(result) {  const d = result.diagnosis || {};
+function describeObserved(result) {
+  const d = result.diagnosis || {};
   if (d.actual && typeof d.actual === "object") {
     const parts = [];
     for (const [k, v] of Object.entries(d.actual)) {
@@ -300,12 +564,10 @@ export async function runWhaleCommand(flagArgs) {
   process.exitCode = result.status === "PASS" ? 0 : result.status === "FAIL" ? 1 : 2;
 }
 
-/**
- * DBC whale check: `node src/cli.js whale --config ADDR --size UNITS
- * --max-impact PCT [--rpc URL] [--json] [--out file]`.
- * Read-only Meteora quote math over a live config. Exit 0/1/2 = PASS/FAIL/UNABLE.
- */
-main().catch(err => {
-  console.error("Fatal CLI Error:", err);
-  process.exit(1);
-});
+// Only execute main() automatically when invoked directly as CLI
+if (process.argv[1] && (process.argv[1].endsWith("cli.js") || process.argv[1].endsWith("justfair"))) {
+  main().catch(err => {
+    console.error("Fatal CLI Error:", err);
+    process.exit(1);
+  });
+}

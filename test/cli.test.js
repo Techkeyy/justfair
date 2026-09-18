@@ -150,3 +150,83 @@ test("cli tessera correct PASSES (live fee state)", async () => {
     await closeFixtureTarget(h);
   }
 });
+
+test("cli init scaffolds justfair.config.js and justfair-adapter.mjs without overwriting", async () => {
+  const { runInitCommand } = await import("../src/cli.js");
+  const { mkdtempSync, rmSync, readFileSync, existsSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const path = await import("node:path");
+
+  const tempDir = mkdtempSync(path.join(tmpdir(), "jf-init-test-"));
+  try {
+    const res1 = await runInitCommand([], tempDir);
+    assert.equal(res1.createdConfig, true);
+    assert.equal(res1.createdAdapter, true);
+    assert.ok(existsSync(path.join(tempDir, "justfair.config.js")));
+    assert.ok(existsSync(path.join(tempDir, "justfair-adapter.mjs")));
+
+    const adapterContent = readFileSync(path.join(tempDir, "justfair-adapter.mjs"), "utf-8");
+    assert.ok(adapterContent.includes("/justfair/v1/manifest"));
+    assert.ok(adapterContent.includes("/justfair/v1/evaluate"));
+
+    // Second run: should detect existing files and refuse to overwrite
+    const res2 = await runInitCommand([], tempDir);
+    assert.equal(res2.createdConfig, false);
+    assert.equal(res2.createdAdapter, false);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("startLocalReportViewer serves in-memory artifact and static files on 127.0.0.1", async () => {
+  const { startLocalReportViewer } = await import("../src/cli.js");
+  const sampleArtifact = {
+    runId: "test-run-123",
+    target: { url: "http://localhost:3100", name: "Test App" },
+    summary: { passed: 1, failed: 0, unable: 0 },
+    results: [{ scenarioId: "STALE_CARRIED_FORWARD_EQUITY", status: "PASS", assertions: [], replay: [] }]
+  };
+
+  const viewer = await startLocalReportViewer(sampleArtifact);
+  try {
+    assert.ok(viewer.url.startsWith("http://127.0.0.1:"));
+    assert.ok(viewer.port > 0);
+
+    // Test /api/v1/local-artifact
+    const artRes = await fetch(`${viewer.url}/api/v1/local-artifact`);
+    assert.equal(artRes.status, 200);
+    const artData = await artRes.json();
+    assert.equal(artData.runId, "test-run-123");
+    assert.equal(artData.summary.passed, 1);
+
+    // Test /api/v1/health
+    const healthRes = await fetch(`${viewer.url}/api/v1/health`);
+    assert.equal(healthRes.status, 200);
+    const healthData = await healthRes.json();
+    assert.equal(healthData.mode, "local-viewer");
+
+    // Test static asset /index.html
+    const indexRes = await fetch(`${viewer.url}/index.html`);
+    assert.equal(indexRes.status, 200);
+    const indexText = await indexRes.text();
+    assert.ok(indexText.includes("JustFair"));
+  } finally {
+    await viewer.close();
+  }
+});
+
+test("cli test --open starts local report viewer and exits cleanly", async () => {
+  const h = await startFixtureTarget({ behavior: "correct" });
+  try {
+    const { runScenarioCommand } = await import("../src/cli.js");
+    const r = await runScenarioCommand(["--target", h.baseUrl, "--open"], { keepAlive: false });
+    assert.ok(r.artifact);
+    assert.equal(r.artifact.summary.passed, 1);
+    assert.ok(r.viewer);
+    assert.ok(r.viewer.url.startsWith("http://127.0.0.1:"));
+    await r.viewer.close();
+  } finally {
+    await closeFixtureTarget(h);
+  }
+});
+

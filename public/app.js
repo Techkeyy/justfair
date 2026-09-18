@@ -905,19 +905,25 @@ if (homeViewReplayBtn) homeViewReplayBtn.addEventListener("click", async (e) => 
     // Static fallback copy in markup stays.
   }
 })();
-const testCopyCmdBtn = document.getElementById("test-copy-cmd-btn");
-if (testCopyCmdBtn) testCopyCmdBtn.addEventListener("click", async () => {
-  const cmd = document.getElementById("test-cli-cmd")?.textContent?.trim() || "";
-  try {
-    await navigator.clipboard.writeText(cmd);
-    testCopyCmdBtn.textContent = "Copied";
-    setTimeout(() => { testCopyCmdBtn.textContent = "Copy command"; }, 1500);
-  } catch {
-    testCopyCmdBtn.textContent = cmd;
-  }
+document.querySelectorAll(".copy-snippet-btn").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const targetId = btn.getAttribute("data-target");
+    const el = document.getElementById(targetId);
+    const text = el ? (el.textContent || "").trim() : "";
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      const prevText = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = prevText; }, 1500);
+    } catch {
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+    }
+  });
 });
 
-function handleRoute() {
+export function handleRoute() {
   const hash = window.location.hash.toLowerCase();
   if (hash === "#app") {
     switchView("app");
@@ -3874,12 +3880,14 @@ function validateResultArtifact(obj) {
 let replayArtifact = null;
 let replayIsSample = false;
 
-function renderReplayReport(artifact, isSample) {
+export function renderReplayReport(artifact, isSample) {
   replayArtifact = artifact;
   replayIsSample = isSample;
+  const emptyState = document.getElementById("replay-empty-state");
   const report = document.getElementById("replay-report");
   const errBox = document.getElementById("replay-error");
   if (errBox) errBox.classList.add("hidden");
+  if (emptyState) emptyState.classList.add("hidden");
   if (!report) return;
   report.classList.remove("hidden");
   const badge = document.getElementById("replay-sample-badge");
@@ -3910,7 +3918,7 @@ function renderReplayReport(artifact, isSample) {
   if (artifact.results.length === 1) renderReplayDetail(0);
 }
 
-function renderReplayDetail(index) {
+export function renderReplayDetail(index) {
   const detail = document.getElementById("replay-scenario-detail");
   if (!detail || !replayArtifact) return;
   const r = replayArtifact.results[index];
@@ -3950,16 +3958,18 @@ function renderReplayDetail(index) {
   detail.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-function showReplayError(message) {
+export function showReplayError(message) {
   const errBox = document.getElementById("replay-error");
+  const emptyState = document.getElementById("replay-empty-state");
   if (errBox) {
     errBox.textContent = message;
     errBox.classList.remove("hidden");
   }
+  if (emptyState) emptyState.classList.remove("hidden");
   document.getElementById("replay-report")?.classList.add("hidden");
 }
 
-function loadReplayArtifact(obj, isSample) {
+export function loadReplayArtifact(obj, isSample) {
   const problem = validateResultArtifact(obj);
   if (problem) {
     showReplayError(`That file is not a JustFair result artifact: ${problem}`);
@@ -3967,6 +3977,15 @@ function loadReplayArtifact(obj, isSample) {
   }
   renderReplayReport(obj, isSample);
 }
+
+const replayCloseBtn = document.getElementById("replay-close-report-btn");
+if (replayCloseBtn) replayCloseBtn.addEventListener("click", () => {
+  replayArtifact = null;
+  replayIsSample = false;
+  document.getElementById("replay-report")?.classList.add("hidden");
+  document.getElementById("replay-empty-state")?.classList.remove("hidden");
+  document.getElementById("replay-error")?.classList.add("hidden");
+});
 
 const replayFileInput = document.getElementById("replay-file-input");
 if (replayFileInput) replayFileInput.addEventListener("change", () => {
@@ -4067,4 +4086,32 @@ function renderDbcResult(data) {
        <div><strong>${escapeHtmlText(ev2.label)}</strong>
        <span class="replay-event-io">Expected: ${escapeHtmlText(ev2.expected)} · Observed: ${escapeHtmlText(ev2.observed)}</span></div></li>`).join("")}</ol>`;
   outBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+window.addEventListener("hashchange", handleRoute);
+
+async function initJustFairApp() {
+  handleRoute();
+
+  // Local-first auto-open detector: probe ephemeral server route
+  try {
+    const res = await fetch("/api/v1/local-artifact");
+    if (res.ok) {
+      const artifact = await res.json();
+      if (artifact && artifact.runId && Array.isArray(artifact.results)) {
+        loadReplayArtifact(artifact, false);
+        switchView("replay");
+      }
+    }
+  } catch {
+    // Normal production load
+  }
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initJustFairApp);
+  } else {
+    initJustFairApp();
+  }
 }

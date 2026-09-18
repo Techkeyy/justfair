@@ -1,11 +1,26 @@
 {
   "name": "justfair",
   "version": "1.0.0",
-  "description": "Consumer-facing tokenized-stock pre-trade safety application and Equity Preflight API on Solana",
-  "main": "src/preflight.js",
+  "description": "Financial-correctness crash testing for stock applications and market infrastructure on Solana",
+  "main": "src/cli.js",
+  "bin": {
+    "justfair": "src/cli.js"
+  },
+  "files": [
+    "src/",
+    "docs/adapter.md",
+    "examples/adapter-basic/",
+    "public/",
+    "LICENSE",
+    "README.md"
+  ],
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Techkeyy/justfair.git"
+  },
   "engines": {
-    "node": "22.x"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "test": "node test/preflight.test.js",
@@ -18,11 +33,12 @@
   "keywords": [
     "solana",
     "tokenized-stocks",
-    "xstocks",
-    "jupiter-v2",
-    "preflight",
-    "safety",
-    "rwa"
+    "financial-testing",
+    "crash-testing",
+    "token-2022",
+    "meteora-dbc",
+    "prestocks",
+    "tessera"
   ],
   "author": "Techkeyy",
   "license": "MIT",

@@ -4567,3 +4567,157 @@ body {
     padding: 16px;
   }
 }
+
+/* ==========================================
+   DEVELOPER ONBOARDING 5-STEP JOURNEY (UX-003)
+   ========================================== */
+.onboarding-steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin: 28px 0;
+}
+
+.onboarding-step-card {
+  background: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.onboarding-step-card:hover {
+  border-color: rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 16px -2px rgba(124, 58, 237, 0.06);
+}
+
+.onboarding-step-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.onboarding-step-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--accent-primary-light, #f3e8ff);
+  color: var(--accent-primary, #7c3aed);
+}
+
+.onboarding-step-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.onboarding-step-desc {
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 14px 0;
+}
+
+.code-snippet-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin: 12px 0;
+  gap: 16px;
+}
+
+.code-snippet-text {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13.5px;
+  color: #38bdf8;
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.copy-snippet-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.onboarding-step-note {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 6px 0 0 0;
+}
+
+.onboarding-action-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+/* ==========================================
+   REPLAY LAB EMPTY STATE (UX-003)
+   ========================================== */
+.replay-empty-state {
+  margin: 24px 0;
+}
+
+.replay-empty-card {
+  background: #ffffff;
+  border: 1px dashed var(--border-medium, #cbd5e1);
+  border-radius: var(--radius-lg);
+  padding: 40px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.replay-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-card-subtle, #f8fafc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.replay-empty-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.replay-empty-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 480px;
+  margin: 0;
+}
+
+.replay-run-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+

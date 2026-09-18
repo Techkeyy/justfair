@@ -27,15 +27,30 @@ ADD SMALL ADAPTER → RUN APP LOCALLY → RUN JUSTFAIR CLI
 → FIX → RE-RUN → PASS → (OPTIONAL CI)
 ```
 
-## Quick start
+## Quick start (No-Clone Developer Journey)
 
-Requires Node.js 22+ (`engines` set for the serverless ESM chain).
+Requires Node.js 22+.
+
+### 1. In your own repository (no clone needed):
+
+```sh
+# 1. Initialize JustFair scaffold in your project
+npx justfair init
+
+# 2. Start the scaffolded adapter (or wire into your app)
+node justfair-adapter.mjs
+
+# 3. Run the crash test and automatically open Replay Lab locally
+npx justfair test --target http://localhost:3100 --open
+```
+
+### 2. From this repository:
 
 ```sh
 npm install
 node examples/adapter-basic/server.mjs naive   # sample target with a real bug
-node src/cli.js test --target http://127.0.0.1:<PORT>
-# FAIL STALE_CARRIED_FORWARD_EQUITY, exit 1, replay + fix guidance printed
+node src/cli.js test --target http://127.0.0.1:<PORT> --open
+# FAIL STALE_CARRIED_FORWARD_EQUITY, exit 1, replay + fix guidance printed & opened in local Replay Lab
 ```
 
 Fix the target (`correct` mode), run the same command → PASS, exit 0.
@@ -48,8 +63,7 @@ node src/cli.js whale --config <DBC_CONFIG> --size <QUOTE_UNITS> --max-impact 8
 node src/cli.js test --target <url> --json --out report.json
 ```
 
-Open `report.json` in Replay Lab (upload stays in the browser) or start
-from a labelled sample.
+Open `report.json` in Replay Lab (upload stays strictly in the browser with zero cloud telemetry) or explore interactive samples.
 
 ## Adapter contract (v1)
 
