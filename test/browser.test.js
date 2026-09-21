@@ -2831,6 +2831,68 @@ async function runBrowserTests() {
       const events = await page.$$("#replay-scenario-detail .replay-event");
       if (events.length < 5) throw new Error(`Timeline must render engine events, got ${events.length}`);
     });
+
+    await test("62b. Replay Lab hero heading follows the loaded report state", async () => {
+      // FAIL report: failure-appropriate heading, failure details intact.
+      await page.click("#tab-replay-btn");
+      await page.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
+      await page.click('.replay-sample-btn[data-sample="stale-fail"]');
+      await page.waitForFunction(() => document.querySelector("#replay-scenario-detail")?.innerText?.includes("STALE_REFERENCE_TREATED_AS_LIVE"), { timeout: 10000 });
+      let hero = await page.textContent("#replay-hero-title");
+      if (hero.trim() !== "Understand a failure.") throw new Error(`FAIL hero mismatch: ${hero}`);
+      const failDetail = await page.textContent("#replay-scenario-detail");
+      if (!failDetail.includes("WHY IT FAILED")) throw new Error("FAIL detail must keep remediation fields");
+
+      // PASS report: must NOT read as a failure; PASS detail intact.
+      await page.click('.replay-sample-btn[data-sample="stale-pass"]');
+      await page.waitForFunction(() => document.querySelector("#replay-run-counts")?.textContent?.includes("1 passed"), { timeout: 10000 });
+      hero = await page.textContent("#replay-hero-title");
+      if (/failure/i.test(hero)) throw new Error(`PASS hero must not describe a failure: ${hero}`);
+      if (hero.trim() !== "Verify a passing run.") throw new Error(`PASS hero mismatch: ${hero}`);
+      const passDetail = await page.textContent("#replay-scenario-detail");
+      if (!/PASS/.test(passDetail) || !passDetail.includes("REPLAY")) throw new Error("PASS detail/replay must remain intact");
+
+      // UNABLE report: neutral truthful heading, never a failure description.
+      const unableArtifact = {
+        runId: "test-unable-hero",
+        target: { url: "http://127.0.0.1:9", name: "Dead", adapterVersion: "1" },
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        summary: { passed: 0, failed: 0, unable: 1 },
+        results: [{
+          scenarioId: "STALE_CARRIED_FORWARD_EQUITY",
+          status: "UNABLE_TO_VERIFY",
+          reason: "Adapter unreachable",
+          reasonCode: "ADAPTER_UNAVAILABLE",
+          assertions: [],
+          diagnosis: null,
+          replay: [{ at: "T0", label: "Scenario issued", expected: "x", observed: "y" }]
+        }]
+      };
+      await page.setInputFiles("#replay-file-input", {
+        name: "unable-hero.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify(unableArtifact))
+      });
+      await page.waitForFunction(() => document.querySelector(".replay-scenario-card")?.textContent?.includes("UNABLE_TO_VERIFY"), { timeout: 10000 });
+      hero = await page.textContent("#replay-hero-title");
+      if (/failure/i.test(hero)) throw new Error(`UNABLE hero must not describe a failure: ${hero}`);
+      if (hero.trim() !== "Understand what could not be verified.") throw new Error(`UNABLE hero mismatch: ${hero}`);
+
+      // Closing the report restores the neutral heading.
+      await page.click("#replay-close-report-btn");
+      await page.waitForSelector("#replay-empty-state:not(.hidden)", { timeout: 10000 });
+      hero = await page.textContent("#replay-hero-title");
+      if (hero.trim() !== "Understand a result.") throw new Error(`Empty hero mismatch: ${hero}`);
+    });
+
+    await test("62c. Replay Lab sample control no longer implies a live oracle", async () => {
+      await page.click("#tab-replay-btn");
+      await page.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
+      const controls = await page.textContent(".replay-controls-bar");
+      if (controls.includes("Stale Oracle Failure")) throw new Error('Sample control must not say "Stale Oracle Failure"');
+      if (!controls.includes("Stale Price Failure")) throw new Error('Sample control must say "Stale Price Failure"');
+    });
     await test("63. Replay Lab: sample pass and malformed upload behave truthfully", async () => {
       await page.click('.replay-sample-btn[data-sample="stale-pass"]');
       await page.waitForFunction(() => document.querySelector("#replay-run-counts")?.textContent?.includes("1 passed"), { timeout: 10000 });

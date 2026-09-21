@@ -3880,6 +3880,27 @@ function validateResultArtifact(obj) {
 let replayArtifact = null;
 let replayIsSample = false;
 
+export const REPLAY_HERO_NEUTRAL = "Understand a result.";
+export const REPLAY_HERO_FAIL = "Understand a failure.";
+export const REPLAY_HERO_PASS = "Verify a passing run.";
+export const REPLAY_HERO_UNABLE = "Understand what could not be verified.";
+
+export function replayHeroHeadingForResults(results) {
+  const statuses = new Set((results || []).map((r) => r?.status));
+  if (statuses.has("FAIL")) return REPLAY_HERO_FAIL;
+  if (statuses.has("UNABLE_TO_VERIFY")) return REPLAY_HERO_UNABLE;
+  return REPLAY_HERO_PASS;
+}
+
+export function setReplayHero(heading) {
+  const title = document.getElementById("replay-hero-title");
+  if (title) title.textContent = heading;
+}
+
+export function resetReplayHero() {
+  setReplayHero(REPLAY_HERO_NEUTRAL);
+}
+
 export function renderReplayReport(artifact, isSample) {
   replayArtifact = artifact;
   replayIsSample = isSample;
@@ -3890,6 +3911,7 @@ export function renderReplayReport(artifact, isSample) {
   if (emptyState) emptyState.classList.add("hidden");
   if (!report) return;
   report.classList.remove("hidden");
+  setReplayHero(replayHeroHeadingForResults(artifact.results));
   const badge = document.getElementById("replay-sample-badge");
   if (badge) badge.classList.toggle("hidden", !isSample);
   const counts = artifact.summary || { passed: 0, failed: 0, unable: 0 };
@@ -3967,6 +3989,7 @@ export function showReplayError(message) {
   }
   if (emptyState) emptyState.classList.remove("hidden");
   document.getElementById("replay-report")?.classList.add("hidden");
+  resetReplayHero();
 }
 
 export function loadReplayArtifact(obj, isSample) {
@@ -3985,6 +4008,7 @@ if (replayCloseBtn) replayCloseBtn.addEventListener("click", () => {
   document.getElementById("replay-report")?.classList.add("hidden");
   document.getElementById("replay-empty-state")?.classList.remove("hidden");
   document.getElementById("replay-error")?.classList.add("hidden");
+  resetReplayHero();
 });
 
 const replayFileInput = document.getElementById("replay-file-input");

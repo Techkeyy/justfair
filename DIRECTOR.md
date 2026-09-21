@@ -267,9 +267,9 @@ footer entry.
 Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
 - Unit & Preflight suite (`npm test`): 49 PASSED · 0 FAILED.
 - Scenario & Integration suite (`node test/justfair-scenarios.test.js test/dbc.test.js test/tessera.test.js test/e2e.test.js`): 25 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key).
-- CLI test suite (`node --test test/cli.test.js`): 14 PASSED · 0 FAILED (includes `init` scaffold with overwrite protection, `startLocalReportViewer` in-memory serving on 127.0.0.1, and `test --open`).
-- Playwright Browser test suite (`node test/browser.test.js`): 70 PASSED · 0 FAILED (covers all guided onboarding flows, Step 2 actionability + readability assertions 61b/61c/61d, mental model diagram, published `npx justfair@latest` commands, Replay Lab sample rendering, DBC stress testing, and responsive layouts).
-- Total Automated Tests: 158 PASSED · 0 FAILED · 1 SKIPPED.
+- CLI test suite (`node --test test/cli.test.js`): 15 PASSED · 0 FAILED (includes `init` scaffold with overwrite protection, init next-steps public-npx/connect-first guidance, `startLocalReportViewer` in-memory serving on 127.0.0.1, and `test --open`).
+- Playwright Browser test suite (`node test/browser.test.js`): 72 PASSED · 0 FAILED (covers all guided onboarding flows, Step 2 actionability + readability assertions 61b/61c/61d, state-aware Replay Lab hero 62b/62c, mental model diagram, published `npx justfair@latest` commands, Replay Lab sample rendering, DBC stress testing, and responsive layouts).
+- Total Automated Tests: 160 PASSED · 0 FAILED · 1 SKIPPED.
 - Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
@@ -312,6 +312,15 @@ Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
   Root causes: (1) bare `justfair test` assumed an unavailable global binary; (2) init output skipped the adapter-to-real-app connection step.
   Source fix (`src/cli.js` `runInitCommand` + new CLI test, `package.json` → 1.0.1): next steps now teach connect → start app → start adapter → `npx justfair@latest test --target http://localhost:3100 --open`. CLI suite: 15 PASSED · 0 FAILED. Packed-tarball proof: installed `justfair-1.0.1.tgz` in a clean dir, `npx justfair init` via the packed bin prints the corrected steps (51 files, no secrets/evidence/junk).
   Registry state: TECHNICAL FIX COMPLETE, NPM PATCH RELEASE REQUIRED — `npm publish` blocked (401 whoami + 404 PUT, not logged in as owner). Owner must run `npm login` (passkey/2FA) then `npm publish`. After registry release: OWNER REVALIDATION PENDING (`npx justfair@latest init` in a clean dir). Owner PASS is NOT claimed here.
+- NPM PUBLIC LATEST = justfair@1.0.1 (owner published after builder-prepared 1.0.1 source + packed-tarball proof).
+- OWNER UAT REAL USAGE STEP 1 = PASS (public 1.0.1 from a clean directory).
+- OWNER UAT — CORE DEVELOPER LOOP = PASS (2026-09-21, real external proof in `C:\Users\HomePC\Desktop\JustFair-UAT-101`):
+  1. `npx justfair@latest init` → real local stock app on port 4000 returning `{symbol TEST, displayedPrice 329.29, isLive true, label "Weekend Close"}` → observation adapter on port 3100 reading the REAL app.
+  2. `npx justfair@latest test --target http://127.0.0.1:3100 --open` → FAIL STALE_CARRIED_FORWARD_EQUITY, 0 passed · 1 failed · 0 unable · 3 skipped; Replay Lab showed WHAT HAPPENED / EXPECTED / YOUR APP / WHY IT FAILED / HOW TO FIX THE ASSUMPTION / EVIDENCE / SOURCE + six-event replay. Replay Lab failure diagnosis = PASS.
+  3. Owner changed ONLY the real app (`isLive: true` → `false`); adapter NOT changed; endpoint verified `{isLive false}`.
+  4. Exact same command rerun → PASS STALE_CARRIED_FORWARD_EQUITY, 1 passed · 0 failed · 0 unable · 3 skipped; replay showed `claimsLive: false`, `displayedPrice: 329.29`, both invariants satisfied, verdict PASS.
+  This proves: fresh install → init → real app → adapter → detect real app bug → FAIL → useful replay → fix real app → unchanged adapter → same command → PASS. Recorded verbatim; not generalized.
+- OWNER UAT — REPLAY PASS-STATE PRESENTATION BUG (found during the above PASS run): PASS report rendered under "Understand a failure." + failure-specific subtitle. Fix applied (state-aware hero: neutral "Understand a result." when empty, "Understand a failure." on FAIL, "Verify a passing run." on all-PASS, "Understand what could not be verified." on UNABLE; neutral subtitle for all states; sample button "Stale Oracle Failure" → "Stale Price Failure" since the scenario is simulated carry-forward semantics, not a live oracle; scenario IDs and evidence semantics unchanged). Presentation-only; result schema, engine, verdicts, replay, viewer, protocol, npm behavior, and DBC untouched. New browser assertions 62b/62c. Browser suite 2026-09-21: 72 PASSED · 0 FAILED. Visual revalidation pending; overall FINISHED is NOT claimed.
 
 ## 26. CURRENT BLOCKERS
 
@@ -339,7 +348,7 @@ None. All technical, packaging, npm registry distribution, and test validation g
 - `src/cli.js`: `runInitCommand` next steps teach connect → start app → start adapter → public npx test command (no bare `justfair test`).
 - `test/cli.test.js`: new init next-steps test (no bare command, npx command present, connect-before-start, real-app observations, step order).
 - `public/styles.css`: scoped `.code-body.code-wrap` wrap rule for the Step 2 example only (no global code-style change).
-- `test/browser.test.js`: new assertions 61c (desktop readability/overflow) and 61d (390px overflow); earlier 61b (Step 2 names real adapter file/edit point/example, two-ports relation, Step 4 wording, unchanged npm commands).
+- `test/browser.test.js`: new assertions 62b (FAIL/PASS/UNABLE hero states + close reset) and 62c (sample rename); earlier 61c/61d (desktop/390px readability) and 61b (Step 2 actionability).
 - `package.json`: normalized repository URL via `npm pkg fix`, published `justfair@1.0.0` to npm registry.
 - `public/styles.css`: added styles for onboarding steps, code snippets, mental model diagram, and Replay Lab empty state.
 - `public/app.js`: wired snippet copy buttons, report close button, and `/api/v1/local-artifact` local-first auto-open listener.
@@ -377,11 +386,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-UX UPGRADE 003 — OWNER UAT COPY CORRECTIONS + STEP 2 ACTIONABILITY + EXAMPLE READABILITY + INIT GUIDANCE FIX (SOURCE COMPLETE, NPM 1.0.1 PUBLISH PENDING OWNER AUTH).
+UX UPGRADE 003 — OWNER CORE LOOP PASS; REPLAY PASS-STATE FIX APPLIED, OWNER REVALIDATION PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Owner: `npm login` as the package owner, then `npm publish` (source is at 1.0.1 with the init guidance fix, packed-tarball verified). Then revalidate `npx justfair@latest init` in a clean directory and declare PASS/FAIL. Builder stops here; do NOT start the DBC upgrade without an explicit order.
+Present the state-aware Replay Lab hero on `https://justfair-theta.vercel.app/#replay` (empty / FAIL / PASS / UNABLE) to the owner for human visual revalidation. Do NOT claim visual PASS or overall FINISHED; the human owner/director decides. Do NOT start the DBC upgrade without an explicit order.
 
 
