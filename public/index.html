@@ -684,6 +684,7 @@
                 <h3 class="onboarding-step-title">Connect your app (The Observation Bridge)</h3>
               </div>
               <p class="onboarding-step-desc">JustFair needs a small observation adapter that reads values your real application calculates or displays.</p>
+              <p class="onboarding-step-desc">Open <code>justfair-adapter.mjs</code> and point each <code>observations</code> assignment inside the <code>POST /justfair/v1/evaluate</code> handler at the value your app actually calculates or displays.</p>
               
               <div class="mental-model-box">
                 <div class="mental-model-flow">
@@ -697,9 +698,21 @@
                 </div>
               </div>
 
+              <div class="api-code-collapse">
+                <div class="code-topbar">
+                  <span class="code-method">EDIT</span>
+                  <span class="code-endpoint">justfair-adapter.mjs → POST /justfair/v1/evaluate</span>
+                </div>
+                <pre class="code-body"><code>if (scenarioId === "STALE_CARRIED_FORWARD_EQUITY") {
+  observations.displayedPrice = inputs?.referencePrice ?? 329.29; // replace with the price YOUR app displays
+  observations.claimsLive = true; // replace with whether YOUR app claims it is live
+}</code></pre>
+              </div>
+
               <ul class="onboarding-points-list">
                 <li><strong>The adapter is the bridge:</strong> It translates your internal data into raw observations.</li>
                 <li><strong>The adapter is NOT the product being tested:</strong> Your real application supplies the values.</li>
+                <li><strong>Two separate ports:</strong> Your app can run on any localhost port. The adapter reads from it and exposes JustFair's two test endpoints on its own localhost port.</li>
                 <li><strong>Observations only:</strong> Your app supplies what it displays; JustFair owns the financial judgment.</li>
               </ul>
             </div>
@@ -729,7 +742,7 @@
                 <code class="code-snippet-text" id="test-cli-cmd">npx justfair@latest test --target http://localhost:3100 --open</code>
                 <button type="button" class="btn btn-secondary btn-sm copy-snippet-btn" id="test-copy-cmd-btn" data-target="test-cli-cmd">Copy</button>
               </div>
-              <p class="onboarding-step-note">Tests stale equity oracles, PreStocks conversion expiries, Meteora DBC price impact, and Tessera Token-2022 transfer fees.</p>
+              <p class="onboarding-step-note">Tests stale/carry-forward equity prices, PreStocks conversion expiries, Meteora DBC price impact, and Tessera Token-2022 transfer fees.</p>
             </div>
 
             <!-- Step 5 -->

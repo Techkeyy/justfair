@@ -256,8 +256,8 @@ Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
 - Unit & Preflight suite (`npm test`): 49 PASSED · 0 FAILED.
 - Scenario & Integration suite (`node test/justfair-scenarios.test.js test/dbc.test.js test/tessera.test.js test/e2e.test.js`): 25 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key).
 - CLI test suite (`node --test test/cli.test.js`): 14 PASSED · 0 FAILED (includes `init` scaffold with overwrite protection, `startLocalReportViewer` in-memory serving on 127.0.0.1, and `test --open`).
-- Playwright Browser test suite (`node test/browser.test.js`): 67 PASSED · 0 FAILED (covers all guided onboarding flows, mental model diagram, published `npx justfair@latest` commands, Replay Lab sample rendering, DBC stress testing, and responsive layouts).
-- Total Automated Tests: 155 PASSED · 0 FAILED · 1 SKIPPED.
+- Playwright Browser test suite (`node test/browser.test.js`): 68 PASSED · 0 FAILED (covers all guided onboarding flows, Step 2 actionability assertion 61b, mental model diagram, published `npx justfair@latest` commands, Replay Lab sample rendering, DBC stress testing, and responsive layouts).
+- Total Automated Tests: 156 PASSED · 0 FAILED · 1 SKIPPED.
 - Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
@@ -283,6 +283,12 @@ Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
   2. Sub-copy `"against live market anomalies"` → `"against adverse market scenarios and real market infrastructure"` (not every scenario is live; JustFair mixes deterministic adverse scenarios, authoritative event fixtures, and live market/infrastructure evidence where applicable).
   3. Step 1 note `"(refuses to overwrite existing files without confirmation)"` → `"Existing files are never overwritten."` (matches implemented `init` skip behavior in `src/cli.js` `runInitCommand`: existing files are detected and skipped, no interactive confirmation flow exists; none was added — copy correction only).
   Scope: text-only change (`public/index.html`, 3 lines; commit `440cc11`). No layout, card, typography, spacing, nav, or responsive change. Public npm commands unchanged. Browser suite re-run 2026-09-21: 67 PASSED · 0 FAILED. Owner UAT PASS is NOT claimed here; the human owner/director decides.
+- OWNER UAT — STEP 2 ACTIONABILITY — FIX APPLIED, OWNER REVALIDATION PENDING (2026-09-21):
+  1. Verified the real integration point first: published `npx justfair@latest init` output is byte-identical (SHA256) to local `src/cli.js init` output. The developer opens `justfair-adapter.mjs` and edits the per-`scenarioId` `observations` assignments inside the `POST /justfair/v1/evaluate` handler (`displayedPrice`/`claimsLive`/`label`, `expired`/`conversionRequired`/`ordinaryValuation`, `reportedNetRecipientAmount`); observations only, never a verdict.
+  2. Step 2 now instructs: open `justfair-adapter.mjs` and point each `observations` assignment inside `POST /justfair/v1/evaluate` at the value the app actually calculates or displays, with a tiny example using verbatim scaffold lines (`STALE_CARRIED_FORWARD_EQUITY`, `observations.displayedPrice`, `observations.claimsLive`). No invented API names, no TODO markers (the scaffold has none), protocol details stay in the expandable spec.
+  3. App/adapter relation explicit: new bullet "Two separate ports: your app can run on any localhost port; the adapter reads from it and exposes JustFair's two test endpoints on its own localhost port." The "adapter is NOT the product being tested" statement preserved; mental-model diagram unchanged.
+  4. Step 4 note `"Tests stale equity oracles..."` → `"Tests stale/carry-forward equity prices, PreStocks conversion expiries, Meteora DBC price impact, and Tessera Token-2022 transfer fees."` (no live-oracle implication for the simulated scenario).
+  Scope: `public/index.html` Step 2 card + Step 4 note only (reused existing `api-code-collapse` code styling; no new CSS, no layout/design change). Steps 1/3/5, all npm commands, CLI behavior, adapter protocol, and scenario engine untouched. New browser assertion 61b added. Browser suite 2026-09-21: 68 PASSED · 0 FAILED. Owner UAT PASS is NOT claimed here; the human owner/director decides.
 
 ## 26. CURRENT BLOCKERS
 
@@ -305,7 +311,8 @@ None. All technical, packaging, npm registry distribution, and test validation g
 
 ## 29. FILES CHANGED RECENTLY
 
-- `public/index.html`: updated `#test-view` onboarding copy per Owner UAT: truthful headline without claiming completion time, accurate description of deterministic scenarios and real market infra, and accurate `init` non-interactive skip notice.
+- `public/index.html`: Step 2 actionable per Owner UAT (real `justfair-adapter.mjs` `observations` edit point + verbatim scaffold example + two-ports bullet) and Step 4 note corrected to stale/carry-forward equity prices; earlier `#test-view` onboarding copy truths (headline, scenario mix, `init` skip notice).
+- `test/browser.test.js`: new assertion 61b (Step 2 names real adapter file/edit point/example, two-ports relation, Step 4 wording, unchanged npm commands).
 - `package.json`: normalized repository URL via `npm pkg fix`, published `justfair@1.0.0` to npm registry.
 - `public/styles.css`: added styles for onboarding steps, code snippets, mental model diagram, and Replay Lab empty state.
 - `public/app.js`: wired snippet copy buttons, report close button, and `/api/v1/local-artifact` local-first auto-open listener.
@@ -343,11 +350,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-UX UPGRADE 003 — OWNER UAT COPY CORRECTIONS APPLIED.
+UX UPGRADE 003 — OWNER UAT COPY CORRECTIONS + STEP 2 ACTIONABILITY APPLIED.
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Present the corrected `#test-view` top section on `https://justfair-theta.vercel.app/#test` to the owner for human revalidation of the three copy fixes. Do NOT claim Owner UAT PASS; the human owner/director decides.
+Present the actionable Step 2 and corrected Step 4 note on `https://justfair-theta.vercel.app/#test` to the owner for human revalidation. Do NOT claim Owner UAT PASS; the human owner/director decides.
 
 

@@ -2737,6 +2737,34 @@ async function runBrowserTests() {
       }
     });
 
+    await test("61b. Test page Step 2 names the real adapter file and exact edit point", async () => {
+      await page.click("#tab-test-btn");
+      await page.waitForSelector("#test-view:not(.hidden)", { timeout: 10000 });
+      const body = await page.textContent("#test-view");
+      // Step 2 must name the real generated file (no invented names).
+      if (!body.includes("justfair-adapter.mjs")) throw new Error("Step 2 must name the real generated adapter file");
+      // Step 2 must point at the real integration point: observations inside evaluate.
+      for (const n of ["observations", "POST /justfair/v1/evaluate"]) {
+        if (!body.includes(n)) throw new Error(`Step 2 must explain the edit point "${n}"`);
+      }
+      // Tiny example must use the real scaffold assignments.
+      for (const n of ["STALE_CARRIED_FORWARD_EQUITY", "observations.displayedPrice", "observations.claimsLive"]) {
+        if (!body.includes(n)) throw new Error(`Step 2 example must show real scaffold code "${n}"`);
+      }
+      // App/adapter port relation must be explicit.
+      if (!body.includes("any localhost port")) throw new Error("Step 2 must state the app can run on any localhost port");
+      if (!body.includes("The adapter is NOT the product being tested")) throw new Error("Step 2 must keep the adapter-is-not-the-product statement");
+      // Step 4 must not imply a live oracle integration.
+      if (body.includes("stale equity oracles")) throw new Error('Step 4 must no longer say "stale equity oracles"');
+      if (!body.includes("stale/carry-forward equity prices")) throw new Error("Step 4 must describe stale/carry-forward equity prices");
+      // Public npm commands must remain unchanged.
+      if (!body.includes("npx justfair@latest init")) throw new Error("Public npx init command must remain");
+      const cmd = await page.textContent("#test-cli-cmd");
+      if (!cmd.includes("npx justfair@latest test --target http://localhost:3100 --open")) {
+        throw new Error(`Public npx test command must remain unchanged: ${cmd}`);
+      }
+    });
+
     await test("62. Replay Lab: sample failure renders expected/actual/replay/remediation", async () => {
       await page.click("#tab-replay-btn");
       await page.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
