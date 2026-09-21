@@ -66,7 +66,7 @@ UNABLE_TO_VERIFY → justfair-result.json → Replay Lab → expected vs actual
 node src/cli.js test --target http://localhost:3000 --out justfair-result.json
 ```
 
-(Run from the repo root. No `npx`/`npm -g` distribution exists.)
+(Contributor path runs from the repo root. Public developer path uses the published package `justfair@1.0.0` via `npx justfair@latest ...`; see §25.)
 
 ## 8. CURRENT ARCHITECTURE
 
@@ -278,6 +278,11 @@ Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
   4. Production website (`#test-view`), `README.md`, and docs restored to the intended 5-step no-clone developer onboarding with published `npx justfair@latest` commands.
   5. Observation Adapter mental model diagram and guidance prominently displayed on `#test-view`.
   6. Replay Lab persistent controls and empty state verified across all browser tests and sample scenarios.
+- OWNER UAT — GET STARTED TOP SECTION — COPY CORRECTION APPLIED, OWNER REVALIDATION PENDING (2026-09-21):
+  1. Headline `"Crash-test your stock app in 5 minutes."` → `"Crash-test your stock app before users find the bugs."` (removes unproven measurable time promise).
+  2. Sub-copy `"against live market anomalies"` → `"against adverse market scenarios and real market infrastructure"` (not every scenario is live; JustFair mixes deterministic adverse scenarios, authoritative event fixtures, and live market/infrastructure evidence where applicable).
+  3. Step 1 note `"(refuses to overwrite existing files without confirmation)"` → `"Existing files are never overwritten."` (matches implemented `init` skip behavior in `src/cli.js` `runInitCommand`: existing files are detected and skipped, no interactive confirmation flow exists; none was added — copy correction only).
+  Scope: text-only change (`public/index.html`, 3 lines; commit `440cc11`). No layout, card, typography, spacing, nav, or responsive change. Public npm commands unchanged. Browser suite re-run 2026-09-21: 67 PASSED · 0 FAILED. Owner UAT PASS is NOT claimed here; the human owner/director decides.
 
 ## 26. CURRENT BLOCKERS
 
@@ -343,6 +348,6 @@ Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner hum
 
 ## 35. EXACT NEXT ACTION
 
-Commit and push copy fixes to `origin main`, verify live production on `https://justfair-theta.vercel.app`, and present to owner for final human UAT.
+Present the corrected `#test-view` top section on `https://justfair-theta.vercel.app/#test` to the owner for human revalidation of the three copy fixes. Do NOT claim Owner UAT PASS; the human owner/director decides.
 
 
