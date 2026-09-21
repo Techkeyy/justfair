@@ -703,9 +703,13 @@
                   <span class="code-method">EDIT</span>
                   <span class="code-endpoint">justfair-adapter.mjs → POST /justfair/v1/evaluate</span>
                 </div>
-                <pre class="code-body"><code>if (scenarioId === "STALE_CARRIED_FORWARD_EQUITY") {
-  observations.displayedPrice = inputs?.referencePrice ?? 329.29; // replace with the price YOUR app displays
-  observations.claimsLive = true; // replace with whether YOUR app claims it is live
+                <pre class="code-body code-wrap" id="step2-example-code"><code>if (scenarioId === "STALE_CARRIED_FORWARD_EQUITY") {
+  // Replace with the price your app displays
+  observations.displayedPrice =
+    inputs?.referencePrice ?? 329.29;
+
+  // Replace with whether your app claims it is live
+  observations.claimsLive = true;
 }</code></pre>
               </div>
 

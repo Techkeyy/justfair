@@ -945,6 +945,19 @@ body {
   white-space: pre;
 }
 
+/* Step 2 adapter example only: wrap instead of scroll so the left edge
+   never clips and no horizontal scrolling is needed. Scoped to
+   .code-wrap; all other code blocks keep global pre + scroll behavior. */
+.code-body.code-wrap {
+  overflow-x: visible;
+}
+
+.code-body.code-wrap code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* Dashboard Bottom CTA */
 .dashboard-cta {
   max-width: 860px;

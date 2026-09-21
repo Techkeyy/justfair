@@ -2765,6 +2765,54 @@ async function runBrowserTests() {
       }
     });
 
+    await test("61c. Step 2 code example reads without clipping or horizontal scroll", async () => {
+      await page.click("#tab-test-btn");
+      await page.waitForSelector("#step2-example-code:not(.hidden)", { timeout: 10000 });
+      const state = await page.evaluate(() => {
+        const pre = document.getElementById("step2-example-code");
+        const code = pre.querySelector("code");
+        const preBox = pre.getBoundingClientRect();
+        const codeBox = code.getBoundingClientRect();
+        return {
+          text: code.textContent,
+          preOverflow: pre.scrollWidth - pre.clientWidth,
+          codeLeftInset: codeBox.left - preBox.left,
+          whiteSpace: getComputedStyle(code).whiteSpace
+        };
+      });
+      // Full identifiers must be present, not truncated.
+      for (const n of ['if (scenarioId === "STALE_CARRIED_FORWARD_EQUITY") {', "observations.displayedPrice", "inputs?.referencePrice ?? 329.29", "observations.claimsLive"]) {
+        if (!state.text.includes(n)) throw new Error(`Step 2 example must show full "${n}"`);
+      }
+      // No horizontal overflow inside the sample at desktop width.
+      if (state.preOverflow > 1) throw new Error(`Step 2 example scrolls horizontally by ${state.preOverflow}px`);
+      // Left edge must be visible (code starts at padding, never clipped).
+      if (state.codeLeftInset < 10) throw new Error(`Step 2 example left edge clipped (inset ${state.codeLeftInset}px)`);
+      // Wrapping must be active on this scoped block.
+      if (state.whiteSpace !== "pre-wrap") throw new Error(`Step 2 example must wrap, got white-space: ${state.whiteSpace}`);
+    });
+
+    await test("61d. Step 2 example causes no page overflow at 390px", async () => {
+      const narrowCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
+      const narrowPage = await narrowCtx.newPage();
+      try {
+        await narrowPage.goto(BASE_URL + "/#test", { waitUntil: "networkidle" });
+        await narrowPage.waitForSelector("#step2-example-code:not(.hidden)", { timeout: 10000 });
+        const overflow = await narrowPage.evaluate(() => ({
+          page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          sample: document.getElementById("step2-example-code").scrollWidth - document.getElementById("step2-example-code").clientWidth,
+          text: document.getElementById("step2-example-code").innerText
+        }));
+        if (overflow.page > 1) throw new Error(`390px page overflows by ${overflow.page}px`);
+        if (overflow.sample > 1) throw new Error(`390px Step 2 example scrolls by ${overflow.sample}px`);
+        for (const n of ["observations.displayedPrice", "observations.claimsLive"]) {
+          if (!overflow.text.includes(n)) throw new Error(`390px example must keep full "${n}"`);
+        }
+      } finally {
+        await narrowCtx.close();
+      }
+    });
+
     await test("62. Replay Lab: sample failure renders expected/actual/replay/remediation", async () => {
       await page.click("#tab-replay-btn");
       await page.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });

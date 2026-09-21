@@ -176,6 +176,18 @@ FAIL / UNABLE inputs via CLI + `POST /api/v1/dbc/whale` + web UI. SDK
 declared deps (ordered). Serverless fix recorded: engines node 22.x + CJS
 uuid pin. Zero signing/broadcast/funds throughout.
 
+LOCKED FUTURE DIRECTION (2026-09-21, NOT implemented — record only):
+DBC Stress is positioned as PRE-LAUNCH MARKET CRASH TESTING for Meteora
+DBC configurations, not a generic one-off price-impact calculator.
+Locked thesis: "Break your launch configuration before traders do."
+Target experience: real DBC config → automated stress sweep across
+multiple opening-buy sizes → PASS / FAIL / CURVE CAPACITY → identify
+FIRST POLICY FAILURE → explain why → issuer adjusts config → reruns.
+Constraints: the issuer chooses the impact policy; JustFair never invents
+a universal safe percentage; real Meteora config / SDK math; no signing,
+custody, funds, or actual trades. Current DBC functionality is preserved
+unchanged until that upgrade is explicitly started.
+
 ## 17. TESSERA ROLE + STATUS
 
 Role: T-Token / Token-2022 financial-behavior correctness (gross-vs-net).
@@ -256,8 +268,8 @@ Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
 - Unit & Preflight suite (`npm test`): 49 PASSED · 0 FAILED.
 - Scenario & Integration suite (`node test/justfair-scenarios.test.js test/dbc.test.js test/tessera.test.js test/e2e.test.js`): 25 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key).
 - CLI test suite (`node --test test/cli.test.js`): 14 PASSED · 0 FAILED (includes `init` scaffold with overwrite protection, `startLocalReportViewer` in-memory serving on 127.0.0.1, and `test --open`).
-- Playwright Browser test suite (`node test/browser.test.js`): 68 PASSED · 0 FAILED (covers all guided onboarding flows, Step 2 actionability assertion 61b, mental model diagram, published `npx justfair@latest` commands, Replay Lab sample rendering, DBC stress testing, and responsive layouts).
-- Total Automated Tests: 156 PASSED · 0 FAILED · 1 SKIPPED.
+- Playwright Browser test suite (`node test/browser.test.js`): 70 PASSED · 0 FAILED (covers all guided onboarding flows, Step 2 actionability + readability assertions 61b/61c/61d, mental model diagram, published `npx justfair@latest` commands, Replay Lab sample rendering, DBC stress testing, and responsive layouts).
+- Total Automated Tests: 158 PASSED · 0 FAILED · 1 SKIPPED.
 - Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
@@ -289,6 +301,11 @@ Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
   3. App/adapter relation explicit: new bullet "Two separate ports: your app can run on any localhost port; the adapter reads from it and exposes JustFair's two test endpoints on its own localhost port." The "adapter is NOT the product being tested" statement preserved; mental-model diagram unchanged.
   4. Step 4 note `"Tests stale equity oracles..."` → `"Tests stale/carry-forward equity prices, PreStocks conversion expiries, Meteora DBC price impact, and Tessera Token-2022 transfer fees."` (no live-oracle implication for the simulated scenario).
   Scope: `public/index.html` Step 2 card + Step 4 note only (reused existing `api-code-collapse` code styling; no new CSS, no layout/design change). Steps 1/3/5, all npm commands, CLI behavior, adapter protocol, and scenario engine untouched. New browser assertion 61b added. Browser suite 2026-09-21: 68 PASSED · 0 FAILED. Owner UAT PASS is NOT claimed here; the human owner/director decides.
+- OWNER UAT — STEP 2 COMPREHENSION PASS; CODE EXAMPLE PRESENTATION FIX APPLIED, OWNER VISUAL REVALIDATION PENDING (2026-09-21):
+  1. Owner confirms Step 2 is now understood (semantic/comprehension PASS for Step 2 actionability).
+  2. Remaining defect was presentation-only: at desktop width the Step 2 sample clipped the leading `if`, clipped `observations.displayedPrice` at the left edge, and long trailing comments forced horizontal scrolling.
+  3. Fix is display-copy only: same real scaffold identifiers and meaning, reformatted into short lines (comment-above-line structure, wrapped `observations.displayedPrice =` assignment), plus a scoped `.code-body.code-wrap` CSS rule (`pre-wrap` + `overflow-wrap`) applying to the Step 2 example block only — no global code-style change, no CLI/adapter/scenario change.
+  4. New browser assertions 61c (full `if (` + full identifiers visible, zero sample overflow, left edge unclipped, wrap active) and 61d (zero page/sample overflow at 390px, identifiers intact). Browser suite 2026-09-21: 70 PASSED · 0 FAILED. Visual PASS is NOT claimed here; the human owner/director revalidates.
 
 ## 26. CURRENT BLOCKERS
 
@@ -312,7 +329,9 @@ None. All technical, packaging, npm registry distribution, and test validation g
 ## 29. FILES CHANGED RECENTLY
 
 - `public/index.html`: Step 2 actionable per Owner UAT (real `justfair-adapter.mjs` `observations` edit point + verbatim scaffold example + two-ports bullet) and Step 4 note corrected to stale/carry-forward equity prices; earlier `#test-view` onboarding copy truths (headline, scenario mix, `init` skip notice).
-- `test/browser.test.js`: new assertion 61b (Step 2 names real adapter file/edit point/example, two-ports relation, Step 4 wording, unchanged npm commands).
+- `public/index.html`: Step 2 example reformatted into short wrapped lines (same real scaffold identifiers; `id="step2-example-code"`).
+- `public/styles.css`: scoped `.code-body.code-wrap` wrap rule for the Step 2 example only (no global code-style change).
+- `test/browser.test.js`: new assertions 61c (desktop readability/overflow) and 61d (390px overflow); earlier 61b (Step 2 names real adapter file/edit point/example, two-ports relation, Step 4 wording, unchanged npm commands).
 - `package.json`: normalized repository URL via `npm pkg fix`, published `justfair@1.0.0` to npm registry.
 - `public/styles.css`: added styles for onboarding steps, code snippets, mental model diagram, and Replay Lab empty state.
 - `public/app.js`: wired snippet copy buttons, report close button, and `/api/v1/local-artifact` local-first auto-open listener.
@@ -350,11 +369,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-UX UPGRADE 003 — OWNER UAT COPY CORRECTIONS + STEP 2 ACTIONABILITY APPLIED.
+UX UPGRADE 003 — OWNER UAT COPY CORRECTIONS + STEP 2 ACTIONABILITY + EXAMPLE READABILITY APPLIED.
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Present the actionable Step 2 and corrected Step 4 note on `https://justfair-theta.vercel.app/#test` to the owner for human revalidation. Do NOT claim Owner UAT PASS; the human owner/director decides.
+Present the readable Step 2 example on `https://justfair-theta.vercel.app/#test` (desktop + 390px) to the owner for human visual revalidation. Do NOT claim visual PASS; the human owner/director decides. DBC pre-launch crash-testing direction is locked and recorded only — do NOT start implementing it without an explicit order.
 
 
