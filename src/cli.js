@@ -223,9 +223,16 @@ server.listen(PORT, "127.0.0.1", () => {
   }
 
   console.log("\nJustFair Scaffold Ready.");
-  console.log("Next steps:");
-  console.log("  1. Start your local adapter: node justfair-adapter.mjs");
-  console.log("  2. Run financial crash test: justfair test --target http://localhost:3100 --open\n");
+  console.log("\nNext steps:");
+  console.log("  1. Connect the adapter to your app:");
+  console.log("     Open justfair-adapter.mjs and point the observations inside");
+  console.log("     POST /justfair/v1/evaluate at the values your real app calculates");
+  console.log("     or displays.");
+  console.log("  2. Start your app normally (e.g. on port 4000).");
+  console.log("  3. Start the observation adapter:");
+  console.log("     node justfair-adapter.mjs");
+  console.log("  4. Run the financial crash test:");
+  console.log("     npx justfair@latest test --target http://localhost:3100 --open\n");
   process.exitCode = 0;
   return { createdConfig, createdAdapter, configPath, adapterPath };
 }

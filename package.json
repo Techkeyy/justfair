@@ -1,6 +1,6 @@
 {
   "name": "justfair",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Financial-correctness crash testing for stock applications and market infrastructure on Solana",
   "main": "src/cli.js",
   "bin": {

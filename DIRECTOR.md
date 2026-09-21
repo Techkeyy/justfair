@@ -306,6 +306,12 @@ Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
   2. Remaining defect was presentation-only: at desktop width the Step 2 sample clipped the leading `if`, clipped `observations.displayedPrice` at the left edge, and long trailing comments forced horizontal scrolling.
   3. Fix is display-copy only: same real scaffold identifiers and meaning, reformatted into short lines (comment-above-line structure, wrapped `observations.displayedPrice =` assignment), plus a scoped `.code-body.code-wrap` CSS rule (`pre-wrap` + `overflow-wrap`) applying to the Step 2 example block only — no global code-style change, no CLI/adapter/scenario change.
   4. New browser assertions 61c (full `if (` + full identifiers visible, zero sample overflow, left edge unclipped, wrap active) and 61d (zero page/sample overflow at 390px, identifiers intact). Browser suite 2026-09-21: 70 PASSED · 0 FAILED. Visual PASS is NOT claimed here; the human owner/director revalidates.
+- OWNER UAT — REAL USAGE STEP 1 — FAIL, POST-INIT GUIDANCE BUG (2026-09-21):
+  1. Owner ran public `npx justfair@latest init` in `C:\Users\HomePC\Desktop\JustFair-UAT`; output taught `justfair test --target ...`, but `Get-Command justfair` returns CommandNotFoundException — no global binary exists for the npx/no-clone user.
+  2. Output also told the user to START the adapter immediately, skipping the required connect step (init → connect adapter to real app → start app → start adapter → test).
+  Root causes: (1) bare `justfair test` assumed an unavailable global binary; (2) init output skipped the adapter-to-real-app connection step.
+  Source fix (`src/cli.js` `runInitCommand` + new CLI test, `package.json` → 1.0.1): next steps now teach connect → start app → start adapter → `npx justfair@latest test --target http://localhost:3100 --open`. CLI suite: 15 PASSED · 0 FAILED. Packed-tarball proof: installed `justfair-1.0.1.tgz` in a clean dir, `npx justfair init` via the packed bin prints the corrected steps (51 files, no secrets/evidence/junk).
+  Registry state: TECHNICAL FIX COMPLETE, NPM PATCH RELEASE REQUIRED — `npm publish` blocked (401 whoami + 404 PUT, not logged in as owner). Owner must run `npm login` (passkey/2FA) then `npm publish`. After registry release: OWNER REVALIDATION PENDING (`npx justfair@latest init` in a clean dir). Owner PASS is NOT claimed here.
 
 ## 26. CURRENT BLOCKERS
 
@@ -329,7 +335,9 @@ None. All technical, packaging, npm registry distribution, and test validation g
 ## 29. FILES CHANGED RECENTLY
 
 - `public/index.html`: Step 2 actionable per Owner UAT (real `justfair-adapter.mjs` `observations` edit point + verbatim scaffold example + two-ports bullet) and Step 4 note corrected to stale/carry-forward equity prices; earlier `#test-view` onboarding copy truths (headline, scenario mix, `init` skip notice).
-- `public/index.html`: Step 2 example reformatted into short wrapped lines (same real scaffold identifiers; `id="step2-example-code"`).
+- `package.json`: 1.0.1 (init guidance fix; registry publish pending owner auth).
+- `src/cli.js`: `runInitCommand` next steps teach connect → start app → start adapter → public npx test command (no bare `justfair test`).
+- `test/cli.test.js`: new init next-steps test (no bare command, npx command present, connect-before-start, real-app observations, step order).
 - `public/styles.css`: scoped `.code-body.code-wrap` wrap rule for the Step 2 example only (no global code-style change).
 - `test/browser.test.js`: new assertions 61c (desktop readability/overflow) and 61d (390px overflow); earlier 61b (Step 2 names real adapter file/edit point/example, two-ports relation, Step 4 wording, unchanged npm commands).
 - `package.json`: normalized repository URL via `npm pkg fix`, published `justfair@1.0.0` to npm registry.
@@ -369,11 +377,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-UX UPGRADE 003 — OWNER UAT COPY CORRECTIONS + STEP 2 ACTIONABILITY + EXAMPLE READABILITY APPLIED.
+UX UPGRADE 003 — OWNER UAT COPY CORRECTIONS + STEP 2 ACTIONABILITY + EXAMPLE READABILITY + INIT GUIDANCE FIX (SOURCE COMPLETE, NPM 1.0.1 PUBLISH PENDING OWNER AUTH).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Present the readable Step 2 example on `https://justfair-theta.vercel.app/#test` (desktop + 390px) to the owner for human visual revalidation. Do NOT claim visual PASS; the human owner/director decides. DBC pre-launch crash-testing direction is locked and recorded only — do NOT start implementing it without an explicit order.
+Owner: `npm login` as the package owner, then `npm publish` (source is at 1.0.1 with the init guidance fix, packed-tarball verified). Then revalidate `npx justfair@latest init` in a clean directory and declare PASS/FAIL. Builder stops here; do NOT start the DBC upgrade without an explicit order.
 
 

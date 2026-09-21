@@ -178,6 +178,52 @@ test("cli init scaffolds justfair.config.js and justfair-adapter.mjs without ove
   }
 });
 
+test("cli init next-steps teach the public npx flow with connect first", async () => {
+  const { runInitCommand } = await import("../src/cli.js");
+  const { mkdtempSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const path = await import("node:path");
+
+  const tempDir = mkdtempSync(path.join(tmpdir(), "jf-init-steps-test-"));
+  const lines = [];
+  const origLog = console.log;
+  const origErr = console.error;
+  console.log = (...a) => { lines.push(a.join(" ")); };
+  console.error = (...a) => { lines.push(a.join(" ")); };
+  try {
+    await runInitCommand([], tempDir);
+  } finally {
+    console.log = origLog;
+    console.error = origErr;
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+  const stdout = lines.join("\n");
+
+  // Must NOT teach a bare global binary that does not exist for npx users.
+  assert.ok(!stdout.includes("justfair test"), "init output must not contain bare 'justfair test'");
+  // Must teach the real public command.
+  assert.ok(
+    stdout.includes("npx justfair@latest test --target http://localhost:3100 --open"),
+    "init output must contain the public npx test command"
+  );
+  // Must tell the user to connect/edit the adapter before starting it.
+  assert.ok(stdout.includes("justfair-adapter.mjs"), "init output must name justfair-adapter.mjs");
+  assert.ok(stdout.includes("observations"), "init output must mention observations");
+  assert.ok(/connect/i.test(stdout), "init output must tell the user to connect the adapter");
+  // Must reference the real application values.
+  assert.ok(/real app/i.test(stdout), "init output must mention the real app values");
+  // Required order: connect -> start app -> start adapter -> test.
+  const idxConnect = stdout.search(/connect/i);
+  const idxStartApp = stdout.indexOf("Start your app");
+  const idxStartAdapter = stdout.indexOf("Start the observation adapter");
+  const idxTest = stdout.indexOf("Run the financial crash test");
+  assert.ok(idxConnect !== -1 && idxStartApp !== -1 && idxStartAdapter !== -1 && idxTest !== -1, "all four next steps must be present");
+  assert.ok(
+    idxConnect < idxStartApp && idxStartApp < idxStartAdapter && idxStartAdapter < idxTest,
+    "order must be connect -> start app -> start adapter -> test"
+  );
+});
+
 test("startLocalReportViewer serves in-memory artifact and static files on 127.0.0.1", async () => {
   const { startLocalReportViewer } = await import("../src/cli.js");
   const sampleArtifact = {
