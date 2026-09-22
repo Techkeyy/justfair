@@ -4087,7 +4087,7 @@ function renderDbcResult(data) {
   const outBox = document.getElementById("dbc-result");
   if (!outBox) return;
   outBox.classList.remove("hidden");
-  const statusWord = data.status === "PASS" ? "PASS" : data.status === "FAIL" ? "FAIL" : "NOT VERIFIED";
+  const statusWord = data.status === "PASS" ? "PASS" : data.status === "FAIL" ? "FAIL" : data.status === "CAPACITY" ? "CURVE CAPACITY" : "NOT VERIFIED";
   const summary = data.summary || { passed: 0, failed: 0, capacity: 0, unable: 0 };
   const points = Array.isArray(data.points) ? data.points : [];
   const ev = data.evidence || {};

@@ -3087,6 +3087,45 @@ async function runBrowserTests() {
       }
     });
 
+    await test("65e. DBC sweep at 25% renders CURVE CAPACITY, never FAIL", async () => {
+      await page.route("**/api/v1/dbc/sweep", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+          request_status: "SUCCESS", scenarioId: "DBC_LAUNCH_SWEEP", status: "CAPACITY",
+          target: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU",
+          policy: { maxPriceImpactPct: 25, source: "issuer-supplied" },
+          quoteAsset: { mint: "So11111111111111111111111111111111111111112", decimals: 9, symbol: "SOL" },
+          summary: { passed: 9, failed: 0, capacity: 1, unable: 0, points: 10 },
+          points: [
+            { sizeQuoteUnits: "10960000", sizeDisplay: "~0.01096 SOL", status: "PASS", observedImpactPct: 0.03, outputAmount: "10956000", reason: null },
+            { sizeQuoteUnits: "21920000000", sizeDisplay: "~21.92 SOL", status: "CAPACITY", observedImpactPct: null, outputAmount: null, reason: "curve reports insufficient capacity for this opening size" }
+          ],
+          firstPolicyFailure: null,
+          firstCapacityFailure: { sizeQuoteUnits: "21920000000", sizeDisplay: "~21.92 SOL" },
+          testedRange: { minSizeQuoteUnits: "10960000", maxSizeQuoteUnits: "21920000000", minSizeDisplay: "~0.01096 SOL", maxSizeDisplay: "~21.92 SOL" },
+          explanation: "All quotable sizes stay within your 25% policy. Quotes stop succeeding at ~21.92 SOL.",
+          guidance: "Reduce the largest hypothetical opening size, then rerun.",
+          evidence: { classification: "live_dbc_mainnet", source: "METEORA_DBC_PROGRAM", config: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU" },
+          replay: []
+        }) });
+      });
+      try {
+        await page.click("#tab-dbc-btn");
+        await page.waitForSelector("#dbc-view:not(.hidden)", { timeout: 10000 });
+        await page.click("#dbc-run-btn");
+        await page.waitForSelector("#dbc-result:not(.hidden)", { timeout: 20000 });
+        const head = await page.textContent("#dbc-result .replay-detail-head");
+        if (!/CURVE CAPACITY/.test(head)) throw new Error(`Aggregate badge must read CURVE CAPACITY: ${head}`);
+        if (/FAIL/.test(head)) throw new Error(`Aggregate head must not say FAIL: ${head}`);
+        const out = await page.textContent("#dbc-result");
+        if (!out.includes("9 passed · 0 failed · 1 capacity · 0 unable")) throw new Error("Summary counts must stay exact");
+        if (!out.includes("FIRST CAPACITY BOUNDARY")) throw new Error("Capacity boundary callout must render");
+        if (/FIRST OBSERVED POLICY FAILURE/.test(out)) throw new Error("No policy-failure callout may render without a policy failure");
+      } finally {
+        await page.unroute("**/api/v1/dbc/sweep");
+      }
+    });
+
     await test("65b. DBC sweep table has no page overflow at 390px", async () => {
       const narrowCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
       const narrowPage = await narrowCtx.newPage();

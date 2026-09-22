@@ -286,14 +286,14 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
 - Unit & Preflight suite (`npm test`): 49 PASSED · 0 FAILED.
 - Scenario engine suite (`node test/justfair-scenarios.test.js`): 25 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key; includes no-signing scan over the extended `dbc-live.js`).
 - DBC single-check suite (`node --test test/dbc.test.js`): 5 PASSED · 0 FAILED (whale outputs unchanged after shared-core refactor).
-- DBC launch-sweep suite (`node --test test/dbc-sweep.test.js`): 17 PASSED · 0 FAILED (grid derivation, parsing/sorting, summary/first-failure pure tests + live 8%/15% sweeps, policy ownership, capacity-vs-FAIL, UNABLE paths, formatters, mint resolution, no-signing scan).
+- DBC launch-sweep suite (`node --test test/dbc-sweep.test.js`): 19 PASSED · 0 FAILED (grid derivation, parsing/sorting, summary/first-failure pure tests + aggregate precedence unit + live 8%/15%/25% sweeps, policy ownership, capacity-vs-FAIL, UNABLE paths, formatters, mint resolution, no-signing scan).
 - CLI suite (`node --test test/cli.test.js`): 17 PASSED · 0 FAILED (includes `whale --sweep` live sweep + UNABLE paths).
 - HTTP contract suite (`node test/e2e.test.js`): 16 PASSED · 0 FAILED (includes `/api/v1/dbc/sweep` input validation without network).
-- Playwright Browser test suite (`node test/browser.test.js`): 75 PASSED · 0 FAILED (includes sweep UI test 65 + human-amount tests 65c/65d + 390px table test 65b).
+- Playwright Browser test suite (`node test/browser.test.js`): 76 PASSED · 0 FAILED (includes sweep UI test 65 + human-amount tests 65c/65d + 25% aggregate test 65e + 390px table test 65b).
 - Tessera suite: 13 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Product-preflight suite: 52 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Streaming suite: 6 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
-- Total: 275 PASSED · 0 FAILED · 1 SKIPPED.
+- Total: 278 PASSED · 0 FAILED · 1 SKIPPED.
 - Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
@@ -373,6 +373,11 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   8% policy → 7 PASS / 2 FAIL / 1 CAPACITY, first failure 5,480,000,000 raw units @12.320%, capacity 21,920,000,000 raw units.
   15% policy → 8 PASS / 1 FAIL / 1 CAPACITY, 5,480,000,000 correctly FAIL→PASS, first failure moved to 10,960,000,000 raw units @21.937%, capacity unchanged at 21,920,000,000 raw units.
   This proves issuer-controlled policy changes classification while the underlying Meteora curve/capacity stays unchanged.
+- OWNER UAT — DBC POLICY/CAPACITY SEPARATION, UNDERLYING LOGIC PASS (2026-09-22, production):
+  8% → first policy fail ~5.48 SOL. 15% → first policy fail ~10.96 SOL. 25% → 0 policy failures, capacity still ~21.92 SOL.
+- OWNER UAT BUG — AGGREGATE CAPACITY MISLABELED FAIL, FIX APPLIED, OWNER REVALIDATION PENDING (2026-09-22):
+  Root cause: engine aggregate rule `(failed>0 || capacity>0) ? FAIL` in `runDbcSweep` collapsed CAPACITY into FAIL; the API passed the engine status through and the UI rendered it, so layers A+B+C were all wrong from one source-of-truth defect.
+  Fix at the source: new pure `sweepOverallStatus` precedence — FAIL iff ≥1 policy FAIL; else CAPACITY iff ≥1 capacity point; else PASS iff ≥1 pass; else UNABLE. Applied in `runDbcSweep` and the marginal short-circuit (now CAPACITY, not FAIL). API passes the status through unchanged. UI badge maps CAPACITY → "CURVE CAPACITY". CLI prints a CURVE CAPACITY header for that status and still exits 1 (a real finding, not clean). 25% live sweep now returns CAPACITY with 9/0/1/0, null firstPolicyFailure, unchanged raw sizes. Points, math, policy behavior, formatting, evidence, and guarantees untouched.
 - DBC HUMAN-READABLE AMOUNT POLISH — FIX APPLIED, OWNER VISUAL REVALIDATION PENDING (2026-09-22):
   Quote resolution (no hardcoded SOL): decimals read from the REAL mint account (base Mint byte 44, Token + Token-2022 owners only); `SOL` label only for the system native mint; otherwise formatted amount + abbreviated mint; unknown mints fall back to raw units, never a guessed symbol.
   Presentation: per-point `sizeDisplay` + `quoteAsset` on the sweep report (additive fields; classifications, math, sizing, endpoint semantics unchanged); UI shows human-primary (5.48 / 10.96 / 21.92 SOL) with grouped raw secondary (5,480,000,000 quote units) in table, callouts, explanation, and guidance; raw evidence section keeps exact raw units.
@@ -410,13 +415,13 @@ None. All technical, packaging, npm registry distribution, and test validation g
 - `public/app.js`: wired snippet copy buttons, report close button, and `/api/v1/local-artifact` local-first auto-open listener.
 - `README.md`: separated into "Using JustFair (No-Clone Developer Journey)" and "Contributing to JustFair".
 - `test/browser.test.js`: updated assertions to verify published `npx justfair@latest` onboarding commands across hero, test view, and Replay Lab.
-- `src/scenarios/dbc-live.js`: launch-stress sweep (`deriveSweepSizes`, `parseSweepSizes`, `summarizeSweep`, `quoteSingleSize`, `runDbcSweep`) reusing the whale quote core with identical whale outputs; quote-asset resolution (`resolveQuoteAsset`, exact human formatters, raw audit preservation) with SOL label only for the native mint.
+- `src/scenarios/dbc-live.js`: launch-stress sweep (`deriveSweepSizes`, `parseSweepSizes`, `summarizeSweep`, `sweepOverallStatus`, `quoteSingleSize`, `runDbcSweep`) reusing the whale quote core with identical whale outputs; aggregate precedence FAIL > CAPACITY > PASS > UNABLE (capacity never collapses into FAIL); quote-asset resolution (`resolveQuoteAsset`, exact human formatters, raw audit preservation) with SOL label only for the native mint.
 - `src/scenarios/dbc.js`: `DBC_LAUNCH_SWEEP` contract descriptor (issuer-owned policy, distinct point outcomes).
 - `src/server.js`: new `POST /api/v1/dbc/sweep` reusing the DBC core (`/whale` untouched).
-- `src/cli.js`: `whale --sweep [--sizes]` with table output and 0/1/2 exits.
-- `public/index.html` + `public/app.js` + `public/styles.css`: DBC LAUNCH STRESS page (config + YOUR POLICY, summary, first-failure callouts, stress-profile table, provenance, raw-evidence disclosure, scoped responsive table CSS); human-primary amounts with grouped raw secondary; flex min-content blowout fix in `.replay-field` (also hardens Replay detail rendering).
+- `src/cli.js`: `whale --sweep [--sizes]` with table output and 0/1/2 exits (CAPACITY prints CURVE CAPACITY header, exits 1 as a real finding).
+- `public/index.html` + `public/app.js` + `public/styles.css`: DBC LAUNCH STRESS page (config + YOUR POLICY, summary, first-failure callouts, stress-profile table, provenance, raw-evidence disclosure, scoped responsive table CSS); human-primary amounts with grouped raw secondary; aggregate badge maps CAPACITY → CURVE CAPACITY; flex min-content blowout fix in `.replay-field` (also hardens Replay detail rendering).
 - `test/dbc-sweep.test.js`: new (12 tests: pure grid/parse/summary + live sweep/policy/capacity/UNABLE + no-signing scan).
-- `test/browser.test.js`: test 65 rewritten for sweep UI + new 65b (390px table overflow); `test/e2e.test.js`: sweep endpoint validation; `test/cli.test.js`: `whale --sweep` live + UNABLE tests.
+- `test/browser.test.js`: test 65 rewritten for sweep UI + 65b (390px overflow) + 65c/65d (human amounts, non-SOL labeling) + 65e (25% CURVE CAPACITY aggregate); `test/e2e.test.js`: sweep endpoint validation; `test/cli.test.js`: `whale --sweep` live + UNABLE tests.
 - `DIRECTOR.md`: DBC UPGRADE 001 record (kill-gate, algorithm, semantics, API, tests, UAT prep) + refreshed §8/§10/§16/§22/§24/§34/§35; flagship + Replay PASS entries preserved.
 
 ## 30. IMPORTANT COMMITS
@@ -449,11 +454,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-DBC UPGRADE 001 — FUNCTIONAL FLOW PASS; HUMAN-READABLE POLISH APPLIED, OWNER VISUAL REVALIDATION PENDING (NOT FINISHED).
+DBC UPGRADE 001 — FUNCTIONAL FLOW PASS; AGGREGATE CAPACITY VERDICT FIX APPLIED, OWNER REVALIDATION PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Present the human-readable DBC Launch Stress result at `https://justfair-theta.vercel.app/#dbc` (config `DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU`, YOUR POLICY 8%, then 15%) to the owner for human visual revalidation: expect ~5.48/~10.96/~21.92 SOL primary with grouped raw secondary. Do NOT mark visual PASS or overall FINISHED; the human owner/director decides.
+Present the 25% DBC Launch Stress result at `https://justfair-theta.vercel.app/#dbc` (config `DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU`, YOUR POLICY 25%) to the owner for human revalidation: expect aggregate badge CURVE CAPACITY (never FAIL) with 9 passed · 0 failed · 1 capacity · 0 unable. Do NOT mark DBC PASS or overall FINISHED; the human owner/director decides. npm reconciliation (changes since 1.0.1) stays tracked for the subsequent package release; do NOT publish yet.
 
 

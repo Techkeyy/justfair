@@ -614,6 +614,13 @@ async function runWhaleSweepCommand({ rpcUrl, configAddress, maxPriceImpactPct, 
     console.log(JSON.stringify(artifact, null, 2));
   } else if (result.status === "PASS") {
     console.log(`\nJUSTFAIR\n\nPASS  DBC_LAUNCH_SWEEP\n  ${result.explanation || ""}\n`);
+  } else if (result.status === "CAPACITY") {
+    console.log(`\nJUSTFAIR\n\nCURVE CAPACITY  DBC_LAUNCH_SWEEP\n`);
+    for (const p of result.points || []) {
+      const impact = p.observedImpactPct === null || p.observedImpactPct === undefined ? "—" : `${p.observedImpactPct.toFixed(3)}%`;
+      console.log(`  ${p.status.padEnd(8)} ${p.sizeQuoteUnits} quote units → ${impact}`);
+    }
+    console.log(`\n${result.explanation || ""}\n\nGuidance\n${result.guidance || ""}\n\nReplay\n${result.replay.length} events recorded.\n`);
   } else if (result.status === "FAIL") {
     console.log(`\nJUSTFAIR\n\nFAIL  DBC_LAUNCH_SWEEP\n`);
     for (const p of result.points || []) {
@@ -625,7 +632,8 @@ async function runWhaleSweepCommand({ rpcUrl, configAddress, maxPriceImpactPct, 
     console.log(`\nJUSTFAIR\n\nUNABLE TO VERIFY\n${result.reason || "could not verify"}\n`);
   }
   const bad = (result.summary?.failed ?? 0) + (result.summary?.capacity ?? 0);
-  process.exitCode = result.status === "PASS" ? 0 : bad > 0 ? 1 : 2;
+  // CAPACITY is a real finding (not clean), so it exits 1 like FAIL; only PASS exits 0.
+  process.exitCode = result.status === "PASS" ? 0 : result.status === "CAPACITY" ? 1 : bad > 0 ? 1 : 2;
 }
 
 // Only execute main() automatically when invoked directly as CLI

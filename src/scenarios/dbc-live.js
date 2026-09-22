@@ -195,6 +195,20 @@ export function parseSweepSizes(input) {
 }
 
 /**
+ * Aggregate sweep verdict precedence (pure). CAPACITY is distinct from FAIL:
+ * FAIL requires at least one quotable point exceeding the issuer policy;
+ * CAPACITY means zero policy failures but at least one point the curve
+ * cannot quote; PASS means every point quoted within policy; otherwise
+ * UNABLE (infrastructure/config — never a curve judgment).
+ */
+export function sweepOverallStatus({ passed = 0, failed = 0, capacity = 0, unable = 0 } = {}) {
+  if (failed > 0) return "FAIL";
+  if (capacity > 0) return "CAPACITY";
+  if (passed > 0) return "PASS";
+  return "UNABLE_TO_VERIFY";
+}
+
+/**
  * Pure sweep summary: counts plus first observed policy failure and first
  * capacity failure over ascending points. The policy value itself always
  * comes from caller input, never from a hardcoded threshold.
@@ -536,8 +550,7 @@ export async function runDbcSweep({ rpcUrl, configAddress, maxPriceImpactPct, si
     minSizeDisplay: displayOf(sizes[0]),
     maxSizeDisplay: displayOf(sizes[sizes.length - 1])
   };
-  const decisive = summary.passed + summary.failed + summary.capacity;
-  const status = (summary.failed > 0 || summary.capacity > 0) ? "FAIL" : decisive > 0 ? "PASS" : "UNABLE_TO_VERIFY";
+  const status = sweepOverallStatus(summary);
 
   const explainedFirstFailure = firstPolicyFailure && {
     ...firstPolicyFailure,
@@ -552,7 +565,7 @@ export async function runDbcSweep({ rpcUrl, configAddress, maxPriceImpactPct, si
   };
   const explanation = buildSweepExplanation({ config: normalizedConfig, tolerance, sizes, summary, firstPolicyFailure: explainedFirstFailure, firstCapacityFailure: explainedFirstCapacity, quoteAsset });
   const guidance = buildSweepGuidance({ tolerance, summary, firstPolicyFailure: explainedFirstFailure, firstCapacityFailure: explainedFirstCapacity, quoteAsset });
-  const verdictLabel = status === "PASS" ? "Sweep within issuer policy" : status === "FAIL" ? "Sweep crossed policy or capacity" : "Sweep inconclusive";
+  const verdictLabel = status === "PASS" ? "Sweep within issuer policy" : status === "FAIL" ? "Sweep crossed issuer policy" : status === "CAPACITY" ? "Sweep reached curve capacity" : "Sweep inconclusive";
 
   return {
     scenarioId: DBC_SWEEP_SCENARIO_ID,
@@ -595,7 +608,7 @@ function sweepCapacityShortCircuit({ replay, evidence, normalizedConfig, toleran
   const explanation = `No opening size can quote against ${normalizedConfig}: even the marginal probe exceeds curve capacity.`;
   return {
     scenarioId: DBC_SWEEP_SCENARIO_ID,
-    status: "FAIL",
+    status: "CAPACITY",
     target: normalizedConfig,
     policy: { maxPriceImpactPct: tolerance, source: "issuer-supplied" },
     quoteAsset,

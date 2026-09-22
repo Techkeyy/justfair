@@ -16,6 +16,7 @@ import {
   deriveSweepSizes,
   parseSweepSizes,
   summarizeSweep,
+  sweepOverallStatus,
   formatHumanAmount,
   formatRawUnits,
   describeAmount,
@@ -245,4 +246,25 @@ test("live sweep at 8%: human displays match the same raw sizes", async () => {
   assert.equal(bySize["5480000000"], "~5.48 SOL");
   assert.equal(bySize["10960000000"], "~10.96 SOL");
   assert.equal(bySize["21920000000"], "~21.92 SOL");
+});
+
+test("aggregate precedence is deterministic without network use", () => {
+  assert.equal(sweepOverallStatus({ passed: 7, failed: 2, capacity: 1, unable: 0 }), "FAIL");
+  assert.equal(sweepOverallStatus({ passed: 8, failed: 1, capacity: 1, unable: 0 }), "FAIL");
+  assert.equal(sweepOverallStatus({ passed: 9, failed: 0, capacity: 1, unable: 0 }), "CAPACITY");
+  assert.equal(sweepOverallStatus({ passed: 10, failed: 0, capacity: 0, unable: 0 }), "PASS");
+  assert.equal(sweepOverallStatus({ passed: 0, failed: 0, capacity: 0, unable: 3 }), "UNABLE_TO_VERIFY");
+  assert.equal(sweepOverallStatus({}), "UNABLE_TO_VERIFY");
+});
+
+test("live sweep at 25%: capacity without policy failure is CAPACITY, never FAIL", async () => {
+  const r = await runDbcSweep({ configAddress: KNOWN_CONFIG, maxPriceImpactPct: 25 });
+  assert.equal(r.status, "CAPACITY");
+  assert.deepEqual(
+    { passed: r.summary.passed, failed: r.summary.failed, capacity: r.summary.capacity, unable: r.summary.unable },
+    { passed: 9, failed: 0, capacity: 1, unable: 0 }
+  );
+  assert.equal(r.firstPolicyFailure, null);
+  assert.equal(r.firstCapacityFailure.sizeQuoteUnits, "21920000000");
+  assert.equal(r.firstCapacityFailure.sizeDisplay, "~21.92 SOL");
 });
