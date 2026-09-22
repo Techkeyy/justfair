@@ -57,3 +57,36 @@ export function evaluateWhalePolicy({ observedImpactPct, maxPriceImpactPct }) {
   }
   return { withinPolicy: observed <= tolerance };
 }
+
+export const DBC_LAUNCH_SWEEP = {
+  id: "DBC_LAUNCH_SWEEP",
+  title: "Launch stress sweep: hypothetical opening buys stay within the issuer-declared impact policy until curve capacity",
+  category: "MARKET_STRUCTURE",
+  version: "1",
+  requiresCapabilities: ["dbc_quote_impact"],
+  status: "EXECUTABLE",
+  policy: {
+    maxPriceImpactPct: "supplied per run by the issuer (YOUR POLICY; no universal safe value)"
+  },
+  inputsShape: {
+    configAddress: "on-chain DBC PoolConfig address (must exist; no pool or trading required)",
+    maxPriceImpactPct: "issuer-declared tolerance, number within 0..100",
+    sizesQuoteUnits: "optional explicit opening sizes in quote raw units; otherwise derived as basis points of the live migrationQuoteThreshold"
+  },
+  pointStatuses: {
+    PASS: "quoted impact within the issuer policy",
+    FAIL: "quoted impact exceeds the issuer policy (first observed failure reported with the previous passing size)",
+    CAPACITY: "curve reports insufficient capacity for this size (distinct from policy FAIL)",
+    UNABLE: "point could not be quoted for infrastructure reasons; never PASS or FAIL"
+  },
+  failureCatalog: {
+    IMPACT_POLICY_VIOLATED: {
+      rootCause: "The configuration crosses the issuer-declared maximum price impact at the reported opening size.",
+      guidance: "Adjust the curve or liquidity distribution around the expected opening price region and rerun this sweep."
+    },
+    CURVE_CAPACITY_EXCEEDED: {
+      rootCause: "The proposed curve cannot absorb a purchase of the reported size at any price.",
+      guidance: "Reduce the largest hypothetical opening size, add early-curve liquidity, or revise the migration-threshold economics, then rerun."
+    }
+  }
+};

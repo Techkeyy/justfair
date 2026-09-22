@@ -128,6 +128,20 @@ test("cli whale exits 2 on bad address without network use", async () => {
   assert.ok(/UNABLE/i.test(r.stdout));
 });
 
+test("cli whale --sweep exits 1 with first-failure findings on live config", async () => {
+  const r = await runWhaleInProcess(["whale", "--config", WHALE_CONFIG, "--max-impact", "8", "--sweep"]);
+  assert.equal(r.code, 1);
+  assert.ok(r.stdout.includes("DBC_LAUNCH_SWEEP"));
+  assert.ok(r.stdout.includes("5480000000"));
+  assert.ok(!/This launch is (safe|unsafe)/i.test(r.stdout));
+});
+
+test("cli whale --sweep exits 2 on bad address without network use", async () => {
+  const r = await runWhaleInProcess(["whale", "--config", "NOTANADDRESS", "--max-impact", "8", "--sweep"]);
+  assert.equal(r.code, 2);
+  assert.ok(/UNABLE/i.test(r.stdout));
+});
+
 test("cli tessera naive FAILs with fee-adjusted expected amount (live fee state)", async () => {
   const h = await startFeeTarget({ behavior: "naive" });
   try {

@@ -286,7 +286,7 @@ async function main() {
 Commands:
   init                           Scaffold justfair.config.js and justfair-adapter.mjs
   test --target <url> [--open]   Run scenario audit against local adapter
-  whale --config <addr> ...      Run Meteora DBC opening liquidity stress test
+  whale --config <addr> ...      Run Meteora DBC opening liquidity stress test (add --sweep for a launch stress sweep)
   doctor                         Run diagnostic health checks
   check [--input S] [--stock S]  Run preflight quote verification
 
@@ -516,15 +516,22 @@ function describeObserved(result) {
  * DBC whale check: `node src/cli.js whale --config ADDR --size UNITS
  * --max-impact PCT [--rpc URL] [--json] [--out file]`.
  * Read-only Meteora quote math over a live config. Exit 0/1/2 = PASS/FAIL/UNABLE.
+ *
+ * DBC launch sweep: `node src/cli.js whale --config ADDR --max-impact PCT
+ * --sweep [--sizes A,B,C] [--rpc URL] [--json] [--out file]`.
+ * Same read-only math across a deterministic size sequence. Exit 0 = all
+ * points PASS, 1 = any FAIL or CAPACITY point, 2 = UNABLE.
  */
 export async function runWhaleCommand(flagArgs) {
-  const { runDbcWhale } = await import("./scenarios/dbc-live.js");
+  const { runDbcWhale, runDbcSweep } = await import("./scenarios/dbc-live.js");
   let configAddress = null;
   let tradeSizeQuoteUnits = null;
   let maxPriceImpactPct = null;
   let rpcUrl = null;
   let asJson = false;
   let outFile = null;
+  let sweep = false;
+  let sizesArg = null;
   const takeValue = (idx) => {
     const next = flagArgs[idx + 1];
     if (next && !next.startsWith("--")) return { value: next, nextIndex: idx + 1 };
@@ -536,7 +543,13 @@ export async function runWhaleCommand(flagArgs) {
     else if (flagArgs[i] === "--max-impact") { const r = takeValue(i); if (r.value) maxPriceImpactPct = r.value; i = r.nextIndex; }
     else if (flagArgs[i] === "--rpc") { const r = takeValue(i); if (r.value) rpcUrl = r.value; i = r.nextIndex; }
     else if (flagArgs[i] === "--json") asJson = true;
+    else if (flagArgs[i] === "--sweep") sweep = true;
+    else if (flagArgs[i] === "--sizes") { const r = takeValue(i); if (r.value) sizesArg = r.value; i = r.nextIndex; }
     else if (flagArgs[i] === "--out") { const r = takeValue(i); if (r.value) outFile = r.value; i = r.nextIndex; }
+  }
+  if (sweep) {
+    await runWhaleSweepCommand({ rpcUrl, configAddress, maxPriceImpactPct, sizesArg, asJson, outFile });
+    return;
   }
   if (!configAddress || !tradeSizeQuoteUnits || maxPriceImpactPct === null) {
     console.error("Usage: node src/cli.js whale --config ADDR --size QUOTE_UNITS --max-impact PCT [--rpc URL] [--json] [--out file]");
@@ -569,6 +582,50 @@ export async function runWhaleCommand(flagArgs) {
     console.log(`\nJUSTFAIR\n\nUNABLE TO VERIFY\n${result.reason || "could not verify"}\n`);
   }
   process.exitCode = result.status === "PASS" ? 0 : result.status === "FAIL" ? 1 : 2;
+}
+
+async function runWhaleSweepCommand({ rpcUrl, configAddress, maxPriceImpactPct, sizesArg, asJson, outFile }) {
+  const { runDbcSweep } = await import("./scenarios/dbc-live.js");
+  if (!configAddress || maxPriceImpactPct === null) {
+    console.error("Usage: node src/cli.js whale --config ADDR --max-impact PCT --sweep [--sizes A,B,C] [--rpc URL] [--json] [--out file]");
+    process.exitCode = 2;
+    return;
+  }
+  const result = await runDbcSweep({
+    rpcUrl,
+    configAddress,
+    maxPriceImpactPct,
+    sizesQuoteUnits: sizesArg ? sizesArg.split(",") : null
+  });
+  const artifact = {
+    runId: randomUUID(),
+    target: { config: configAddress },
+    startedAt: new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+    summary: {
+      passed: result.summary?.passed ?? 0,
+      failed: (result.summary?.failed ?? 0) + (result.summary?.capacity ?? 0),
+      unable: result.summary?.unable ?? (result.status === "UNABLE_TO_VERIFY" ? 1 : 0)
+    },
+    results: [{ scenarioId: "DBC_LAUNCH_SWEEP", ...result }]
+  };
+  if (outFile) writeFileSync(outFile, JSON.stringify(artifact, null, 2) + "\n");
+  if (asJson) {
+    console.log(JSON.stringify(artifact, null, 2));
+  } else if (result.status === "PASS") {
+    console.log(`\nJUSTFAIR\n\nPASS  DBC_LAUNCH_SWEEP\n  ${result.explanation || ""}\n`);
+  } else if (result.status === "FAIL") {
+    console.log(`\nJUSTFAIR\n\nFAIL  DBC_LAUNCH_SWEEP\n`);
+    for (const p of result.points || []) {
+      const impact = p.observedImpactPct === null || p.observedImpactPct === undefined ? "—" : `${p.observedImpactPct.toFixed(3)}%`;
+      console.log(`  ${p.status.padEnd(8)} ${p.sizeQuoteUnits} quote units → ${impact}`);
+    }
+    console.log(`\n${result.explanation || ""}\n\nGuidance\n${result.guidance || ""}\n\nReplay\n${result.replay.length} events recorded.\n`);
+  } else {
+    console.log(`\nJUSTFAIR\n\nUNABLE TO VERIFY\n${result.reason || "could not verify"}\n`);
+  }
+  const bad = (result.summary?.failed ?? 0) + (result.summary?.capacity ?? 0);
+  process.exitCode = result.status === "PASS" ? 0 : bad > 0 ? 1 : 2;
 }
 
 // Only execute main() automatically when invoked directly as CLI

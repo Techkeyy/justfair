@@ -75,10 +75,12 @@ artifact) + `whale` command + legacy `check`/`doctor`.
 `src/scenarios/` — `adapter.js` (v1 HTTP contract + SSRF guards),
 `scenario.js` (schema + generic `runScenario`), `index.js` (static
 registry), `first-scenario.js`, `prestocks.js`, `tessera.js`, `dbc.js`
-(contract) + `dbc-live.js` (executable whale), `pyth.js` (parser/fetcher,
-historical only).
+(contract + `DBC_LAUNCH_SWEEP` descriptor) + `dbc-live.js` (executable whale
++ launch-stress sweep sharing one local quote core), `pyth.js`
+(parser/fetcher, historical only).
 `src/server.js` — single handler: legacy preflight/product routes +
-`POST /api/v1/dbc/whale` (validated, rate-limited); static fallback.
+`POST /api/v1/dbc/whale` (single-size, unchanged) + `POST /api/v1/dbc/sweep`
+(sweep report; validated, rate-limited); static fallback.
 `src/engine|product|config.js` — legacy Jupiter/benchmark/multiplier/
 simulation/verdict + 12-underlying × 24-representation registry (reused
 primitives; see §14).
@@ -112,6 +114,8 @@ skipped[]}, results[]}`; each result carries scenario identity, status,
 evidence classification + provenance, expected/actual, failure code, root
 cause, fix guidance, ordered replay. `node src/cli.js whale --config ADDR
 --size UNITS --max-impact PCT` runs DBC_OPENING_WHALE (same 0/1/2).
+`node src/cli.js whale --config ADDR --max-impact PCT --sweep [--sizes A,B,C]`
+runs DBC_LAUNCH_SWEEP (exit 0 = all points PASS, 1 = any FAIL/CAPACITY, 2 = UNABLE).
 
 ## 11. SCENARIO ENGINE
 
@@ -176,7 +180,7 @@ FAIL / UNABLE inputs via CLI + `POST /api/v1/dbc/whale` + web UI. SDK
 declared deps (ordered). Serverless fix recorded: engines node 22.x + CJS
 uuid pin. Zero signing/broadcast/funds throughout.
 
-LOCKED FUTURE DIRECTION (2026-09-21, NOT implemented — record only):
+LOCKED FUTURE DIRECTION (2026-09-21, superseded by UPGRADE 001 below):
 DBC Stress is positioned as PRE-LAUNCH MARKET CRASH TESTING for Meteora
 DBC configurations, not a generic one-off price-impact calculator.
 Locked thesis: "Break your launch configuration before traders do."
@@ -187,6 +191,17 @@ Constraints: the issuer chooses the impact policy; JustFair never invents
 a universal safe percentage; real Meteora config / SDK math; no signing,
 custody, funds, or actual trades. Current DBC functionality is preserved
 unchanged until that upgrade is explicitly started.
+
+DBC UPGRADE 001 — IMPLEMENTED, OWNER UAT PENDING (2026-09-22, explicit owner order):
+Kill-gate findings (official MeteoraAg/dynamic-bonding-curve README + SDK v1.5.12 source + live RPC reads):
+- CONFIRMED: SDK `getQuoteFromInputAmount` is documented "quotes a swap from an input amount before any pool exists" — builds a simulated virtual pool from the config's sqrtStartPrice, pure local math.
+- CONFIRMED: official lifecycle is config-first (`dbc-create-config`) then pool (`dbc-create-pool --config`); trading happens later on the virtual pool.
+- CONFIRMED: JustFair's path needs ONLY the on-chain PoolConfig account + one chain-clock read (`getCurrentPoint`: slot/timestamp) + local math. No pool, mint, or trading required.
+- CONFIRMED: identical math reusable across any size sequence with zero extra RPC per point (quote path is synchronous local code).
+- Truthful "pre-launch" meaning locked: the DBC configuration exists on-chain but its pool has not opened to traders. A nonexistent config is UNABLE (`DBC_FETCH_FAILED`), never simulated from hand-typed parameters (that would break real-config evidence).
+New behavior: `runDbcSweep` (config + YOUR POLICY → 10-point deterministic sweep as basis points [10..20000] of the live `migrationQuoteThreshold`, quote-asset-agnostic, no hardcoded SOL) returns per-point PASS/FAIL/CAPACITY/UNABLE, counts, first observed policy failure (with previous passing size bracket), first capacity boundary, explanation, non-prescriptive guidance, `live_dbc_mainnet` evidence, replay. Overall FAIL if any FAIL/CAPACITY point; PASS only if all PASS; else UNABLE.
+Preserved: `runDbcWhale` outputs byte-identical (shares the extracted `quoteSingleSize` core; all 5 whale tests green), `POST /api/v1/dbc/whale` untouched, flagship/Replay/Tessera/PreStocks/stale scenario/npm behavior untouched. New `POST /api/v1/dbc/sweep` (separate route because `/whale` has a fixed single-size contract asserted by clients/tests) + `whale --sweep [--sizes]` CLI (exits 0/1/2). Web: DBC view is now DBC LAUNCH STRESS (config + YOUR POLICY inputs only; summary, first-failure callouts, stress-profile table, provenance, raw evidence in disclosure).
+Owner UAT prep (ONE real config demonstrates all three, verified live this session): `DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU` at 8% → 7 PASS, first observed policy failure at 5480000000 units (12.320%), first capacity at 21920000000 units.
 
 ## 17. TESSERA ROLE + STATUS
 
@@ -249,8 +264,11 @@ command; subtle sponsor proof; scenario API drawer). Primary nav: Test /
 Replay Lab / DBC Stress. Test view (workflow + `--out justfair-result.json`
 command + copy + repo-root note + OPEN REPLAY LAB). Replay Lab
 (client-side upload, schema validation, summary/list/detail, PASS/FAIL/
-UNABLE distinct, engine-generated SAMPLE-labeled samples). DBC Stress
-(config/size/policy form → real server execution, same result model).
+UNABLE distinct, engine-generated SAMPLE-labeled samples). DBC Launch Stress
+(config + YOUR POLICY inputs → server-side sweep → summary, first observed
+policy failure, first capacity boundary, stress-profile table, provenance,
+raw evidence in disclosure; thesis "Break your launch configuration before
+traders do.").
 Footer: Product (Test/Replay/DBC) + Resources (System Health). Legacy Steps
 UI remains served internally for tests/primitives, with NO public nav/hero/
 footer entry.
@@ -264,12 +282,18 @@ footer entry.
 
 ## 24. TEST SUITE STATE
 
-Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
+Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrade carry 2026-09-18 release counts):
 - Unit & Preflight suite (`npm test`): 49 PASSED · 0 FAILED.
-- Scenario & Integration suite (`node test/justfair-scenarios.test.js test/dbc.test.js test/tessera.test.js test/e2e.test.js`): 25 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key).
-- CLI test suite (`node --test test/cli.test.js`): 15 PASSED · 0 FAILED (includes `init` scaffold with overwrite protection, init next-steps public-npx/connect-first guidance, `startLocalReportViewer` in-memory serving on 127.0.0.1, and `test --open`).
-- Playwright Browser test suite (`node test/browser.test.js`): 72 PASSED · 0 FAILED (covers all guided onboarding flows, Step 2 actionability + readability assertions 61b/61c/61d, state-aware Replay Lab hero 62b/62c, mental model diagram, published `npx justfair@latest` commands, Replay Lab sample rendering, DBC stress testing, and responsive layouts).
-- Total Automated Tests: 160 PASSED · 0 FAILED · 1 SKIPPED.
+- Scenario engine suite (`node test/justfair-scenarios.test.js`): 25 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key; includes no-signing scan over the extended `dbc-live.js`).
+- DBC single-check suite (`node --test test/dbc.test.js`): 5 PASSED · 0 FAILED (whale outputs unchanged after shared-core refactor).
+- DBC launch-sweep suite (`node --test test/dbc-sweep.test.js`): 12 PASSED · 0 FAILED (grid derivation, parsing/sorting, summary/first-failure pure tests + live sweep, policy ownership, capacity-vs-FAIL, UNABLE paths, no-signing scan).
+- CLI suite (`node --test test/cli.test.js`): 17 PASSED · 0 FAILED (includes `whale --sweep` live sweep + UNABLE paths).
+- HTTP contract suite (`node test/e2e.test.js`): 16 PASSED · 0 FAILED (includes `/api/v1/dbc/sweep` input validation without network).
+- Playwright Browser test suite (`node test/browser.test.js`): 73 PASSED · 0 FAILED (includes sweep UI test 65 + 390px table test 65b).
+- Tessera suite: 13 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
+- Product-preflight suite: 52 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
+- Streaming suite: 6 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
+- Total: 268 PASSED · 0 FAILED · 1 SKIPPED.
 - Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
@@ -334,6 +358,17 @@ Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
   3. FAIL = PASS ("Stale Price Failure" clicked): heading "Understand a failure.", 0 passed · 1 failed · 0 unable, full diagnosis intact (WHAT HAPPENED / EXPECTED / YOUR APP / WHY IT FAILED / HOW TO FIX THE ASSUMPTION / EVIDENCE / SOURCE / REPLAY), sample clearly labelled simulated.
   4. UNABLE = PASS (uploaded minimal artifact, `status = UNABLE_TO_VERIFY`, `reason = "Adapter unreachable"`): heading "Understand what could not be verified.", 0 passed · 0 failed · 1 unable, badge UNABLE_TO_VERIFY, detail NOT VERIFIED, WHAT HAPPENED "Adapter unreachable", missing values rendered "—", supplied replay event rendered, never presented as PASS or FAIL.
 - OWNER UAT — FLAGSHIP DEVELOPER FLOW = PASS: combines the recorded real public-package proof (fresh install → init → real app → adapter → FAIL → useful Replay diagnosis → fix REAL app only → adapter unchanged → exact same command → PASS) with the now-completed Replay visual state revalidation above. Prior "Replay visual revalidation pending" status is now COMPLETE / PASS. Overall product FINISHED is NOT marked. Next product area for human UAT / implementation direction is the locked Meteora DBC pre-launch crash-testing experience (§16); do NOT begin it until explicitly ordered.
+- DBC UPGRADE 001 — IN PROGRESS, OWNER UAT PENDING (2026-09-22, explicit owner order; flagship + Replay PASS state preserved above and untouched):
+  - Exact "pre-launch" meaning (kill-gate CONFIRMED): the DBC config exists on-chain, its pool has not opened to traders. SDK documents pre-pool quoting; official lifecycle is config-then-pool; JustFair reads config + clock only, zero pool/mint/trading dependency. Nonexistent config → UNABLE, never hand-simulated.
+  - Architecture reused: `fetchDbcConfig` / `toQuoteConfig` / `computeImpactPct` / `evaluateWhalePolicy` / marginal-probe pattern; new shared `quoteSingleSize` core used by both whale (outputs identical) and sweep; single extra RPC read total per sweep (current point), zero per sweep point.
+  - Sweep algorithm: default grid = basis points [10..20000] of live `migrationQuoteThreshold` (ascending, deduped, deterministic, asset-agnostic); caller sizes validated/sorted (≤32); 2 RPC reads, all quotes local; terminates after N local quotes.
+  - Policy semantics: YOUR POLICY only, from input (proven: 1% fails earlier than 8% on the same config); no universal safe value anywhere (asserted in contract, guidance, and UI tests).
+  - First-failure semantics: FIRST OBSERVED policy failure on the grid with previous-passing-size bracket; approximate-by-construction, never claimed exact.
+  - Capacity semantics: SDK "Insufficient Liquidity" → per-point CAPACITY, distinct from FAIL; infrastructure/quote errors → UNABLE; marginal-probe refusal short-circuits the sweep honestly.
+  - API contract: `POST /api/v1/dbc/sweep` {configAddress, maxPriceImpactPct, sizesQuoteUnits?} → {scenarioId DBC_LAUNCH_SWEEP, status, target, policy, summary, points[], firstPolicyFailure, firstCapacityFailure, testedRange, explanation, guidance, evidence, replay, reason/reasonCode}. New route (not a `/whale` extension) because `/whale` has a fixed asserted single-size contract. `/whale` unchanged and green.
+  - Tests: §24 (this run). Blockers: none.
+  - Owner UAT prep: ONE real config `DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU` @8% → 7 PASS, first failure 5480000000 units (12.320%), first capacity 21920000000 units.
+  - Exact next action: present `https://justfair-theta.vercel.app/#dbc` to the owner for human UAT. Do NOT mark DBC UAT PASS; do NOT mark overall FINISHED.
 
 ## 26. CURRENT BLOCKERS
 
@@ -367,7 +402,14 @@ None. All technical, packaging, npm registry distribution, and test validation g
 - `public/app.js`: wired snippet copy buttons, report close button, and `/api/v1/local-artifact` local-first auto-open listener.
 - `README.md`: separated into "Using JustFair (No-Clone Developer Journey)" and "Contributing to JustFair".
 - `test/browser.test.js`: updated assertions to verify published `npx justfair@latest` onboarding commands across hero, test view, and Replay Lab.
-- `DIRECTOR.md`: recorded Replay visual state matrix PASS (EMPTY/FAIL/PASS/UNABLE) + flagship developer-flow PASS (docs-only, no product change); earlier authoritative records of npm publication, test suites, real app proof, and deployment diagnosis.
+- `src/scenarios/dbc-live.js`: launch-stress sweep (`deriveSweepSizes`, `parseSweepSizes`, `summarizeSweep`, `quoteSingleSize`, `runDbcSweep`) reusing the whale quote core with identical whale outputs.
+- `src/scenarios/dbc.js`: `DBC_LAUNCH_SWEEP` contract descriptor (issuer-owned policy, distinct point outcomes).
+- `src/server.js`: new `POST /api/v1/dbc/sweep` reusing the DBC core (`/whale` untouched).
+- `src/cli.js`: `whale --sweep [--sizes]` with table output and 0/1/2 exits.
+- `public/index.html` + `public/app.js` + `public/styles.css`: DBC LAUNCH STRESS page (config + YOUR POLICY, summary, first-failure callouts, stress-profile table, provenance, raw-evidence disclosure, scoped responsive table CSS).
+- `test/dbc-sweep.test.js`: new (12 tests: pure grid/parse/summary + live sweep/policy/capacity/UNABLE + no-signing scan).
+- `test/browser.test.js`: test 65 rewritten for sweep UI + new 65b (390px table overflow); `test/e2e.test.js`: sweep endpoint validation; `test/cli.test.js`: `whale --sweep` live + UNABLE tests.
+- `DIRECTOR.md`: DBC UPGRADE 001 record (kill-gate, algorithm, semantics, API, tests, UAT prep) + refreshed §8/§10/§16/§22/§24/§34/§35; flagship + Replay PASS entries preserved.
 
 ## 30. IMPORTANT COMMITS
 
@@ -399,11 +441,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-UX UPGRADE 003 — OWNER CORE LOOP PASS; REPLAY VISUAL MATRIX PASS (EMPTY/FAIL/PASS/UNABLE); FLAGSHIP DEVELOPER FLOW PASS (NOT FINISHED).
+DBC UPGRADE 001 — IMPLEMENTED, OWNER UAT PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Await explicit owner order for the next product area: the locked Meteora DBC pre-launch crash-testing experience (§16). Do NOT begin the DBC upgrade, do NOT claim overall FINISHED, and do NOT redeploy without cause. Builder stops here.
+Present the DBC Launch Stress page at `https://justfair-theta.vercel.app/#dbc` (config `DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU`, YOUR POLICY 8%) to the owner for human UAT: expect 7 PASS, first observed policy failure at 5480000000 units, first capacity at 21920000000 units. Do NOT mark DBC UAT PASS or overall FINISHED; the human owner/director decides.
 
 

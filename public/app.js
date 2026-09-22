@@ -4061,10 +4061,9 @@ if (dbcForm) dbcForm.addEventListener("submit", async (e) => {
   try {
     const body = {
       configAddress: document.getElementById("dbc-config-input")?.value?.trim() || "",
-      tradeSizeQuoteUnits: document.getElementById("dbc-size-input")?.value?.trim() || "",
       maxPriceImpactPct: Number(document.getElementById("dbc-policy-input")?.value)
     };
-    const res = await fetch("/api/v1/dbc/whale", {
+    const res = await fetch("/api/v1/dbc/sweep", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
@@ -4080,7 +4079,7 @@ if (dbcForm) dbcForm.addEventListener("submit", async (e) => {
   } finally {
     if (runBtn) runBtn.disabled = false;
     if (spinner) spinner.classList.add("hidden");
-    if (btnText) btnText.textContent = "RUN STRESS TEST";
+    if (btnText) btnText.textContent = "RUN LAUNCH STRESS TEST";
   }
 });
 
@@ -4089,26 +4088,51 @@ function renderDbcResult(data) {
   if (!outBox) return;
   outBox.classList.remove("hidden");
   const statusWord = data.status === "PASS" ? "PASS" : data.status === "FAIL" ? "FAIL" : "NOT VERIFIED";
-  const d = data.diagnosis || {};
-  const a = (data.assertions || [])[0] || {};
-  const observedShown = d.actual !== undefined && d.actual !== null ? d.actual
-    : a.actual !== undefined && a.actual !== null ? a.actual : null;
+  const summary = data.summary || { passed: 0, failed: 0, capacity: 0, unable: 0 };
+  const points = Array.isArray(data.points) ? data.points : [];
   const ev = data.evidence || {};
+  const fmtImpact = (v) => (v === null || v === undefined ? "—" : `${Number(v).toFixed(3)}%`);
+  const rows = points.map((p) => {
+    const size = escapeHtmlText(p.sizeQuoteUnits ?? "—");
+    return `<tr><td class="font-mono">${size}</td><td class="font-mono">${fmtImpact(p.observedImpactPct)}</td>`
+      + `<td><span class="replay-status-badge">${escapeHtmlText(p.status)}</span></td></tr>`;
+  }).join("");
+  const firstFail = data.firstPolicyFailure;
+  const firstCap = data.firstCapacityFailure;
+  const findings = [];
+  if (firstFail) {
+    const held = firstFail.previousPassSizeQuoteUnits ? ` Policy holds at ${escapeHtmlText(firstFail.previousPassSizeQuoteUnits)} quote units.` : "";
+    findings.push(`<div class="replay-field"><span class="replay-field-label">FIRST OBSERVED POLICY FAILURE</span>`
+      + `<span>Your policy is first exceeded at ${escapeHtmlText(firstFail.sizeQuoteUnits)} quote units (${fmtImpact(firstFail.observedImpactPct)} observed).${held}</span></div>`);
+  }
+  if (firstCap) {
+    findings.push(`<div class="replay-field"><span class="replay-field-label">FIRST CAPACITY BOUNDARY</span>`
+      + `<span>Quotes stop succeeding at ${escapeHtmlText(firstCap.sizeQuoteUnits)} quote units (curve reports insufficient capacity).</span></div>`);
+  }
   outBox.innerHTML = `
     <div class="replay-detail-head"><span class="replay-status-badge">${escapeHtmlText(statusWord)}</span>
-      <h4 class="replay-detail-title">DBC_OPENING_WHALE</h4></div>
+      <h4 class="replay-detail-title">DBC_LAUNCH_SWEEP</h4></div>
     <div class="replay-detail-grid">
-      <div class="replay-field"><span class="replay-field-label">EXPECTED</span><span>${escapeHtmlText(d.expected || a.expected || "—")}</span></div>
-      <div class="replay-field"><span class="replay-field-label">OBSERVED</span><span>${escapeHtmlText(typeof observedShown === "object" ? formatObserved(observedShown) : (observedShown ?? "—"))}</span></div>
-      ${data.status === "FAIL" ? `<div class="replay-field"><span class="replay-field-label">WHY IT FAILED</span><span>${escapeHtmlText(d.rootCause || "—")}</span></div>
-      <div class="replay-field"><span class="replay-field-label">HOW TO FIX THE ASSUMPTION</span><span>${escapeHtmlText(d.guidance || "—")}</span></div>` : ""}
+      <div class="replay-field"><span class="replay-field-label">SWEEP SUMMARY</span><span>${summary.passed ?? 0} passed · ${summary.failed ?? 0} failed · ${summary.capacity ?? 0} capacity · ${summary.unable ?? 0} unable</span></div>
+      ${findings.join("")}
+      <div class="replay-field"><span class="replay-field-label">EXPLANATION</span><span>${escapeHtmlText(data.explanation || "—")}</span></div>
+      <div class="replay-field"><span class="replay-field-label">GUIDANCE</span><span>${escapeHtmlText(data.guidance || "—")}</span></div>
       <div class="replay-field"><span class="replay-field-label">EVIDENCE / SOURCE</span><span>${escapeHtmlText(ev.source || "—")} · ${escapeHtmlText(ev.classification || "")} · ${escapeHtmlText(ev.config || "")}</span></div>
     </div>
-    <h5 class="replay-timeline-title">REPLAY</h5>
-    <ol class="replay-timeline">${(data.replay || []).map((ev2) =>
-      `<li class="replay-event"><span class="replay-event-at">${escapeHtmlText(ev2.at)}</span>
-       <div><strong>${escapeHtmlText(ev2.label)}</strong>
-       <span class="replay-event-io">Expected: ${escapeHtmlText(ev2.expected)} · Observed: ${escapeHtmlText(ev2.observed)}</span></div></li>`).join("")}</ol>`;
+    <h5 class="replay-timeline-title">STRESS PROFILE</h5>
+    <div class="dbc-sweep-table-wrap"><table class="dbc-sweep-table">
+      <thead><tr><th>OPENING SIZE (QUOTE UNITS)</th><th>PRICE IMPACT</th><th>RESULT</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <details class="jf-details"><summary class="jf-details-summary">View raw sweep evidence &amp; replay</summary>
+      <div class="jf-details-body">
+        <p><code>${escapeHtmlText(JSON.stringify({ policy: data.policy ?? null, testedRange: data.testedRange ?? null, captured_at: ev.captured_at ?? null }))}</code></p>
+        <ol class="replay-timeline">${(data.replay || []).map((ev2) =>
+          `<li class="replay-event"><span class="replay-event-at">${escapeHtmlText(ev2.at)}</span>
+           <div><strong>${escapeHtmlText(ev2.label)}</strong>
+           <span class="replay-event-io">Expected: ${escapeHtmlText(ev2.expected)} · Observed: ${escapeHtmlText(ev2.observed)}</span></div></li>`).join("")}</ol>
+      </div>
+    </details>`;
   outBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 

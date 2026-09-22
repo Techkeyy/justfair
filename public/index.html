@@ -835,26 +835,20 @@
       <!-- ========================================== -->
       <div id="dbc-view" class="view-section hidden">
         <section class="jf-page">
-          <div class="jf-eyebrow">JUSTFAIR · DBC STRESS</div>
-          <h2 class="jf-title">Test a proposed Meteora DBC.</h2>
-          <p class="jf-sub">Check whether a bonding-curve configuration stays within YOUR maximum price-impact policy during a large early purchase. Read-only: no signing, no funds.</p>
+          <div class="jf-eyebrow">JUSTFAIR · DBC LAUNCH STRESS</div>
+          <h2 class="jf-title">Break your launch configuration before traders do.</h2>
+          <p class="jf-sub">Stress-test a DBC configuration that exists on-chain before its pool opens to traders. Automated sweep across hypothetical opening-buy sizes against YOUR impact policy. Read-only: no signing, no funds, no trades.</p>
           <form id="dbc-stress-form" class="dbc-form" novalidate>
             <div class="dbc-field">
-              <label class="form-label" for="dbc-config-input">DBC config address (mainnet)</label>
+              <label class="form-label" for="dbc-config-input">DBC config address (on-chain, pool not yet open)</label>
               <input type="text" id="dbc-config-input" class="form-input font-mono" value="DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU" autocomplete="off" spellcheck="false">
             </div>
-            <div class="dbc-field-row">
-              <div class="dbc-field">
-                <label class="form-label" for="dbc-size-input">Opening trade size (quote raw units)</label>
-                <input type="text" id="dbc-size-input" class="form-input font-mono" value="1000000000" inputmode="numeric" autocomplete="off" spellcheck="false">
-              </div>
-              <div class="dbc-field">
-                <label class="form-label" for="dbc-policy-input">Max price impact % (your policy)</label>
-                <input type="text" id="dbc-policy-input" class="form-input font-mono" value="8" inputmode="decimal" autocomplete="off" spellcheck="false">
-              </div>
+            <div class="dbc-field">
+              <label class="form-label" for="dbc-policy-input">Max price impact % (YOUR POLICY)</label>
+              <input type="text" id="dbc-policy-input" class="form-input font-mono" value="8" inputmode="decimal" autocomplete="off" spellcheck="false">
             </div>
             <button type="submit" class="btn btn-primary btn-lg btn-block" id="dbc-run-btn">
-              <span class="btn-text">RUN STRESS TEST</span>
+              <span class="btn-text">RUN LAUNCH STRESS TEST</span>
               <span class="btn-spinner hidden" aria-hidden="true"></span>
             </button>
           </form>

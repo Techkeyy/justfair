@@ -2961,34 +2961,91 @@ async function runBrowserTests() {
       }
     });
 
-    await test("65. DBC Stress runs a real check and renders the result model", async () => {
-      await page.route("**/api/v1/dbc/whale", async route => {
+    await test("65. DBC Launch Stress renders the sweep and first-failure findings", async () => {
+      await page.route("**/api/v1/dbc/sweep", async route => {
         if (route.request().method() !== "POST") { await route.continue(); return; }
+        const sent = JSON.parse(route.request().postData() || "{}");
+        if (!sent.configAddress || typeof sent.maxPriceImpactPct !== "number") {
+          throw new Error("Sweep request must carry configAddress + numeric YOUR POLICY");
+        }
+        if ("tradeSizeQuoteUnits" in sent) throw new Error("Sweep request must not carry a single size");
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-          request_status: "SUCCESS", scenarioId: "DBC_OPENING_WHALE", status: "PASS",
-          assertions: [{ id: "within-issuer-policy", expected: "Opening purchase impact ≤ 8% (issuer policy)", actual: { observedImpactPct: 2.5, outputAmount: "1" }, passed: true, error: null }],
-          diagnosis: null,
-          evidence: { classification: "live_dbc_mainnet", source: "METEORA_DBC_PROGRAM", program: "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN", network: "mainnet-beta", config: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU" },
+          request_status: "SUCCESS", scenarioId: "DBC_LAUNCH_SWEEP", status: "FAIL",
+          target: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU",
+          policy: { maxPriceImpactPct: 8, source: "issuer-supplied" },
+          summary: { passed: 2, failed: 1, capacity: 1, unable: 0, points: 4 },
+          points: [
+            { sizeQuoteUnits: "1000000", status: "PASS", observedImpactPct: 0.5, outputAmount: "995000", reason: null },
+            { sizeQuoteUnits: "5000000", status: "PASS", observedImpactPct: 2.5, outputAmount: "4875000", reason: null },
+            { sizeQuoteUnits: "20000000", status: "FAIL", observedImpactPct: 12.3, outputAmount: "17540000", reason: "impact exceeds issuer policy of 8%" },
+            { sizeQuoteUnits: "999999999999", status: "CAPACITY", observedImpactPct: null, outputAmount: null, reason: "curve reports insufficient capacity for this opening size" }
+          ],
+          firstPolicyFailure: { sizeQuoteUnits: "20000000", observedImpactPct: 12.3, previousPassSizeQuoteUnits: "5000000" },
+          firstCapacityFailure: { sizeQuoteUnits: "999999999999" },
+          testedRange: { minSizeQuoteUnits: "1000000", maxSizeQuoteUnits: "999999999999" },
+          explanation: "Tested 4 hypothetical opening buys at your 8% policy.",
+          guidance: "Price impact crosses your configured 8% policy beginning around 20000000 quote units.",
+          evidence: { classification: "live_dbc_mainnet", source: "METEORA_DBC_PROGRAM", program: "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN", network: "mainnet-beta", config: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU", captured_at: "2026-09-22T00:00:00.000Z" },
           replay: [
-            { at: "T0", label: "Whale scenario issued", expected: "DBC_OPENING_WHALE", observed: "inputs prepared" },
-            { at: "T+verdict", label: "Within issuer policy", expected: "x", observed: "y" }
+            { at: "T0", label: "Launch sweep issued", expected: "DBC_LAUNCH_SWEEP", observed: "inputs prepared" },
+            { at: "T+verdict", label: "Sweep crossed policy or capacity", expected: "policy 8%", observed: "x" }
           ]
         }) });
       });
       try {
         await page.click("#tab-dbc-btn");
         await page.waitForSelector("#dbc-view:not(.hidden)", { timeout: 10000 });
-        for (const sel of ["#dbc-config-input", "#dbc-size-input", "#dbc-policy-input", "#dbc-run-btn"]) {
+        for (const sel of ["#dbc-config-input", "#dbc-policy-input", "#dbc-run-btn"]) {
           if (!await page.isVisible(sel)) throw new Error(`DBC form element must be visible: ${sel}`);
         }
+        if (await page.$("#dbc-size-input")) throw new Error("Single-size input must be gone from the sweep form");
+        const hero = await page.textContent("#dbc-view .jf-title");
+        if (!/before traders do/i.test(hero)) throw new Error(`Launch thesis missing: ${hero}`);
         await page.click("#dbc-run-btn");
         await page.waitForSelector("#dbc-result:not(.hidden)", { timeout: 20000 });
         const out = await page.textContent("#dbc-result");
-        for (const n of ["PASS", "EXPECTED", "OBSERVED", "EVIDENCE / SOURCE", "REPLAY", "live_dbc_mainnet", "2.5"]) {
-          if (!out.includes(n)) throw new Error(`DBC result must show "${n}"`);
+        for (const n of ["DBC_LAUNCH_SWEEP", "2 passed", "1 failed", "1 capacity", "FIRST OBSERVED POLICY FAILURE", "20000000", "5000000", "FIRST CAPACITY BOUNDARY", "999999999999", "STRESS PROFILE", "EVIDENCE / SOURCE", "live_dbc_mainnet"]) {
+          if (!out.includes(n)) throw new Error(`Sweep result must show "${n}"`);
         }
+        if (/safe/i.test(out)) throw new Error("Sweep result must not declare safety");
+        const rows = await page.$$("#dbc-result .dbc-sweep-table tbody tr");
+        if (rows.length !== 4) throw new Error(`Stress profile must render 4 rows, got ${rows.length}`);
       } finally {
-        await page.unroute("**/api/v1/dbc/whale");
+        await page.unroute("**/api/v1/dbc/sweep");
+      }
+    });
+
+    await test("65b. DBC sweep table has no page overflow at 390px", async () => {
+      const narrowCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
+      const narrowPage = await narrowCtx.newPage();
+      try {
+        await narrowPage.goto(BASE_URL + "/#dbc", { waitUntil: "networkidle" });
+        await narrowPage.waitForSelector("#dbc-view:not(.hidden)", { timeout: 10000 });
+        await narrowPage.route("**/api/v1/dbc/sweep", async route => {
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+            request_status: "SUCCESS", scenarioId: "DBC_LAUNCH_SWEEP", status: "FAIL",
+            target: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU",
+            policy: { maxPriceImpactPct: 8, source: "issuer-supplied" },
+            summary: { passed: 1, failed: 1, capacity: 0, unable: 0, points: 2 },
+            points: [
+              { sizeQuoteUnits: "1000000", status: "PASS", observedImpactPct: 0.5, outputAmount: "995000", reason: null },
+              { sizeQuoteUnits: "20000000", status: "FAIL", observedImpactPct: 12.3, outputAmount: "17540000", reason: "impact exceeds issuer policy of 8%" }
+            ],
+            firstPolicyFailure: { sizeQuoteUnits: "20000000", observedImpactPct: 12.3, previousPassSizeQuoteUnits: "1000000" },
+            firstCapacityFailure: null,
+            testedRange: { minSizeQuoteUnits: "1000000", maxSizeQuoteUnits: "20000000" },
+            explanation: "Tested 2 hypothetical opening buys at your 8% policy.",
+            guidance: "Price impact crosses your configured 8% policy beginning around 20000000 quote units.",
+            evidence: { classification: "live_dbc_mainnet", source: "METEORA_DBC_PROGRAM", config: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU" },
+            replay: []
+          }) });
+        });
+        await narrowPage.click("#dbc-run-btn");
+        await narrowPage.waitForSelector("#dbc-result:not(.hidden)", { timeout: 20000 });
+        const overflow = await narrowPage.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (overflow > 1) throw new Error(`390px sweep overflow: ${overflow}px`);
+      } finally {
+        await narrowCtx.close();
       }
     });
 

@@ -600,6 +600,49 @@ export async function handleRequest(req, res) {
     }
   }
 
+  // 8c. DBC Launch Sweep: POST /api/v1/dbc/sweep (read-only Meteora math).
+  // Separate route from /api/v1/dbc/whale (not an extension): the whale
+  // route has a fixed single-size request/response contract asserted by
+  // existing clients and tests; the sweep returns a different shape
+  // (points[], summary, first-failure findings). Both routes share 100% of
+  // the quote core in src/scenarios/dbc-live.js. Constrained input
+  // (config address + numbers/sizes only — never a URL, never a key).
+  // Global rate limit applies. No signing, broadcast, or funds.
+  if (req.method === "POST" && pathname === "/api/v1/dbc/sweep") {
+    try {
+      const payload = await getRequestBody(req, SERVER_CONFIG.MAX_PAYLOAD_BYTES || 1048576);
+      const { runDbcSweep } = await import("./scenarios/dbc-live.js");
+      const result = await runDbcSweep({
+        configAddress: payload.configAddress,
+        maxPriceImpactPct: payload.maxPriceImpactPct,
+        sizesQuoteUnits: payload.sizesQuoteUnits ?? null
+      });
+      return sendJson(res, 200, {
+        request_status: "SUCCESS",
+        scenarioId: result.scenarioId || "DBC_LAUNCH_SWEEP",
+        status: result.status,
+        target: result.target || null,
+        policy: result.policy || null,
+        summary: result.summary || null,
+        points: result.points || [],
+        firstPolicyFailure: result.firstPolicyFailure || null,
+        firstCapacityFailure: result.firstCapacityFailure || null,
+        testedRange: result.testedRange || null,
+        explanation: result.explanation || null,
+        guidance: result.guidance || null,
+        evidence: result.evidence || null,
+        replay: result.replay || [],
+        reason: result.reason || null,
+        reasonCode: result.reasonCode || null
+      });
+    } catch (err) {
+      return sendJson(res, 400, {
+        request_status: "ERROR",
+        reason_codes: [err.code || "INVALID_JSON_BODY"],
+        reason: err.message
+      });
+    }
+  }
   // 8b. DBC Whale Check: POST /api/v1/dbc/whale (read-only Meteora math).
   // Constrained input (config address + numbers only — never a URL, never a
   // key). Global rate limit applies. No signing, broadcast, or funds.

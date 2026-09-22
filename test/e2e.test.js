@@ -560,6 +560,21 @@ async function runE2ETests() {
       if (data.reasonCode !== "DBC_BAD_ADDRESS") throw new Error(`Wrong reason code: ${data.reasonCode}`);
     });
 
+    await test("DBC sweep endpoint validates input without touching the network", async () => {
+      const res = await fetch(`${BASE_URL}/api/v1/dbc/sweep`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ configAddress: "NOTANADDRESS", maxPriceImpactPct: 8 })
+      });
+      if (res.status !== 200) throw new Error(`HTTP status ${res.status}`);
+      const data = await res.json();
+      if (data.request_status !== "SUCCESS") throw new Error("Envelope must succeed");
+      if (data.scenarioId !== "DBC_LAUNCH_SWEEP") throw new Error("Sweep identity missing");
+      if (data.status !== "UNABLE_TO_VERIFY") throw new Error("Bad address must be UNABLE, never PASS/FAIL");
+      if (data.reasonCode !== "DBC_BAD_ADDRESS") throw new Error(`Wrong reason code: ${data.reasonCode}`);
+      if (!Array.isArray(data.points) || data.points.length !== 0) throw new Error("UNABLE sweep must carry empty points");
+    });
+
   } finally {
     restoreFetch();
     await new Promise(resolve => server.close(resolve));
