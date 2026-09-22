@@ -367,7 +367,7 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   - Capacity semantics: SDK "Insufficient Liquidity" → per-point CAPACITY, distinct from FAIL; infrastructure/quote errors → UNABLE; marginal-probe refusal short-circuits the sweep honestly.
   - API contract: `POST /api/v1/dbc/sweep` {configAddress, maxPriceImpactPct, sizesQuoteUnits?} → {scenarioId DBC_LAUNCH_SWEEP, status, target, policy, summary, points[], firstPolicyFailure, firstCapacityFailure, testedRange, explanation, guidance, evidence, replay, reason/reasonCode}. New route (not a `/whale` extension) because `/whale` has a fixed asserted single-size contract. `/whale` unchanged and green.
   - Tests: §24 (this run). Blockers: none.
-  - Owner UAT prep: ONE real config `DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU` @8% → 7 PASS, first failure 5480000000 units (12.320%), first capacity 21920000000 units.
+  - Owner UAT prep: ONE real config `DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU` @8% → 7 PASS, first failure 5480000000 units (12.320%), first capacity 21920000000 units. Production origin verified post-deploy: identical sweep result live via `POST /api/v1/dbc/sweep` (`live_dbc_mainnet`), new page HTML served.
   - Exact next action: present `https://justfair-theta.vercel.app/#dbc` to the owner for human UAT. Do NOT mark DBC UAT PASS; do NOT mark overall FINISHED.
 
 ## 26. CURRENT BLOCKERS
