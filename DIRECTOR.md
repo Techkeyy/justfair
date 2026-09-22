@@ -328,6 +328,12 @@ Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
   Root cause: NO deployment fault. Git-connected auto-deploy built `17f0a48` and the production alias has served its exact bytes for ~13h. The staleness is owner-side (browser/intermediary retained the pre-fix document; the owner's hard reload did not reach origin — origin has served nothing else in that window).
   Repair: none applied to deployment (a manual `vercel --prod` would rebuild identical source; refused as pointless). Correction of prior record: the earlier "production verification" verified ORIGIN bytes (accurate then and now), not the owner's viewport — that gap is corrected here, not the code.
   Owner revalidation procedure (no code change needed): open a private/incognito window to `https://justfair-theta.vercel.app/#replay`, or DevTools → Application → Clear storage then reload; confirm hero reads "Understand a result." and sample reads "Stale Price Failure". Visual PASS is NOT marked here; the human owner/director decides.
+- OWNER UAT — REPLAY LAB VISUAL STATE MATRIX = PASS (2026-09-22, fresh Incognito production session at `https://justfair-theta.vercel.app/#replay`):
+  1. EMPTY = PASS: heading "Understand a result.", neutral subtitle, sample control "Stale Price Failure", no "Stale Oracle Failure", no failure-specific hero with no report loaded.
+  2. PASS = PASS ("Passing Run" clicked): heading "Verify a passing run.", 1 passed · 0 failed · 0 unable, STALE_CARRIED_FORWARD_EQUITY visibly PASS, `claimsLive: false`, replay intact ending invariant-satisfied/PASS, no failure hero copy.
+  3. FAIL = PASS ("Stale Price Failure" clicked): heading "Understand a failure.", 0 passed · 1 failed · 0 unable, full diagnosis intact (WHAT HAPPENED / EXPECTED / YOUR APP / WHY IT FAILED / HOW TO FIX THE ASSUMPTION / EVIDENCE / SOURCE / REPLAY), sample clearly labelled simulated.
+  4. UNABLE = PASS (uploaded minimal artifact, `status = UNABLE_TO_VERIFY`, `reason = "Adapter unreachable"`): heading "Understand what could not be verified.", 0 passed · 0 failed · 1 unable, badge UNABLE_TO_VERIFY, detail NOT VERIFIED, WHAT HAPPENED "Adapter unreachable", missing values rendered "—", supplied replay event rendered, never presented as PASS or FAIL.
+- OWNER UAT — FLAGSHIP DEVELOPER FLOW = PASS: combines the recorded real public-package proof (fresh install → init → real app → adapter → FAIL → useful Replay diagnosis → fix REAL app only → adapter unchanged → exact same command → PASS) with the now-completed Replay visual state revalidation above. Prior "Replay visual revalidation pending" status is now COMPLETE / PASS. Overall product FINISHED is NOT marked. Next product area for human UAT / implementation direction is the locked Meteora DBC pre-launch crash-testing experience (§16); do NOT begin it until explicitly ordered.
 
 ## 26. CURRENT BLOCKERS
 
@@ -336,7 +342,7 @@ None. All technical, packaging, npm registry distribution, and test validation g
 ## 27. RELEASE / SUBMISSION BLOCKERS
 
 - GITHUB / PUBLIC REPOSITORY: Public repository live at `https://github.com/Techkeyy/justfair`, tracks local `main`, connected to Vercel.
-- NPM REGISTRY DISTRIBUTION: Live and verified at `https://www.npmjs.com/package/justfair` (`justfair@1.0.0`).
+- NPM REGISTRY DISTRIBUTION: Live and verified at `https://www.npmjs.com/package/justfair` (`justfair@1.0.1`).
 - VERCEL PRODUCTION DEPLOYMENT: Live and Git-integrated at `https://justfair-theta.vercel.app`.
 - DEADLINE AWARENESS: Sep 18 4pm ET vs Sep 25 calendar note documented.
 
@@ -361,7 +367,7 @@ None. All technical, packaging, npm registry distribution, and test validation g
 - `public/app.js`: wired snippet copy buttons, report close button, and `/api/v1/local-artifact` local-first auto-open listener.
 - `README.md`: separated into "Using JustFair (No-Clone Developer Journey)" and "Contributing to JustFair".
 - `test/browser.test.js`: updated assertions to verify published `npx justfair@latest` onboarding commands across hero, test view, and Replay Lab.
-- `DIRECTOR.md`: authoritative record of npm publication, test suites, real app proof, and UAT readiness.
+- `DIRECTOR.md`: recorded Replay visual state matrix PASS (EMPTY/FAIL/PASS/UNABLE) + flagship developer-flow PASS (docs-only, no product change); earlier authoritative records of npm publication, test suites, real app proof, and deployment diagnosis.
 
 ## 30. IMPORTANT COMMITS
 
@@ -393,11 +399,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-UX UPGRADE 003 — OWNER CORE LOOP PASS; REPLAY PASS-STATE FIX APPLIED, OWNER REVALIDATION PENDING (NOT FINISHED).
+UX UPGRADE 003 — OWNER CORE LOOP PASS; REPLAY VISUAL MATRIX PASS (EMPTY/FAIL/PASS/UNABLE); FLAGSHIP DEVELOPER FLOW PASS (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Owner: revalidate `#replay` in a private/incognito window (or after DevTools → Application → Clear storage) and confirm the neutral hero + "Stale Price Failure". Do NOT claim visual PASS or overall FINISHED; the human owner/director decides. Do NOT start the DBC upgrade without an explicit order. No redeploy authorized (production already serves `17f0a48` byte-identically).
+Await explicit owner order for the next product area: the locked Meteora DBC pre-launch crash-testing experience (§16). Do NOT begin the DBC upgrade, do NOT claim overall FINISHED, and do NOT redeploy without cause. Builder stops here.
 
 
