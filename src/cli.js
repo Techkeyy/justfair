@@ -519,8 +519,8 @@ function describeObserved(result) {
  *
  * DBC launch sweep: `node src/cli.js whale --config ADDR --max-impact PCT
  * --sweep [--sizes A,B,C] [--rpc URL] [--json] [--out file]`.
- * Same read-only math across a deterministic size sequence. Exit 0 = all
- * points PASS, 1 = any FAIL or CAPACITY point, 2 = UNABLE.
+ * Same read-only math across a deterministic size sequence. Overall-status
+ * exits: PASS 0, UNABLE_TO_VERIFY 2, any other finding (FAIL/CAPACITY) 1.
  */
 export async function runWhaleCommand(flagArgs) {
   const { runDbcWhale, runDbcSweep } = await import("./scenarios/dbc-live.js");
@@ -631,9 +631,8 @@ async function runWhaleSweepCommand({ rpcUrl, configAddress, maxPriceImpactPct, 
   } else {
     console.log(`\nJUSTFAIR\n\nUNABLE TO VERIFY\n${result.reason || "could not verify"}\n`);
   }
-  const bad = (result.summary?.failed ?? 0) + (result.summary?.capacity ?? 0);
-  // CAPACITY is a real finding (not clean), so it exits 1 like FAIL; only PASS exits 0.
-  process.exitCode = result.status === "PASS" ? 0 : result.status === "CAPACITY" ? 1 : bad > 0 ? 1 : 2;
+  // Overall-status-driven exits: PASS 0, UNABLE 2, any other finding (FAIL/CAPACITY) 1.
+  process.exitCode = result.status === "PASS" ? 0 : result.status === "UNABLE_TO_VERIFY" ? 2 : 1;
 }
 
 // Only execute main() automatically when invoked directly as CLI

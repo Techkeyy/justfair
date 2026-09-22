@@ -253,6 +253,9 @@ test("aggregate precedence is deterministic without network use", () => {
   assert.equal(sweepOverallStatus({ passed: 8, failed: 1, capacity: 1, unable: 0 }), "FAIL");
   assert.equal(sweepOverallStatus({ passed: 9, failed: 0, capacity: 1, unable: 0 }), "CAPACITY");
   assert.equal(sweepOverallStatus({ passed: 10, failed: 0, capacity: 0, unable: 0 }), "PASS");
+  assert.equal(sweepOverallStatus({ passed: 9, failed: 0, capacity: 0, unable: 1 }), "UNABLE_TO_VERIFY");
+  assert.equal(sweepOverallStatus({ passed: 8, failed: 0, capacity: 1, unable: 1 }), "UNABLE_TO_VERIFY");
+  assert.equal(sweepOverallStatus({ passed: 8, failed: 1, capacity: 0, unable: 1 }), "FAIL");
   assert.equal(sweepOverallStatus({ passed: 0, failed: 0, capacity: 0, unable: 3 }), "UNABLE_TO_VERIFY");
   assert.equal(sweepOverallStatus({}), "UNABLE_TO_VERIFY");
 });

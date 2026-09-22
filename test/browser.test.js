@@ -3126,6 +3126,45 @@ async function runBrowserTests() {
       }
     });
 
+    await test("65f. DBC sweep with an UNABLE point renders NOT VERIFIED, never a clean verdict", async () => {
+      await page.route("**/api/v1/dbc/sweep", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+          request_status: "SUCCESS", scenarioId: "DBC_LAUNCH_SWEEP", status: "UNABLE_TO_VERIFY",
+          target: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU",
+          policy: { maxPriceImpactPct: 25, source: "issuer-supplied" },
+          quoteAsset: { mint: "So11111111111111111111111111111111111111112", decimals: 9, symbol: "SOL" },
+          summary: { passed: 9, failed: 0, capacity: 0, unable: 1, points: 10 },
+          points: [
+            { sizeQuoteUnits: "10960000", sizeDisplay: "~0.01096 SOL", status: "PASS", observedImpactPct: 0.03, outputAmount: "10956000", reason: null },
+            { sizeQuoteUnits: "21920000000", sizeDisplay: "~21.92 SOL", status: "UNABLE", observedImpactPct: null, outputAmount: null, reason: "quote infrastructure hiccup" }
+          ],
+          firstPolicyFailure: null,
+          firstCapacityFailure: null,
+          testedRange: { minSizeQuoteUnits: "10960000", maxSizeQuoteUnits: "21920000000", minSizeDisplay: "~0.01096 SOL", maxSizeDisplay: "~21.92 SOL" },
+          explanation: "9 quotable sizes stay within your 25% policy; 1 point(s) remain unverified (see UNABLE below). 1 point(s) could not be quoted for infrastructure reasons, reported as UNABLE, never as PASS or FAIL.",
+          guidance: "UNABLE points reflect quoting infrastructure, not the curve. Retry them before treating the sweep as complete.",
+          evidence: { classification: "live_dbc_mainnet", source: "METEORA_DBC_PROGRAM", config: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU" },
+          replay: []
+        }) });
+      });
+      try {
+        await page.click("#tab-dbc-btn");
+        await page.waitForSelector("#dbc-view:not(.hidden)", { timeout: 10000 });
+        await page.click("#dbc-run-btn");
+        await page.waitForSelector("#dbc-result:not(.hidden)", { timeout: 20000 });
+        const head = await page.textContent("#dbc-result .replay-detail-head");
+        if (!/NOT VERIFIED/.test(head)) throw new Error(`Mixed-UNABLE head must read NOT VERIFIED: ${head}`);
+        if (/CURVE CAPACITY/.test(head)) throw new Error("Mixed-UNABLE head must not claim a clean capacity result");
+        const out = await page.textContent("#dbc-result");
+        if (!out.includes("9 passed · 0 failed · 0 capacity · 1 unable")) throw new Error("Summary counts must stay exact");
+        if (/All tested sizes stay within your policy/.test(out)) throw new Error("Mixed-UNABLE result must not claim complete verification");
+        if (!/remain unverified/.test(out)) throw new Error("Mixed-UNABLE result must disclose the unverified point");
+      } finally {
+        await page.unroute("**/api/v1/dbc/sweep");
+      }
+    });
+
     await test("65b. DBC sweep table has no page overflow at 390px", async () => {
       const narrowCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
       const narrowPage = await narrowCtx.newPage();

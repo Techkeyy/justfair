@@ -195,14 +195,16 @@ export function parseSweepSizes(input) {
 }
 
 /**
- * Aggregate sweep verdict precedence (pure). CAPACITY is distinct from FAIL:
+ * Aggregate sweep verdict precedence (pure). Each outcome stays distinct:
  * FAIL requires at least one quotable point exceeding the issuer policy;
- * CAPACITY means zero policy failures but at least one point the curve
- * cannot quote; PASS means every point quoted within policy; otherwise
- * UNABLE (infrastructure/config — never a curve judgment).
+ * any UNABLE point makes the sweep UNABLE_TO_VERIFY (incomplete evidence
+ * can neither pass the run nor certify a capacity-only result); CAPACITY
+ * means zero FAIL and zero UNABLE with at least one genuine curve-capacity
+ * point; PASS only when every tested point quotes within policy.
  */
 export function sweepOverallStatus({ passed = 0, failed = 0, capacity = 0, unable = 0 } = {}) {
   if (failed > 0) return "FAIL";
+  if (unable > 0) return "UNABLE_TO_VERIFY";
   if (capacity > 0) return "CAPACITY";
   if (passed > 0) return "PASS";
   return "UNABLE_TO_VERIFY";
@@ -635,8 +637,10 @@ function buildSweepExplanation({ config, tolerance, sizes, summary, firstPolicyF
       ? ` Policy still holds at ${firstPolicyFailure.previousPassSizeDisplay || describeAmount(firstPolicyFailure.previousPassSizeQuoteUnits, quoteAsset).primary}.`
       : "";
     parts.push(`First observed policy failure at ${at} (${firstPolicyFailure.observedImpactPct.toFixed(3)}% observed).${held}`);
-  } else if (summary.failed === 0 && summary.passed > 0) {
+  } else if (summary.failed === 0 && summary.passed > 0 && summary.unable === 0) {
     parts.push(`All ${summary.passed} quotable sizes stay within your ${tolerance}% policy.`);
+  } else if (summary.failed === 0 && summary.passed > 0) {
+    parts.push(`${summary.passed} quotable sizes stay within your ${tolerance}% policy; ${summary.unable} point(s) remain unverified (see UNABLE below).`);
   }
   if (firstCapacityFailure) {
     const at = `${firstCapacityFailure.sizeDisplay || describeAmount(firstCapacityFailure.sizeQuoteUnits, quoteAsset).primary} (${formatRawUnits(firstCapacityFailure.sizeQuoteUnits)} quote units)`;
@@ -656,7 +660,7 @@ function buildSweepGuidance({ tolerance, summary, firstPolicyFailure, firstCapac
     const at = `${firstCapacityFailure.sizeDisplay || describeAmount(firstCapacityFailure.sizeQuoteUnits, quoteAsset).primary} (${formatRawUnits(firstCapacityFailure.sizeQuoteUnits)} quote units)`;
     lines.push(`Quotes stop succeeding at ${at} because the curve reports insufficient capacity. Reduce the largest hypothetical opening size, add early-curve liquidity, or revise the migration-threshold economics, then rerun.`);
   }
-  if (!firstPolicyFailure && !firstCapacityFailure && summary.passed > 0) {
+  if (!firstPolicyFailure && !firstCapacityFailure && summary.passed > 0 && summary.unable === 0) {
     lines.push(`All tested sizes stay within your policy. Rerun with a tighter policy or larger sizes to probe further.`);
   }
   if (summary.unable > 0) lines.push(`UNABLE points reflect quoting infrastructure, not the curve. Retry them before treating the sweep as complete.`);

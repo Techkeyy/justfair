@@ -115,7 +115,7 @@ evidence classification + provenance, expected/actual, failure code, root
 cause, fix guidance, ordered replay. `node src/cli.js whale --config ADDR
 --size UNITS --max-impact PCT` runs DBC_OPENING_WHALE (same 0/1/2).
 `node src/cli.js whale --config ADDR --max-impact PCT --sweep [--sizes A,B,C]`
-runs DBC_LAUNCH_SWEEP (exit 0 = all points PASS, 1 = any FAIL/CAPACITY, 2 = UNABLE).
+runs DBC_LAUNCH_SWEEP (exit 0 = PASS, 2 = UNABLE_TO_VERIFY, 1 = any other finding: FAIL or CAPACITY).
 
 ## 11. SCENARIO ENGINE
 
@@ -199,7 +199,7 @@ Kill-gate findings (official MeteoraAg/dynamic-bonding-curve README + SDK v1.5.1
 - CONFIRMED: JustFair's path needs ONLY the on-chain PoolConfig account + one chain-clock read (`getCurrentPoint`: slot/timestamp) + local math. No pool, mint, or trading required.
 - CONFIRMED: identical math reusable across any size sequence with zero extra RPC per point (quote path is synchronous local code).
 - Truthful "pre-launch" meaning locked: the DBC configuration exists on-chain but its pool has not opened to traders. A nonexistent config is UNABLE (`DBC_FETCH_FAILED`), never simulated from hand-typed parameters (that would break real-config evidence).
-New behavior: `runDbcSweep` (config + YOUR POLICY → 10-point deterministic sweep as basis points [10..20000] of the live `migrationQuoteThreshold`, quote-asset-agnostic, no hardcoded SOL) returns per-point PASS/FAIL/CAPACITY/UNABLE, counts, first observed policy failure (with previous passing size bracket), first capacity boundary, explanation, non-prescriptive guidance, `live_dbc_mainnet` evidence, replay. Overall FAIL if any FAIL/CAPACITY point; PASS only if all PASS; else UNABLE.
+New behavior: `runDbcSweep` (config + YOUR POLICY → 10-point deterministic sweep as basis points [10..20000] of the live `migrationQuoteThreshold`, quote-asset-agnostic, no hardcoded SOL) returns per-point PASS/FAIL/CAPACITY/UNABLE, counts, first observed policy failure (with previous passing size bracket), first capacity boundary, explanation, non-prescriptive guidance, `live_dbc_mainnet` evidence, replay. Final aggregate precedence (`sweepOverallStatus`): FAIL iff ≥1 policy FAIL; else UNABLE_TO_VERIFY iff ≥1 UNABLE point; else CAPACITY iff ≥1 capacity point; else PASS iff ≥1 pass; else UNABLE_TO_VERIFY. Any UNABLE point makes the run inconclusive — it can neither pass nor certify a capacity-only result.
 Preserved: `runDbcWhale` outputs byte-identical (shares the extracted `quoteSingleSize` core; all 5 whale tests green), `POST /api/v1/dbc/whale` untouched, flagship/Replay/Tessera/PreStocks/stale scenario/npm behavior untouched. New `POST /api/v1/dbc/sweep` (separate route because `/whale` has a fixed single-size contract asserted by clients/tests) + `whale --sweep [--sizes]` CLI (exits 0/1/2). Web: DBC view is now DBC LAUNCH STRESS (config + YOUR POLICY inputs only; summary, first-failure callouts, stress-profile table, provenance, raw evidence in disclosure).
 Owner UAT prep (ONE real config demonstrates all three, verified live this session): `DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU` at 8% → 7 PASS, first observed policy failure at 5480000000 units (12.320%), first capacity at 21920000000 units.
 
@@ -289,11 +289,11 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
 - DBC launch-sweep suite (`node --test test/dbc-sweep.test.js`): 19 PASSED · 0 FAILED (grid derivation, parsing/sorting, summary/first-failure pure tests + aggregate precedence unit + live 8%/15%/25% sweeps, policy ownership, capacity-vs-FAIL, UNABLE paths, formatters, mint resolution, no-signing scan).
 - CLI suite (`node --test test/cli.test.js`): 17 PASSED · 0 FAILED (includes `whale --sweep` live sweep + UNABLE paths).
 - HTTP contract suite (`node test/e2e.test.js`): 16 PASSED · 0 FAILED (includes `/api/v1/dbc/sweep` input validation without network).
-- Playwright Browser test suite (`node test/browser.test.js`): 76 PASSED · 0 FAILED (includes sweep UI test 65 + human-amount tests 65c/65d + 25% aggregate test 65e + 390px table test 65b).
+- Playwright Browser test suite (`node test/browser.test.js`): 77 PASSED · 0 FAILED (includes sweep UI test 65 + human-amount tests 65c/65d + 25% aggregate test 65e + mixed-UNABLE test 65f + 390px table test 65b).
 - Tessera suite: 13 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Product-preflight suite: 52 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Streaming suite: 6 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
-- Total: 278 PASSED · 0 FAILED · 1 SKIPPED.
+- Total: 279 PASSED · 0 FAILED · 1 SKIPPED.
 - Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
@@ -377,7 +377,9 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   8% → first policy fail ~5.48 SOL. 15% → first policy fail ~10.96 SOL. 25% → 0 policy failures, capacity still ~21.92 SOL.
 - OWNER UAT BUG — AGGREGATE CAPACITY MISLABELED FAIL, FIX APPLIED, OWNER REVALIDATION PENDING (2026-09-22):
   Root cause: engine aggregate rule `(failed>0 || capacity>0) ? FAIL` in `runDbcSweep` collapsed CAPACITY into FAIL; the API passed the engine status through and the UI rendered it, so layers A+B+C were all wrong from one source-of-truth defect.
-  Fix at the source: new pure `sweepOverallStatus` precedence — FAIL iff ≥1 policy FAIL; else CAPACITY iff ≥1 capacity point; else PASS iff ≥1 pass; else UNABLE. Applied in `runDbcSweep` and the marginal short-circuit (now CAPACITY, not FAIL). API passes the status through unchanged. UI badge maps CAPACITY → "CURVE CAPACITY". CLI prints a CURVE CAPACITY header for that status and still exits 1 (a real finding, not clean). 25% live sweep now returns CAPACITY with 9/0/1/0, null firstPolicyFailure, unchanged raw sizes. Points, math, policy behavior, formatting, evidence, and guarantees untouched.
+  Fix at the source: pure `sweepOverallStatus` precedence — FAIL iff ≥1 policy FAIL; else UNABLE_TO_VERIFY iff ≥1 UNABLE point; else CAPACITY iff ≥1 capacity point; else PASS iff ≥1 pass; else UNABLE. (Corrected 2026-09-22: an earlier revision ranked CAPACITY above UNABLE, which would have let a mixed PASS/CAPACITY/UNABLE run read as a clean capacity result; UNABLE now outranks both CAPACITY and PASS.) Applied in `runDbcSweep` and the marginal short-circuit (CAPACITY, not FAIL). API passes the status through unchanged. UI badge maps CAPACITY → "CURVE CAPACITY" and UNABLE → "NOT VERIFIED". CLI exits PASS 0 / UNABLE 2 / any other finding 1. 25% live sweep returns CAPACITY with 9/0/1/0, null firstPolicyFailure, unchanged raw sizes. Points, math, policy behavior, formatting, evidence, and guarantees untouched.
+- DIRECTOR AUDIT — MIXED UNABLE AGGREGATE CORRECTED, OWNER 25% REVALIDATION PENDING (2026-09-22):
+  The CAPACITY fix ranked UNABLE below CAPACITY/PASS, so 9/0/0/1 would have read PASS and 8/0/1/1 as clean CAPACITY — both false completions. Final precedence (above) makes any UNABLE point decisive short of a policy FAIL. Mixed-UNABLE explanation/guidance audited: the "all tested sizes" guidance now requires zero UNABLE, and the pass line degrades to "X quotable sizes stay within policy; N point(s) remain unverified" when UNABLE points exist. Coverage: all 7 precedence shapes as unit tests (8%→FAIL, 15%→FAIL, 25%→CAPACITY, all-pass→PASS, both mixed-UNABLE→UNABLE, FAIL+UNABLE→FAIL) + browser 65f (mixed-UNABLE page reads NOT VERIFIED, no clean-verdict claims). 8%/15%/25% live behavior re-verified unchanged. DBC release-ready and overall FINISHED are NOT marked.
 - DBC HUMAN-READABLE AMOUNT POLISH — FIX APPLIED, OWNER VISUAL REVALIDATION PENDING (2026-09-22):
   Quote resolution (no hardcoded SOL): decimals read from the REAL mint account (base Mint byte 44, Token + Token-2022 owners only); `SOL` label only for the system native mint; otherwise formatted amount + abbreviated mint; unknown mints fall back to raw units, never a guessed symbol.
   Presentation: per-point `sizeDisplay` + `quoteAsset` on the sweep report (additive fields; classifications, math, sizing, endpoint semantics unchanged); UI shows human-primary (5.48 / 10.96 / 21.92 SOL) with grouped raw secondary (5,480,000,000 quote units) in table, callouts, explanation, and guidance; raw evidence section keeps exact raw units.
@@ -415,13 +417,13 @@ None. All technical, packaging, npm registry distribution, and test validation g
 - `public/app.js`: wired snippet copy buttons, report close button, and `/api/v1/local-artifact` local-first auto-open listener.
 - `README.md`: separated into "Using JustFair (No-Clone Developer Journey)" and "Contributing to JustFair".
 - `test/browser.test.js`: updated assertions to verify published `npx justfair@latest` onboarding commands across hero, test view, and Replay Lab.
-- `src/scenarios/dbc-live.js`: launch-stress sweep (`deriveSweepSizes`, `parseSweepSizes`, `summarizeSweep`, `sweepOverallStatus`, `quoteSingleSize`, `runDbcSweep`) reusing the whale quote core with identical whale outputs; aggregate precedence FAIL > CAPACITY > PASS > UNABLE (capacity never collapses into FAIL); quote-asset resolution (`resolveQuoteAsset`, exact human formatters, raw audit preservation) with SOL label only for the native mint.
+- `src/scenarios/dbc-live.js`: launch-stress sweep (`deriveSweepSizes`, `parseSweepSizes`, `summarizeSweep`, `sweepOverallStatus`, `quoteSingleSize`, `runDbcSweep`) reusing the whale quote core with identical whale outputs; aggregate precedence FAIL > UNABLE > CAPACITY > PASS (any UNABLE point makes the run inconclusive; capacity never collapses into FAIL); quote-asset resolution (`resolveQuoteAsset`, exact human formatters, raw audit preservation) with SOL label only for the native mint.
 - `src/scenarios/dbc.js`: `DBC_LAUNCH_SWEEP` contract descriptor (issuer-owned policy, distinct point outcomes).
 - `src/server.js`: new `POST /api/v1/dbc/sweep` reusing the DBC core (`/whale` untouched).
 - `src/cli.js`: `whale --sweep [--sizes]` with table output and 0/1/2 exits (CAPACITY prints CURVE CAPACITY header, exits 1 as a real finding).
 - `public/index.html` + `public/app.js` + `public/styles.css`: DBC LAUNCH STRESS page (config + YOUR POLICY, summary, first-failure callouts, stress-profile table, provenance, raw-evidence disclosure, scoped responsive table CSS); human-primary amounts with grouped raw secondary; aggregate badge maps CAPACITY → CURVE CAPACITY; flex min-content blowout fix in `.replay-field` (also hardens Replay detail rendering).
 - `test/dbc-sweep.test.js`: new (12 tests: pure grid/parse/summary + live sweep/policy/capacity/UNABLE + no-signing scan).
-- `test/browser.test.js`: test 65 rewritten for sweep UI + 65b (390px overflow) + 65c/65d (human amounts, non-SOL labeling) + 65e (25% CURVE CAPACITY aggregate); `test/e2e.test.js`: sweep endpoint validation; `test/cli.test.js`: `whale --sweep` live + UNABLE tests.
+- `test/browser.test.js`: test 65 rewritten for sweep UI + 65b (390px overflow) + 65c/65d (human amounts, non-SOL labeling) + 65e (25% CURVE CAPACITY aggregate) + 65f (mixed-UNABLE NOT VERIFIED); `test/e2e.test.js`: sweep endpoint validation; `test/cli.test.js`: `whale --sweep` live + UNABLE tests.
 - `DIRECTOR.md`: DBC UPGRADE 001 record (kill-gate, algorithm, semantics, API, tests, UAT prep) + refreshed §8/§10/§16/§22/§24/§34/§35; flagship + Replay PASS entries preserved.
 
 ## 30. IMPORTANT COMMITS
@@ -454,7 +456,7 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-DBC UPGRADE 001 — FUNCTIONAL FLOW PASS; AGGREGATE CAPACITY VERDICT FIX APPLIED, OWNER REVALIDATION PENDING (NOT FINISHED).
+DBC UPGRADE 001 — FUNCTIONAL FLOW PASS; AGGREGATE SEMANTICS FINALIZED (FAIL > UNABLE > CAPACITY > PASS), OWNER 25% REVALIDATION PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
