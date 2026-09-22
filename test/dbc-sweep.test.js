@@ -12,9 +12,15 @@ import { readFileSync } from "node:fs";
 import {
   DBC_SWEEP_SCENARIO_ID,
   DBC_SWEEP_DEFAULT_BPS,
+  NATIVE_SOL_MINT,
   deriveSweepSizes,
   parseSweepSizes,
   summarizeSweep,
+  formatHumanAmount,
+  formatRawUnits,
+  describeAmount,
+  abbreviateMint,
+  resolveQuoteAsset,
   runDbcSweep
 } from "../src/scenarios/dbc-live.js";
 import { DBC_LAUNCH_SWEEP } from "../src/scenarios/dbc.js";
@@ -163,4 +169,80 @@ test("sweep module has no signing/broadcast path", () => {
   assert.ok(!/\bsign\b/i.test(src), "must not contain signing");
   assert.ok(!/sendTransaction|Keypair|secretKey|mnemonic/i.test(src), "must not contain broadcast/custody primitives");
   assert.ok(!/create[A-Z]\w*Transaction|buildTransaction|Transaction\(/i.test(src), "must not build transactions");
+});
+
+test("human formatting is exact and never collapses distinct values", () => {
+  assert.equal(formatHumanAmount("5480000000", 9), "5.48");
+  assert.equal(formatHumanAmount("10960000000", 9), "10.96");
+  assert.equal(formatHumanAmount("21920000000", 9), "21.92");
+  assert.equal(formatHumanAmount("10960000", 9), "0.01096");
+  assert.equal(formatHumanAmount("1000000000", 9), "1");
+  assert.equal(formatHumanAmount("1000", 6), "0.001");
+  assert.equal(formatHumanAmount("1000", 0), "1000");
+  assert.equal(formatHumanAmount("1000", null), null);
+  assert.equal(formatHumanAmount("1000", 19), null);
+  assert.equal(formatRawUnits("10960000000"), "10,960,000,000");
+  assert.equal(formatRawUnits("1000"), "1,000");
+});
+
+test("describeAmount prefers human units but always preserves raw audit text", () => {
+  const sol = { mint: NATIVE_SOL_MINT, decimals: 9, symbol: "SOL" };
+  assert.deepEqual(describeAmount("5480000000", sol), {
+    primary: "~5.48 SOL",
+    secondary: "5,480,000,000 quote units"
+  });
+  const other = { mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", decimals: 6, symbol: null };
+  const named = describeAmount("1500000", other);
+  assert.ok(named.primary.startsWith("~1.5 EPjF…Dt1v"), `got ${named.primary}`);
+  assert.ok(!named.primary.includes("SOL"), "non-SOL mint must never be labeled SOL");
+  assert.equal(named.secondary, "1,500,000 quote units");
+  const unknown = describeAmount("1000", { mint: "AbC", decimals: null, symbol: null });
+  assert.equal(unknown.primary, "1,000 quote units");
+  assert.equal(unknown.secondary, null);
+  assert.equal(abbreviateMint(NATIVE_SOL_MINT).length < NATIVE_SOL_MINT.length, true);
+});
+
+test("resolveQuoteAsset reads real mint metadata without guessing symbols", async () => {
+  const { Connection } = await import("@solana/web3.js");
+  const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+  const sol = await resolveQuoteAsset({ connection, quoteMint: NATIVE_SOL_MINT });
+  assert.deepEqual(sol, { mint: NATIVE_SOL_MINT, decimals: 9, symbol: "SOL" });
+  const usdc = await resolveQuoteAsset({
+    connection,
+    quoteMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  });
+  assert.equal(usdc.decimals, 6);
+  assert.equal(usdc.symbol, null);
+  const bogus = await resolveQuoteAsset({ connection, quoteMint: "NOTANADDRESS" });
+  assert.equal(bogus.decimals, null);
+  assert.equal(bogus.symbol, null);
+});
+
+test("live sweep at 15%: 8 PASS, first failure and capacity unchanged in raw units", async () => {
+  const r = await runDbcSweep({ configAddress: KNOWN_CONFIG, maxPriceImpactPct: 15 });
+  assert.equal(r.status, "FAIL");
+  assert.deepEqual(
+    { passed: r.summary.passed, failed: r.summary.failed, capacity: r.summary.capacity, unable: r.summary.unable },
+    { passed: 8, failed: 1, capacity: 1, unable: 0 }
+  );
+  assert.equal(r.firstPolicyFailure.sizeQuoteUnits, "10960000000");
+  assert.equal(r.firstPolicyFailure.sizeDisplay, "~10.96 SOL");
+  assert.equal(r.firstPolicyFailure.previousPassSizeQuoteUnits, "5480000000");
+  assert.ok(Math.abs(r.firstPolicyFailure.observedImpactPct - 21.937) < 0.01);
+  assert.equal(r.firstCapacityFailure.sizeQuoteUnits, "21920000000");
+  assert.deepEqual(r.quoteAsset, { mint: NATIVE_SOL_MINT, decimals: 9, symbol: "SOL" });
+  assert.ok(r.points.every((p) => typeof p.sizeDisplay === "string" && p.sizeDisplay.length > 0));
+  assert.ok(r.explanation.includes("~10.96 SOL") && r.explanation.includes("10,960,000,000 quote units"));
+  assert.ok(r.guidance.includes("~10.96 SOL"));
+});
+
+test("live sweep at 8%: human displays match the same raw sizes", async () => {
+  const r = await runDbcSweep({ configAddress: KNOWN_CONFIG, maxPriceImpactPct: 8 });
+  assert.equal(r.firstPolicyFailure.sizeQuoteUnits, "5480000000");
+  assert.equal(r.firstPolicyFailure.sizeDisplay, "~5.48 SOL");
+  assert.equal(r.firstCapacityFailure.sizeQuoteUnits, "21920000000");
+  const bySize = Object.fromEntries(r.points.map((p) => [p.sizeQuoteUnits, p.sizeDisplay]));
+  assert.equal(bySize["5480000000"], "~5.48 SOL");
+  assert.equal(bySize["10960000000"], "~10.96 SOL");
+  assert.equal(bySize["21920000000"], "~21.92 SOL");
 });

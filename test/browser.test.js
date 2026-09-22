@@ -2973,12 +2973,13 @@ async function runBrowserTests() {
           request_status: "SUCCESS", scenarioId: "DBC_LAUNCH_SWEEP", status: "FAIL",
           target: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU",
           policy: { maxPriceImpactPct: 8, source: "issuer-supplied" },
+          quoteAsset: { mint: "So11111111111111111111111111111111111111112", decimals: 9, symbol: "SOL" },
           summary: { passed: 2, failed: 1, capacity: 1, unable: 0, points: 4 },
           points: [
-            { sizeQuoteUnits: "1000000", status: "PASS", observedImpactPct: 0.5, outputAmount: "995000", reason: null },
-            { sizeQuoteUnits: "5000000", status: "PASS", observedImpactPct: 2.5, outputAmount: "4875000", reason: null },
-            { sizeQuoteUnits: "20000000", status: "FAIL", observedImpactPct: 12.3, outputAmount: "17540000", reason: "impact exceeds issuer policy of 8%" },
-            { sizeQuoteUnits: "999999999999", status: "CAPACITY", observedImpactPct: null, outputAmount: null, reason: "curve reports insufficient capacity for this opening size" }
+            { sizeQuoteUnits: "1000000", sizeDisplay: "~0.001 SOL", status: "PASS", observedImpactPct: 0.5, outputAmount: "995000", reason: null },
+            { sizeQuoteUnits: "5000000", sizeDisplay: "~0.005 SOL", status: "PASS", observedImpactPct: 2.5, outputAmount: "4875000", reason: null },
+            { sizeQuoteUnits: "20000000", sizeDisplay: "~0.02 SOL", status: "FAIL", observedImpactPct: 12.3, outputAmount: "17540000", reason: "impact exceeds issuer policy of 8%" },
+            { sizeQuoteUnits: "999999999999", sizeDisplay: "~1000 SOL", status: "CAPACITY", observedImpactPct: null, outputAmount: null, reason: "curve reports insufficient capacity for this opening size" }
           ],
           firstPolicyFailure: { sizeQuoteUnits: "20000000", observedImpactPct: 12.3, previousPassSizeQuoteUnits: "5000000" },
           firstCapacityFailure: { sizeQuoteUnits: "999999999999" },
@@ -3010,6 +3011,77 @@ async function runBrowserTests() {
         if (/safe/i.test(out)) throw new Error("Sweep result must not declare safety");
         const rows = await page.$$("#dbc-result .dbc-sweep-table tbody tr");
         if (rows.length !== 4) throw new Error(`Stress profile must render 4 rows, got ${rows.length}`);
+      } finally {
+        await page.unroute("**/api/v1/dbc/sweep");
+      }
+    });
+
+    await test("65c. DBC sweep shows human amounts first with raw units preserved", async () => {
+      await page.route("**/api/v1/dbc/sweep", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+          request_status: "SUCCESS", scenarioId: "DBC_LAUNCH_SWEEP", status: "FAIL",
+          target: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU",
+          policy: { maxPriceImpactPct: 8, source: "issuer-supplied" },
+          quoteAsset: { mint: "So11111111111111111111111111111111111111112", decimals: 9, symbol: "SOL" },
+          summary: { passed: 1, failed: 1, capacity: 0, unable: 0, points: 2 },
+          points: [
+            { sizeQuoteUnits: "5480000000", sizeDisplay: "~5.48 SOL", status: "PASS", observedImpactPct: 6.5, outputAmount: "5123800", reason: null },
+            { sizeQuoteUnits: "10960000000", sizeDisplay: "~10.96 SOL", status: "FAIL", observedImpactPct: 21.9, outputAmount: "8559000", reason: "impact exceeds issuer policy of 8%" }
+          ],
+          firstPolicyFailure: { sizeQuoteUnits: "10960000000", sizeDisplay: "~10.96 SOL", observedImpactPct: 21.9, previousPassSizeQuoteUnits: "5480000000", previousPassSizeDisplay: "~5.48 SOL" },
+          firstCapacityFailure: null,
+          testedRange: { minSizeQuoteUnits: "5480000000", maxSizeQuoteUnits: "10960000000", minSizeDisplay: "~5.48 SOL", maxSizeDisplay: "~10.96 SOL" },
+          explanation: "Tested 2 hypothetical opening buys.",
+          guidance: "Adjust and rerun.",
+          evidence: { classification: "live_dbc_mainnet", source: "METEORA_DBC_PROGRAM", config: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU" },
+          replay: []
+        }) });
+      });
+      try {
+        await page.click("#tab-dbc-btn");
+        await page.waitForSelector("#dbc-view:not(.hidden)", { timeout: 10000 });
+        await page.click("#dbc-run-btn");
+        await page.waitForSelector("#dbc-result:not(.hidden)", { timeout: 20000 });
+        const out = await page.textContent("#dbc-result");
+        for (const n of ["~10.96 SOL", "~5.48 SOL", "OPENING BUY", "10,960,000,000 quote units", "5,480,000,000 quote units"]) {
+          if (!out.includes(n)) throw new Error(`Human-amount rendering must show "${n}"`);
+        }
+      } finally {
+        await page.unroute("**/api/v1/dbc/sweep");
+      }
+    });
+
+    await test("65d. DBC sweep never labels a non-SOL quote mint as SOL", async () => {
+      await page.route("**/api/v1/dbc/sweep", async route => {
+        if (route.request().method() !== "POST") { await route.continue(); return; }
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+          request_status: "SUCCESS", scenarioId: "DBC_LAUNCH_SWEEP", status: "PASS",
+          target: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU",
+          policy: { maxPriceImpactPct: 50, source: "issuer-supplied" },
+          quoteAsset: { mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", decimals: 6, symbol: null },
+          summary: { passed: 1, failed: 0, capacity: 0, unable: 0, points: 1 },
+          points: [
+            { sizeQuoteUnits: "1500000", sizeDisplay: "~1.5 EPjF…Dt1v", status: "PASS", observedImpactPct: 0.1, outputAmount: "1498500", reason: null }
+          ],
+          firstPolicyFailure: null,
+          firstCapacityFailure: null,
+          testedRange: { minSizeQuoteUnits: "1500000", maxSizeQuoteUnits: "1500000", minSizeDisplay: "~1.5 EPjF…Dt1v", maxSizeDisplay: "~1.5 EPjF…Dt1v" },
+          explanation: "All tested sizes stay within your policy.",
+          guidance: "Rerun to probe further.",
+          evidence: { classification: "live_dbc_mainnet", source: "METEORA_DBC_PROGRAM", config: "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU" },
+          replay: []
+        }) });
+      });
+      try {
+        await page.click("#tab-dbc-btn");
+        await page.waitForSelector("#dbc-view:not(.hidden)", { timeout: 10000 });
+        await page.click("#dbc-run-btn");
+        await page.waitForSelector("#dbc-result:not(.hidden)", { timeout: 20000 });
+        const out = await page.textContent("#dbc-result");
+        if (!out.includes("~1.5 EPjF…Dt1v")) throw new Error("Non-SOL display must use the abbreviated mint");
+        if (/\bSOL\b/.test(out)) throw new Error("Non-SOL quote mint must never render a SOL label");
+        if (!out.includes("1,500,000 quote units")) throw new Error("Raw audit units must remain");
       } finally {
         await page.unroute("**/api/v1/dbc/sweep");
       }

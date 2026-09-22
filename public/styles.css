@@ -4489,6 +4489,11 @@ body {
   gap: 2px;
   font-size: 14px;
   color: var(--text-primary);
+  min-width: 0;
+}
+
+.replay-field > span:not(.replay-field-label) {
+  overflow-wrap: anywhere;
 }
 
 .replay-field-label {
@@ -4595,6 +4600,14 @@ body {
 
 .dbc-sweep-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.dbc-raw-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
 }
 
 .dbc-result code {

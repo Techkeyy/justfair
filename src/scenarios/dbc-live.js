@@ -227,6 +227,87 @@ export function summarizeSweep(points) {
   return { summary, firstPolicyFailure, firstCapacityFailure };
 }
 
+// Quote-asset presentation. Decimals are read from the REAL mint account
+// (base Mint layout byte 44, shared by Token and Token-2022); the SOL label
+// applies ONLY to the system native mint address. Unknown mints fall back
+// to raw units with an abbreviated mint — never a guessed symbol.
+export const NATIVE_SOL_MINT = "So11111111111111111111111111111111111111112";
+export const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+export const TOKEN_2022_PROGRAM_ID = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+
+export function abbreviateMint(mint) {
+  const s = String(mint || "");
+  return s.length > 12 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
+}
+
+export function formatRawUnits(raw) {
+  try {
+    return BigInt(String(raw)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  } catch {
+    return String(raw);
+  }
+}
+
+/**
+ * Exact human amount: raw / 10^decimals with trailing zeros trimmed.
+ * Division by a power of ten is injective, so distinct raw values never
+ * collapse. Returns null when decimals are unknown.
+ */
+export function formatHumanAmount(raw, decimals) {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) return null;
+  let neg = false;
+  let digits;
+  try {
+    let n = BigInt(String(raw));
+    if (n < 0n) {
+      neg = true;
+      n = -n;
+    }
+    digits = n.toString();
+  } catch {
+    return null;
+  }
+  if (decimals === 0) return `${neg ? "-" : ""}${digits}`;
+  const padded = digits.padStart(decimals + 1, "0");
+  const intPart = padded.slice(0, -decimals).replace(/^0+(?=\d)/, "");
+  const fracPart = padded.slice(-decimals).replace(/0+$/, "");
+  const body = fracPart ? `${intPart || "0"}.${fracPart}` : (intPart || "0");
+  return `${neg ? "-" : ""}${body}`;
+}
+
+/**
+ * Primary/secondary display for one raw amount. Human units are primary
+ * only when decimals are known; raw grouped units are always preserved
+ * as secondary audit text in that case, or as primary when unknown.
+ */
+export function describeAmount(raw, quoteAsset) {
+  const grouped = `${formatRawUnits(raw)} quote units`;
+  const decimals = quoteAsset?.decimals;
+  const human = formatHumanAmount(raw, decimals);
+  if (human === null) return { primary: grouped, secondary: null };
+  const unit = quoteAsset?.symbol || abbreviateMint(quoteAsset?.mint);
+  return { primary: `~${human} ${unit}`, secondary: grouped };
+}
+
+export async function resolveQuoteAsset({ connection, quoteMint }) {
+  const mint = String(quoteMint || "").trim();
+  const unknown = { mint, decimals: null, symbol: null };
+  if (!mint) return unknown;
+  if (mint === NATIVE_SOL_MINT) return { mint, decimals: 9, symbol: "SOL" };
+  try {
+    const key = new PublicKey(mint);
+    const info = await connection.getAccountInfo(key);
+    if (!info || !info.data || info.data.length < 82) return unknown;
+    const owner = str(info.owner);
+    if (owner !== TOKEN_PROGRAM_ID && owner !== TOKEN_2022_PROGRAM_ID) return unknown;
+    const decimals = info.data[44];
+    if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) return unknown;
+    return { mint, decimals, symbol: null };
+  } catch {
+    return unknown;
+  }
+}
+
 /**
  * Run DBC_OPENING_WHALE against a live config. Returns a standard scenario
  * result (status/assertions/diagnosis/replay/evidence). Never throws on
@@ -350,7 +431,7 @@ export async function runDbcSweep({ rpcUrl, configAddress, maxPriceImpactPct, si
   const unable = (reason, code) => ({
     scenarioId: DBC_SWEEP_SCENARIO_ID,
     status: "UNABLE_TO_VERIFY", reason, reasonCode: code,
-    target: null, policy: null, summary: null, points: [],
+    target: null, policy: null, quoteAsset: null, summary: null, points: [],
     firstPolicyFailure: null, firstCapacityFailure: null,
     testedRange: null, explanation: null, guidance: null,
     evidence: null,
@@ -396,16 +477,21 @@ export async function runDbcSweep({ rpcUrl, configAddress, maxPriceImpactPct, si
     provenance: "config + quote math via @meteora-ag/dynamic-bonding-curve-sdk over mainnet RPC; read-only, no signature"
   };
 
+  const env = createDbcClient(rpcUrl);
+  const quoteAsset = await resolveQuoteAsset({ connection: env.connection, quoteMint: str(config.quoteMint) });
+  evidence.quoteAsset = quoteAsset;
+
+  const displayOf = (sizeRaw) => describeAmount(sizeRaw, quoteAsset).primary;
+
   let client, quoteConfig, currentPoint, marginalOut;
   try {
-    const env = createDbcClient(rpcUrl);
     client = env.client;
     quoteConfig = toQuoteConfig(config);
     currentPoint = await getCurrentPoint(env.connection, Number(config.activationType ?? 0));
     const marginal = quoteSingleSize({ client, quoteConfig, currentPoint, sizeRaw: DBC_MARGINAL_PROBE_UNITS });
     if (!marginal.ok) {
       if (marginal.capacity) {
-        return sweepCapacityShortCircuit({ replay, evidence, normalizedConfig, tolerance, sizes, fetched });
+        return sweepCapacityShortCircuit({ replay, evidence, normalizedConfig, tolerance, sizes, quoteAsset });
       }
       return unable(marginal.error, "DBC_QUOTE_FAILED");
     }
@@ -417,38 +503,55 @@ export async function runDbcSweep({ rpcUrl, configAddress, maxPriceImpactPct, si
 
   const points = [];
   for (const sizeRaw of sizes) {
+    const sizeDisplay = displayOf(sizeRaw);
     const q = quoteSingleSize({ client, quoteConfig, currentPoint, sizeRaw });
     if (!q.ok) {
       if (q.capacity) {
-        points.push({ sizeQuoteUnits: sizeRaw, status: "CAPACITY", observedImpactPct: null, outputAmount: null, reason: "curve reports insufficient capacity for this opening size" });
+        points.push({ sizeQuoteUnits: sizeRaw, sizeDisplay, status: "CAPACITY", observedImpactPct: null, outputAmount: null, reason: "curve reports insufficient capacity for this opening size" });
       } else {
-        points.push({ sizeQuoteUnits: sizeRaw, status: "UNABLE", observedImpactPct: null, outputAmount: null, reason: q.error });
+        points.push({ sizeQuoteUnits: sizeRaw, sizeDisplay, status: "UNABLE", observedImpactPct: null, outputAmount: null, reason: q.error });
       }
       continue;
     }
     const math = computeImpactPct({ outputAmount: q.out, amountIn: sizeRaw, marginalOutput: marginalOut, marginalIn: DBC_MARGINAL_PROBE_UNITS });
     if (!math.ok) {
-      points.push({ sizeQuoteUnits: sizeRaw, status: "UNABLE", observedImpactPct: null, outputAmount: q.out, reason: math.reason });
+      points.push({ sizeQuoteUnits: sizeRaw, sizeDisplay, status: "UNABLE", observedImpactPct: null, outputAmount: q.out, reason: math.reason });
       continue;
     }
     const verdict = evaluateWhalePolicy({ observedImpactPct: math.observedImpactPct, maxPriceImpactPct: tolerance });
     if (verdict.withinPolicy === null) {
-      points.push({ sizeQuoteUnits: sizeRaw, status: "UNABLE", observedImpactPct: null, outputAmount: q.out, reason: "Non-numeric impact" });
+      points.push({ sizeQuoteUnits: sizeRaw, sizeDisplay, status: "UNABLE", observedImpactPct: null, outputAmount: q.out, reason: "Non-numeric impact" });
     } else if (verdict.withinPolicy) {
-      points.push({ sizeQuoteUnits: sizeRaw, status: "PASS", observedImpactPct: math.observedImpactPct, outputAmount: q.out, reason: null });
+      points.push({ sizeQuoteUnits: sizeRaw, sizeDisplay, status: "PASS", observedImpactPct: math.observedImpactPct, outputAmount: q.out, reason: null });
     } else {
-      points.push({ sizeQuoteUnits: sizeRaw, status: "FAIL", observedImpactPct: math.observedImpactPct, outputAmount: q.out, reason: `impact exceeds issuer policy of ${tolerance}%` });
+      points.push({ sizeQuoteUnits: sizeRaw, sizeDisplay, status: "FAIL", observedImpactPct: math.observedImpactPct, outputAmount: q.out, reason: `impact exceeds issuer policy of ${tolerance}%` });
     }
   }
   replay.push({ at: "T+sweep", label: "Sweep evaluated", expected: `${sizes.length} opening sizes`, observed: "per-point results recorded" });
 
   const { summary, firstPolicyFailure, firstCapacityFailure } = summarizeSweep(points);
-  const testedRange = { minSizeQuoteUnits: sizes[0], maxSizeQuoteUnits: sizes[sizes.length - 1] };
+  const testedRange = {
+    minSizeQuoteUnits: sizes[0],
+    maxSizeQuoteUnits: sizes[sizes.length - 1],
+    minSizeDisplay: displayOf(sizes[0]),
+    maxSizeDisplay: displayOf(sizes[sizes.length - 1])
+  };
   const decisive = summary.passed + summary.failed + summary.capacity;
   const status = (summary.failed > 0 || summary.capacity > 0) ? "FAIL" : decisive > 0 ? "PASS" : "UNABLE_TO_VERIFY";
 
-  const explanation = buildSweepExplanation({ config: normalizedConfig, tolerance, sizes, summary, firstPolicyFailure, firstCapacityFailure });
-  const guidance = buildSweepGuidance({ tolerance, summary, firstPolicyFailure, firstCapacityFailure });
+  const explainedFirstFailure = firstPolicyFailure && {
+    ...firstPolicyFailure,
+    sizeDisplay: displayOf(firstPolicyFailure.sizeQuoteUnits),
+    previousPassSizeDisplay: firstPolicyFailure.previousPassSizeQuoteUnits
+      ? displayOf(firstPolicyFailure.previousPassSizeQuoteUnits)
+      : null
+  };
+  const explainedFirstCapacity = firstCapacityFailure && {
+    ...firstCapacityFailure,
+    sizeDisplay: displayOf(firstCapacityFailure.sizeQuoteUnits)
+  };
+  const explanation = buildSweepExplanation({ config: normalizedConfig, tolerance, sizes, summary, firstPolicyFailure: explainedFirstFailure, firstCapacityFailure: explainedFirstCapacity, quoteAsset });
+  const guidance = buildSweepGuidance({ tolerance, summary, firstPolicyFailure: explainedFirstFailure, firstCapacityFailure: explainedFirstCapacity, quoteAsset });
   const verdictLabel = status === "PASS" ? "Sweep within issuer policy" : status === "FAIL" ? "Sweep crossed policy or capacity" : "Sweep inconclusive";
 
   return {
@@ -456,10 +559,11 @@ export async function runDbcSweep({ rpcUrl, configAddress, maxPriceImpactPct, si
     status,
     target: normalizedConfig,
     policy: { maxPriceImpactPct: tolerance, source: "issuer-supplied" },
+    quoteAsset,
     summary: { ...summary, points: points.length },
     points,
-    firstPolicyFailure,
-    firstCapacityFailure,
+    firstPolicyFailure: explainedFirstFailure,
+    firstCapacityFailure: explainedFirstCapacity,
     testedRange,
     explanation,
     guidance,
@@ -473,25 +577,32 @@ export async function runDbcSweep({ rpcUrl, configAddress, maxPriceImpactPct, si
  * quote, so every sweep point is CAPACITY (attempted: false beyond the probe
  * would add no evidence — the probe already proves the curve unquotable).
  */
-function sweepCapacityShortCircuit({ replay, evidence, normalizedConfig, tolerance, sizes, fetched }) {
+function sweepCapacityShortCircuit({ replay, evidence, normalizedConfig, tolerance, sizes, quoteAsset }) {
+  const displayOf = (sizeRaw) => describeAmount(sizeRaw, quoteAsset).primary;
   const points = sizes.map((sizeRaw) => ({
     sizeQuoteUnits: sizeRaw,
+    sizeDisplay: displayOf(sizeRaw),
     status: "CAPACITY",
     observedImpactPct: null,
     outputAmount: null,
     reason: "marginal probe already exceeds curve capacity; no opening size can quote"
   }));
   const { summary, firstCapacityFailure } = summarizeSweep(points);
+  const explainedFirstCapacity = firstCapacityFailure && {
+    ...firstCapacityFailure,
+    sizeDisplay: displayOf(firstCapacityFailure.sizeQuoteUnits)
+  };
   const explanation = `No opening size can quote against ${normalizedConfig}: even the marginal probe exceeds curve capacity.`;
   return {
     scenarioId: DBC_SWEEP_SCENARIO_ID,
     status: "FAIL",
     target: normalizedConfig,
     policy: { maxPriceImpactPct: tolerance, source: "issuer-supplied" },
+    quoteAsset,
     summary: { ...summary, points: points.length },
     points,
     firstPolicyFailure: null,
-    firstCapacityFailure,
+    firstCapacityFailure: explainedFirstCapacity,
     testedRange: { minSizeQuoteUnits: sizes[0], maxSizeQuoteUnits: sizes[sizes.length - 1] },
     explanation,
     guidance: "Quotes stop succeeding at every tested opening size because the curve reports insufficient capacity. Add early-curve liquidity or revise the configuration, then rerun this sweep.",
@@ -502,30 +613,35 @@ function sweepCapacityShortCircuit({ replay, evidence, normalizedConfig, toleran
   };
 }
 
-function buildSweepExplanation({ config, tolerance, sizes, summary, firstPolicyFailure, firstCapacityFailure }) {
-  const parts = [`Tested ${sizes.length} hypothetical opening buys from ${sizes[0]} to ${sizes[sizes.length - 1]} quote raw units against ${config} at your ${tolerance}% policy.`];
+function buildSweepExplanation({ config, tolerance, sizes, summary, firstPolicyFailure, firstCapacityFailure, quoteAsset }) {
+  const range = `from ${describeAmount(sizes[0], quoteAsset).primary} to ${describeAmount(sizes[sizes.length - 1], quoteAsset).primary}`;
+  const parts = [`Tested ${sizes.length} hypothetical opening buys ${range} against ${config} at your ${tolerance}% policy.`];
   if (firstPolicyFailure) {
+    const at = `${firstPolicyFailure.sizeDisplay || describeAmount(firstPolicyFailure.sizeQuoteUnits, quoteAsset).primary} (${formatRawUnits(firstPolicyFailure.sizeQuoteUnits)} quote units)`;
     const held = firstPolicyFailure.previousPassSizeQuoteUnits
-      ? ` Policy holds at ${firstPolicyFailure.previousPassSizeQuoteUnits} quote units.`
+      ? ` Policy still holds at ${firstPolicyFailure.previousPassSizeDisplay || describeAmount(firstPolicyFailure.previousPassSizeQuoteUnits, quoteAsset).primary}.`
       : "";
-    parts.push(`First observed policy failure at ${firstPolicyFailure.sizeQuoteUnits} quote units (${firstPolicyFailure.observedImpactPct.toFixed(3)}% observed).${held}`);
+    parts.push(`First observed policy failure at ${at} (${firstPolicyFailure.observedImpactPct.toFixed(3)}% observed).${held}`);
   } else if (summary.failed === 0 && summary.passed > 0) {
     parts.push(`All ${summary.passed} quotable sizes stay within your ${tolerance}% policy.`);
   }
   if (firstCapacityFailure) {
-    parts.push(`Quotes stop succeeding at ${firstCapacityFailure.sizeQuoteUnits} quote units (curve reports insufficient capacity).`);
+    const at = `${firstCapacityFailure.sizeDisplay || describeAmount(firstCapacityFailure.sizeQuoteUnits, quoteAsset).primary} (${formatRawUnits(firstCapacityFailure.sizeQuoteUnits)} quote units)`;
+    parts.push(`Quotes stop succeeding at ${at} (curve reports insufficient capacity).`);
   }
   if (summary.unable > 0) parts.push(`${summary.unable} point(s) could not be quoted for infrastructure reasons, reported as UNABLE, never as PASS or FAIL.`);
   return parts.join(" ");
 }
 
-function buildSweepGuidance({ tolerance, summary, firstPolicyFailure, firstCapacityFailure }) {
+function buildSweepGuidance({ tolerance, summary, firstPolicyFailure, firstCapacityFailure, quoteAsset }) {
   const lines = [];
   if (firstPolicyFailure) {
-    lines.push(`Price impact crosses your configured ${tolerance}% policy beginning around ${firstPolicyFailure.sizeQuoteUnits} quote units. To move that boundary, adjust the curve or liquidity distribution around the expected opening price region and rerun this sweep.`);
+    const at = `${firstPolicyFailure.sizeDisplay || describeAmount(firstPolicyFailure.sizeQuoteUnits, quoteAsset).primary} (${formatRawUnits(firstPolicyFailure.sizeQuoteUnits)} quote units)`;
+    lines.push(`Price impact crosses your configured ${tolerance}% policy beginning around ${at}. To move that boundary, adjust the curve or liquidity distribution around the expected opening price region and rerun this sweep.`);
   }
   if (firstCapacityFailure) {
-    lines.push(`Quotes stop succeeding at ${firstCapacityFailure.sizeQuoteUnits} quote units because the curve reports insufficient capacity. Reduce the largest hypothetical opening size, add early-curve liquidity, or revise the migration-threshold economics, then rerun.`);
+    const at = `${firstCapacityFailure.sizeDisplay || describeAmount(firstCapacityFailure.sizeQuoteUnits, quoteAsset).primary} (${formatRawUnits(firstCapacityFailure.sizeQuoteUnits)} quote units)`;
+    lines.push(`Quotes stop succeeding at ${at} because the curve reports insufficient capacity. Reduce the largest hypothetical opening size, add early-curve liquidity, or revise the migration-threshold economics, then rerun.`);
   }
   if (!firstPolicyFailure && !firstCapacityFailure && summary.passed > 0) {
     lines.push(`All tested sizes stay within your policy. Rerun with a tighter policy or larger sizes to probe further.`);

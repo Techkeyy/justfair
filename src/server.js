@@ -623,6 +623,7 @@ export async function handleRequest(req, res) {
         status: result.status,
         target: result.target || null,
         policy: result.policy || null,
+        quoteAsset: result.quoteAsset || null,
         summary: result.summary || null,
         points: result.points || [],
         firstPolicyFailure: result.firstPolicyFailure || null,

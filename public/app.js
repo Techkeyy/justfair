@@ -4092,22 +4092,27 @@ function renderDbcResult(data) {
   const points = Array.isArray(data.points) ? data.points : [];
   const ev = data.evidence || {};
   const fmtImpact = (v) => (v === null || v === undefined ? "—" : `${Number(v).toFixed(3)}%`);
+  const groupDigits = (s) => String(s ?? "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const rawUnits = (s) => `${groupDigits(s)} quote units`;
   const rows = points.map((p) => {
-    const size = escapeHtmlText(p.sizeQuoteUnits ?? "—");
-    return `<tr><td class="font-mono">${size}</td><td class="font-mono">${fmtImpact(p.observedImpactPct)}</td>`
+    const human = escapeHtmlText(p.sizeDisplay || p.sizeQuoteUnits);
+    return `<tr><td><div class="font-mono">${human}</div><span class="dbc-raw-sub font-mono">${escapeHtmlText(rawUnits(p.sizeQuoteUnits))}</span></td>`
+      + `<td class="font-mono">${fmtImpact(p.observedImpactPct)}</td>`
       + `<td><span class="replay-status-badge">${escapeHtmlText(p.status)}</span></td></tr>`;
   }).join("");
   const firstFail = data.firstPolicyFailure;
   const firstCap = data.firstCapacityFailure;
   const findings = [];
   if (firstFail) {
-    const held = firstFail.previousPassSizeQuoteUnits ? ` Policy holds at ${escapeHtmlText(firstFail.previousPassSizeQuoteUnits)} quote units.` : "";
+    const held = firstFail.previousPassSizeQuoteUnits
+      ? ` Policy still holds at ${escapeHtmlText(firstFail.previousPassSizeDisplay || firstFail.previousPassSizeQuoteUnits)}.`
+      : "";
     findings.push(`<div class="replay-field"><span class="replay-field-label">FIRST OBSERVED POLICY FAILURE</span>`
-      + `<span>Your policy is first exceeded at ${escapeHtmlText(firstFail.sizeQuoteUnits)} quote units (${fmtImpact(firstFail.observedImpactPct)} observed).${held}</span></div>`);
+      + `<span>Your policy is first exceeded at ${escapeHtmlText(firstFail.sizeDisplay || firstFail.sizeQuoteUnits)} (${fmtImpact(firstFail.observedImpactPct)} observed). Raw: ${escapeHtmlText(rawUnits(firstFail.sizeQuoteUnits))}.${held}</span></div>`);
   }
   if (firstCap) {
     findings.push(`<div class="replay-field"><span class="replay-field-label">FIRST CAPACITY BOUNDARY</span>`
-      + `<span>Quotes stop succeeding at ${escapeHtmlText(firstCap.sizeQuoteUnits)} quote units (curve reports insufficient capacity).</span></div>`);
+      + `<span>Quotes stop succeeding at ${escapeHtmlText(firstCap.sizeDisplay || firstCap.sizeQuoteUnits)}. Raw: ${escapeHtmlText(rawUnits(firstCap.sizeQuoteUnits))}.</span></div>`);
   }
   outBox.innerHTML = `
     <div class="replay-detail-head"><span class="replay-status-badge">${escapeHtmlText(statusWord)}</span>
@@ -4121,7 +4126,7 @@ function renderDbcResult(data) {
     </div>
     <h5 class="replay-timeline-title">STRESS PROFILE</h5>
     <div class="dbc-sweep-table-wrap"><table class="dbc-sweep-table">
-      <thead><tr><th>OPENING SIZE (QUOTE UNITS)</th><th>PRICE IMPACT</th><th>RESULT</th></tr></thead>
+      <thead><tr><th>OPENING BUY</th><th>PRICE IMPACT</th><th>RESULT</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
     <details class="jf-details"><summary class="jf-details-summary">View raw sweep evidence &amp; replay</summary>
