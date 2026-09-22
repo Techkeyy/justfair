@@ -320,7 +320,14 @@ Current verified counts (2026-09-18 UX Upgrade 003 Public Release run):
   3. Owner changed ONLY the real app (`isLive: true` → `false`); adapter NOT changed; endpoint verified `{isLive false}`.
   4. Exact same command rerun → PASS STALE_CARRIED_FORWARD_EQUITY, 1 passed · 0 failed · 0 unable · 3 skipped; replay showed `claimsLive: false`, `displayedPrice: 329.29`, both invariants satisfied, verdict PASS.
   This proves: fresh install → init → real app → adapter → detect real app bug → FAIL → useful replay → fix real app → unchanged adapter → same command → PASS. Recorded verbatim; not generalized.
-- OWNER UAT — REPLAY PASS-STATE PRESENTATION BUG (found during the above PASS run): PASS report rendered under "Understand a failure." + failure-specific subtitle. Fix applied (state-aware hero: neutral "Understand a result." when empty, "Understand a failure." on FAIL, "Verify a passing run." on all-PASS, "Understand what could not be verified." on UNABLE; neutral subtitle for all states; sample button "Stale Oracle Failure" → "Stale Price Failure" since the scenario is simulated carry-forward semantics, not a live oracle; scenario IDs and evidence semantics unchanged). Presentation-only; result schema, engine, verdicts, replay, viewer, protocol, npm behavior, and DBC untouched. New browser assertions 62b/62c. Browser suite 2026-09-21: 72 PASSED · 0 FAILED. Visual revalidation pending; overall FINISHED is NOT claimed.
+- OWNER UAT — REPLAY PASS-STATE PRODUCTION REVALIDATION — FAIL, OWNER SAW STALE PRODUCTION (2026-09-22):
+  Owner reported `#replay` still showing pre-fix hero ("Understand a failure." / violations subtitle / "Stale Oracle Failure") after Ctrl+Shift+R. Builder investigated WITHOUT changing product code:
+  1. Git: clean tree; local HEAD = origin/main = `17f0a48` (full hashes match via `rev-parse`).
+  2. Vercel (`vercel ls`, project `techkeyys-projects/justfair`): latest Production deployment Ready, age ~13h (matches the `17f0a48` push era; older Ready Production deploys line up with earlier pushes). No failed deployment found; single branch `main`, single remote, no service worker in `public/`.
+  3. Origin bytes: production `/` SHA256-identical to local `17f0a48` `public/index.html` (F4495D0C…D476; 50365 bytes = local size); production `/app.js` contains `replayHeroHeadingForResults` + new headings; production `/styles.css` contains `.code-body.code-wrap`. Old strings absent from served HTML.
+  Root cause: NO deployment fault. Git-connected auto-deploy built `17f0a48` and the production alias has served its exact bytes for ~13h. The staleness is owner-side (browser/intermediary retained the pre-fix document; the owner's hard reload did not reach origin — origin has served nothing else in that window).
+  Repair: none applied to deployment (a manual `vercel --prod` would rebuild identical source; refused as pointless). Correction of prior record: the earlier "production verification" verified ORIGIN bytes (accurate then and now), not the owner's viewport — that gap is corrected here, not the code.
+  Owner revalidation procedure (no code change needed): open a private/incognito window to `https://justfair-theta.vercel.app/#replay`, or DevTools → Application → Clear storage then reload; confirm hero reads "Understand a result." and sample reads "Stale Price Failure". Visual PASS is NOT marked here; the human owner/director decides.
 
 ## 26. CURRENT BLOCKERS
 
@@ -391,6 +398,6 @@ Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner hum
 
 ## 35. EXACT NEXT ACTION
 
-Present the state-aware Replay Lab hero on `https://justfair-theta.vercel.app/#replay` (empty / FAIL / PASS / UNABLE) to the owner for human visual revalidation. Do NOT claim visual PASS or overall FINISHED; the human owner/director decides. Do NOT start the DBC upgrade without an explicit order.
+Owner: revalidate `#replay` in a private/incognito window (or after DevTools → Application → Clear storage) and confirm the neutral hero + "Stale Price Failure". Do NOT claim visual PASS or overall FINISHED; the human owner/director decides. Do NOT start the DBC upgrade without an explicit order. No redeploy authorized (production already serves `17f0a48` byte-identically).
 
 
