@@ -438,12 +438,32 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
 
 ## 26. CURRENT BLOCKERS
 
-None. All technical, packaging, npm registry distribution, and test validation gates are fully resolved.
+- justfair@1.0.3 is prepared but NOT yet published (registry OTP 2FA interaction required; builder stopped per rule).
+- Public @latest is still 1.0.2 (without the scaffold `transfer_fee_accounting` fix).
+- Tessera Owner UAT is BLOCKED until 1.0.3 is public.
+- The external UAT adapter must then be regenerated from public @latest (current copy carries the manual capability workaround).
+- Tessera fresh-user Core Outcome has not yet been owner-proven.
+- Final FAIL Replay visual proof has not yet been owner-observed.
+
+### CORE OUTCOME GATE (current state)
+
+Core Outcome: "This product is only genuinely working when a developer can use the normal public JustFair workflow against a real stock application or market configuration, JustFair independently detects a financially incorrect result from authoritative evidence, explains it, and after the developer fixes only their own app/configuration, the same workflow verifies the correction."
+
+Evidence levels used below — L1 unit/deterministic (no network, no owner) · L2 live-network integration (repo tests/fixtures, builder-run) · L3 packed-tarball clean-install proof (shippable artifact, builder-run, outside repo) · L4 fresh-public owner proof (public registry + owner hands). Packed/local proof is never recorded as L4.
+
+| Claim | Mechanism → Boundary | Required falsification / proof | Enforcement | Current evidence |
+|---|---|---|---|---|
+| A. JUSTFAIR OWNS THE VERDICT | Assertion engine (`runScenario` `check()` over observations) → CLI/scenario engine, not adapter | Adapter cannot force PASS by supplying verdict/pass: naive/correct fixtures + untouched-scaffold echo runs still yield engine FAIL; exit codes follow engine status | HARD (engine code + committed tests) | L2 (L4 pending owner Tessera UAT) |
+| B. LIVE/AUTHORITATIVE DATA DRIVES EXPECTATION | Tessera: live TransferFeeConfig (captured feeEpoch + verified chain epoch); DBC: live mainnet config; simulated evidence always labeled (SAMPLE badge, `simulated` class) | Chain-state change flows into verdicts (epoch-verified selection; 1% vs 8% policy divergence on one config); no test asserts a simulated sample as live | HARD (classification + provenance assertions; math cross-checked vs official `spl-token calculateFee`) | L2 overall; L4 achieved for owner-run core-loop + DBC flows |
+| C. ZERO CUSTODY / ZERO SIGNING | No signing/broadcast/custody code paths; localhost-only CLI; constrained numeric/address inputs | Committed static scans (`sign`, `sendTransaction`, `Keypair`, `secretKey`, `mnemonic`) over scenario/CLI/server code; e2e proves no `/execute` route and 404s `/sendTransaction` | HARD for code paths and routes; private-key-field absence is OBSERVATIONAL (reviewed, not assertion-covered) | L2 |
+| D. UNABLE NEVER BECOMES PASS | Engine `toUnable` boundary; exit 2; UNABLE cards visually distinct | Malformed/garbage/unsupported-mint, unreachable-target, capability-missing, invalid-address, oversize-upload paths all assert UNABLE (never PASS/FAIL) in committed tests | HARD (adversarial cases asserted) | L2 |
+| E. NORMAL PUBLIC ONBOARDING WORKS | `npx justfair@latest init/test` from the registry tarball | 1.0.3: L3 EXISTS (packed init manifest proof + FAIL/PASS + DBC smoke from tarball). Public proof does NOT yet exist (registry still 1.0.2) | HARD (regression test on generated scaffold) | L3 → NOT YET PROVEN at L4 |
+| F. TESSERA FAIL → APP-ONLY FIX → PASS | Same scenario, same adapter, same command; only app observations change | L2/L3 EXISTS (fixture + scaffold FAIL→PASS; external 1.0.2 workspace proof). Owner fresh-public proof pending | HARD (engine + CLI tests) | L2/L3 → L4 PENDING |
 
 ## 27. RELEASE / SUBMISSION BLOCKERS
 
 - GITHUB / PUBLIC REPOSITORY: Public repository live at `https://github.com/Techkeyy/justfair`, tracks local `main`, connected to Vercel.
-- NPM REGISTRY DISTRIBUTION: `justfair@1.0.2` published and public-registry verified (`latest = 1.0.2`; triage + residuals documented in §25).
+- NPM REGISTRY DISTRIBUTION: `justfair@1.0.2` published and public-registry verified (`latest = 1.0.2`; triage + residuals documented in §25). `justfair@1.0.3` prepared, packed, and clean-install proven — publish pending owner OTP (see §26).
 - VERCEL PRODUCTION DEPLOYMENT: Live and Git-integrated at `https://justfair-theta.vercel.app`.
 - DEADLINE AWARENESS: Sep 18 4pm ET vs Sep 25 calendar note documented.
 
@@ -509,11 +529,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-DBC UPGRADE 001 — DBC UAT PASS, SURFACE RELEASE READY; NPM 1.0.2 PUBLISHED AND PUBLIC-REGISTRY VERIFIED; TESSERA ONBOARDING FIX PREPARED AS 1.0.3, OWNER PUBLISH PENDING (NOT FINISHED).
+TESSERA ONBOARDING FIX PREPARED AS 1.0.3 (packed proof L3, public proof pending); CORE OUTCOME NOT YET PROVEN AT FRESH-PUBLIC LEVEL (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Owner: approve the npm 2FA challenge (or run `npm publish` from this source) to release prepared 1.0.3, then confirm `latest = 1.0.3`. After 1.0.3 is public: regenerate the Tessera UAT adapter from public `npx justfair@latest init` (keep `stock-app.mjs`), rewire its TESSERA branch at `:4000`, then run TESSERA OWNER UAT starting with OWNER STEP 1 ONLY (`node stock-app.mjs` in `C:\Users\HomePC\Desktop\JustFair-Tessera-UAT`). Do NOT mark Tessera PASS or overall FINISHED; the human owner/director decides.
+Owner: approve the npm 2FA challenge (or run `npm publish` from this source) to release prepared 1.0.3, then confirm `latest = 1.0.3`. After 1.0.3 is public: regenerate the Tessera UAT adapter from public `npx justfair@latest init` (keep `stock-app.mjs`), rewire its TESSERA branch at `:4000`, then run TESSERA OWNER UAT to Core Outcome level (CASE A FAIL with FAIL Replay observed → app-only fix → CASE B PASS). Do NOT mark Tessera PASS or overall FINISHED; the human owner/director decides.
 
 
