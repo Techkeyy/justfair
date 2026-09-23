@@ -180,8 +180,8 @@ node test/streaming.test.js            # streaming infra
 node test/smoke_prod.js                # live production smoke (observational)
 ```
 
-Counts at release: scenarios 25 · tessera 13 · dbc 5 · cli 11 · browser 67
-· e2e 15 · preflight 49 · product-preflight 52 · streaming 6. Live suites
+Counts at release: scenarios 25 · tessera 13 · dbc 5 · dbc-sweep 19 · cli 20
+· browser 77 · e2e 16 · preflight 49 · product-preflight 52 · streaming 6. Live suites
 hit real networks and report honestly; fixture suites are deterministic.
 
 ## The web product
@@ -192,7 +192,7 @@ hit real networks and report honestly; fixture suites are deterministic.
   expected vs actual, provenance, replay timeline, root cause, guidance;
   PASS / FAIL / UNABLE kept visually distinct; engine-generated samples
   labelled SAMPLE.
-- **DBC Stress** — config + size + policy form running the real whale
+- **DBC Launch Stress** — config + YOUR POLICY form running the real sweep
   scenario server-side (read-only; no signing or funds).
 
 The legacy Steps 1–4 consumer app remains served for its existing tests
