@@ -56,7 +56,14 @@ async function fetchCappedJson(url, { method = "GET", body = null, timeoutMs = A
     signal: AbortSignal.timeout(timeoutMs)
   });
   if (!res.ok) {
-    const err = new Error(`Adapter HTTP ${res.status}`);
+    let detail = "";
+    try {
+      const text = await res.text();
+      if (text) detail = `: ${text.slice(0, 300)}`;
+    } catch {
+      // Body unreadable; status alone still identifies the failure.
+    }
+    const err = new Error(`Adapter HTTP ${res.status}${detail}`);
     err.code = "ADAPTER_HTTP_ERROR";
     err.status = res.status;
     throw err;

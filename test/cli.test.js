@@ -230,7 +230,7 @@ test("fresh scaffold advertises transfer_fee_accounting and runs Tessera without
   }
 });
 
-test("fresh scaffold supports all three PreStocks variants without SKIP", async () => {
+test("fresh scaffold reports all three PreStocks variants UNABLE until wired", async () => {
   const { runInitCommand, runScenarioCommand } = await import("../src/cli.js");
   const { mkdtempSync, rmSync, readFileSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
@@ -247,13 +247,12 @@ test("fresh scaffold supports all three PreStocks variants without SKIP", async 
     for (const id of ["PRESTOCKS_EXPIRY_BEFORE", "PRESTOCKS_EXPIRY_NEAR", "PRESTOCKS_EXPIRY_AFTER"]) {
       assert.ok(adapterContent.includes(id), `generated adapter must handle ${id}`);
     }
-    assert.ok(adapterContent.includes("ordinaryValuation = false"), "AFTER branch must use the boolean contract");
+    assert.ok(adapterContent.includes("ordinaryValuation = <false once expired"), "AFTER template must use the boolean contract");
     assert.ok(!adapterContent.includes("ordinaryValuation = 0"), "AFTER branch must not use numeric 0");
 
-    // End-to-end: serve the untouched generated scaffold and run every
-    // PreStocks variant through the real scenario engine. The scaffold
-    // echoes the required shapes, so each variant must evaluate (PASS),
-    // never SKIP on capability mismatch.
+    // End-to-end: an untouched generated scaffold must NEVER produce PASS
+    // (or FAIL) for app-observed scenarios. Each variant must report UNABLE
+    // with exit code 2 and a wiring-specific reason.
     child = spawn(process.execPath, ["justfair-adapter.mjs"], {
       cwd: tempDir,
       env: { ...process.env, PORT },
@@ -278,9 +277,13 @@ test("fresh scaffold supports all three PreStocks variants without SKIP", async 
         const r = await runScenarioCommand(["test", "--target", baseUrl, "--scenario", id], { keepAlive: false });
         assert.ok(!r.artifact.summary.skipped.includes(id), `fresh scaffold must not SKIP ${id}`);
         assert.equal(r.artifact.results.length, 1);
-        assert.equal(r.artifact.results[0].status, "PASS", `${id} must evaluate against the scaffold starter shapes`);
+        assert.equal(r.artifact.results[0].status, "UNABLE_TO_VERIFY", `untouched scaffold must not decide ${id}`);
+        assert.ok((r.artifact.results[0].reason || "").includes("not connected to the target app"), `${id} reason must name the unwired state`);
+        assert.equal(process.exitCode, 2);
+        process.exitCode = undefined;
       }
-      assert.equal(process.exitCode, 0);
+      const counts = await runScenarioCommand(["test", "--target", baseUrl, "--scenario", "PRESTOCKS_EXPIRY_AFTER"], { keepAlive: false });
+      assert.equal(counts.artifact.summary.passed, 0, "untouched scaffold must record 0 PASS");
     } finally {
       process.exitCode = savedCode;
     }

@@ -155,6 +155,14 @@ import http from "node:http";
 
 const PORT = process.env.PORT || 3100;
 
+// Unwired-state refusal: until a scenario branch below is connected to the
+// real app, the adapter answers 502 instead of fabricating observations.
+// JustFair reports that as UNABLE_TO_VERIFY (exit 2) — never PASS, never FAIL.
+function unwired(res, scenarioId, fields) {
+  res.writeHead(502, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+  res.end(JSON.stringify({ error: "PreStocks lifecycle observations are not connected to the target app yet. Wire the " + scenarioId + " branch of justfair-adapter.mjs to your app's values (" + fields + "), then rerun." }));
+}
+
 const MANIFEST = {
   adapterVersion: "1",
   name: "Sample App Adapter",
@@ -192,14 +200,20 @@ const server = http.createServer(async (req, res) => {
           observations.claimsLive = true; // Set to true to observe failure, false to pass
           observations.label = "Weekend Close";
         } else if (scenarioId === "PRESTOCKS_EXPIRY_AFTER") {
-          observations.expired = true;
-          observations.conversionRequired = true;
-          observations.ordinaryValuation = false; // boolean: no ordinary valuation once expired
+          // WIRING TEMPLATE — replace this block with observations from YOUR app:
+          //   observations.expired = <whether your app marks the holding expired (boolean)>;
+          //   observations.conversionRequired = <whether your app still requires conversion (boolean)>;
+          //   observations.ordinaryValuation = <false once expired — boolean, never numeric 0>;
+          // Until wired, refuse to fabricate observations (JustFair reports UNABLE):
+          return unwired(res, scenarioId, "expired, conversionRequired, ordinaryValuation");
         } else if (scenarioId === "PRESTOCKS_EXPIRY_BEFORE" || scenarioId === "PRESTOCKS_EXPIRY_NEAR") {
-          observations.expired = false;
-          observations.conversionRequired = true; // replace with whether YOUR app surfaces the conversion requirement
-          observations.deadlineUs = inputs?.deadlineUs ?? null; // replace with the deadline YOUR app displays
-          observations.ordinaryValuation = true; // pre-deadline ordinary holding
+          // WIRING TEMPLATE — replace this block with observations from YOUR app:
+          //   observations.expired = <whether your app marks the holding expired (boolean)>;
+          //   observations.conversionRequired = <whether your app surfaces the conversion requirement (boolean)>;
+          //   observations.deadlineUs = <the conversion deadline YOUR app displays (microseconds)>;
+          //   observations.ordinaryValuation = <whether your app still shows an ordinary live value (boolean)>;
+          // Until wired, refuse to fabricate observations (JustFair reports UNABLE):
+          return unwired(res, scenarioId, "expired, conversionRequired, deadlineUs, ordinaryValuation");
         } else if (scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING") {
           const gross = Number(inputs?.transferAmountUnits || 1000);
           observations.reportedNetRecipientAmount = gross; // Return net received amount
