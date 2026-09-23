@@ -14,7 +14,7 @@ Break your stock app before the market does.
 
 ## ONE-LINER
 
-Local-first crash testing that finds financial-correctness bugs in stock apps before users find them with real money.
+Local-first crash testing that finds financial-correctness bugs in stock apps before they can reach users with real money at stake.
 
 ## SHORT DESCRIPTION
 
@@ -22,15 +22,15 @@ JustFair crash-tests stock applications and tokenized-market infrastructure on S
 
 ## FULL DESCRIPTION
 
-Stock apps fail financially while looking technically healthy: a stale price shown as live, a Token-2022 transfer fee ignored in the recipient amount, an expired tokenized holding still valued, an opening trade size that breaches the issuer's own impact policy. Users discover these bugs with real money.
+Stock apps fail financially while looking technically healthy: a stale price shown as live, a Token-2022 transfer fee ignored in the recipient amount, an expired tokenized holding still valued, an opening trade size that breaches the issuer's own impact policy. If these bugs reach production, users can encounter financially incorrect results with real money at stake.
 
-JustFair exists to break the app first. The developer exposes two small localhost endpoints describing what their app displays. JustFair's scenario engine evaluates financial invariants against labeled evidence — live Solana chain state, authoritative market events, or explicitly labeled simulations — and owns the verdict: the app under test can never grade itself. Failures come with expected-vs-actual, root cause, remediation guidance, and an ordered replay; the developer fixes only their app and reruns the exact same command until it passes.
+JustFair exists to break the app first. The developer exposes two small localhost endpoints describing what their app displays. JustFair's scenario engine evaluates financial invariants against labeled evidence — live Solana chain state, authoritative market events, or explicitly labeled simulations. The target returns observations only; JustFair independently computes PASS / FAIL / UNABLE from those observations and its authoritative scenario evidence. Failures come with expected-vs-actual, root cause, remediation guidance, and an ordered replay; the developer fixes only their app and reruns the exact same command until it passes.
 
 Coverage today: stale/carry-forward equity references, PreStocks conversion deadlines and expired holdings, Token-2022 transfer-fee accounting on live T-Tokens, and Meteora DBC launch-stress sweeps (PASS / FAIL / CURVE CAPACITY with first-policy-failure findings against the issuer's own policy).
 
 ## PROBLEM
 
-Software that compiles, returns HTTP 200, executes a transaction, or shows a balance can still produce a financially incorrect outcome — and for stock applications, that incorrectness is discovered by users with real money on the line. There is no standard, local-first way to crash-test a stock app's financial logic before release.
+Software that compiles, returns HTTP 200, executes a transaction, or shows a balance can still produce a financially incorrect outcome — and for stock applications, that incorrectness can reach users with real money on the line. JustFair provides a local-first workflow for testing that financial logic before release.
 
 ## SOLUTION
 
@@ -42,7 +42,7 @@ Developers and teams building stock wallets, tokenized-stock interfaces, DEXes, 
 
 ## WHY SOLANA
 
-The financial behavior under test lives on Solana: Token-2022 transfer fees and multiplier schedules are readable on-chain, Meteora bonding curves are simulatable from real mainnet configs without signing, and unsigned transaction simulation verifies execution semantics without broadcasting. The product cannot be ported off-chain without losing what it checks.
+The financial behavior under test lives on Solana: Token-2022 transfer fees and multiplier schedules are readable on-chain, Meteora bonding curves are simulatable from real mainnet configs without signing, and unsigned transaction simulation verifies execution semantics without broadcasting. These checks are Solana-specific: moving them off Solana would remove the Token-2022, Meteora DBC, and Solana execution primitives that provide their authoritative state.
 
 ## HOW IT WORKS
 
