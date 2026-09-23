@@ -161,7 +161,8 @@ const MANIFEST = {
   capabilities: [
     "underlying_price_display",
     "prestocks_lifecycle_display",
-    "token2022_fee_display"
+    "token2022_fee_display",
+    "transfer_fee_accounting"
   ]
 };
 

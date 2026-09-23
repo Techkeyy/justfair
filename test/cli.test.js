@@ -165,6 +165,71 @@ test("cli tessera correct PASSES (live fee state)", async () => {
   }
 });
 
+test("fresh scaffold advertises transfer_fee_accounting and runs Tessera without SKIP", async () => {
+  const { runInitCommand, runScenarioCommand } = await import("../src/cli.js");
+  const { mkdtempSync, rmSync, readFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const path = await import("node:path");
+  const { spawn } = await import("node:child_process");
+
+  const tempDir = mkdtempSync(path.join(tmpdir(), "jf-init-tessera-"));
+  const PORT = "31997";
+  let child = null;
+  try {
+    await runInitCommand([], tempDir);
+    const adapterContent = readFileSync(path.join(tempDir, "justfair-adapter.mjs"), "utf-8");
+    assert.ok(adapterContent.includes('"transfer_fee_accounting"'), "generated manifest must advertise transfer_fee_accounting");
+    assert.ok(adapterContent.includes('scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING"'), "generated adapter must handle the Tessera scenario");
+    assert.ok(adapterContent.includes("reportedNetRecipientAmount"), "generated adapter must return the fee observation");
+
+    // End-to-end: serve the untouched generated scaffold and run the real
+    // public flow against it. The scaffold echoes gross, so with the live
+    // 20bps fee the verdict must be FAIL — crucially, never SKIP.
+    child = spawn(process.execPath, ["justfair-adapter.mjs"], {
+      cwd: tempDir,
+      env: { ...process.env, PORT },
+      stdio: "ignore"
+    });
+    const baseUrl = `http://127.0.0.1:${PORT}`;
+    let ready = false;
+    for (let i = 0; i < 50 && !ready; i++) {
+      try {
+        const res = await fetch(`${baseUrl}/justfair/v1/manifest`);
+        ready = res.ok;
+      } catch {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+    assert.ok(ready, "generated adapter must serve its manifest");
+    const manifest = await (await fetch(`${baseUrl}/justfair/v1/manifest`)).json();
+    assert.ok(manifest.capabilities.includes("transfer_fee_accounting"));
+
+    const savedCode = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      const r = await runScenarioCommand(
+        ["test", "--target", baseUrl, "--tessera-mint", "T-OpenAI", "--tessera-amount", "1000", "--scenario", "TESSERA_TRANSFER_FEE_ACCOUNTING"],
+        { keepAlive: false }
+      );
+      assert.ok(!r.artifact.summary.skipped.includes("TESSERA_TRANSFER_FEE_ACCOUNTING"), "fresh scaffold must not SKIP the Tessera scenario");
+      assert.equal(r.artifact.results.length, 1);
+      assert.equal(r.artifact.results[0].status, "FAIL");
+      assert.equal(process.exitCode, 1);
+    } finally {
+      process.exitCode = savedCode;
+    }
+  } finally {
+    if (child) {
+      child.kill();
+      await new Promise((r) => {
+        child.on("exit", r);
+        setTimeout(r, 5000);
+      });
+    }
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("cli init scaffolds justfair.config.js and justfair-adapter.mjs without overwriting", async () => {
   const { runInitCommand } = await import("../src/cli.js");
   const { mkdtempSync, rmSync, readFileSync, existsSync } = await import("node:fs");

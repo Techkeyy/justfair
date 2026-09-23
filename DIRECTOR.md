@@ -287,13 +287,13 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
 - Scenario engine suite (`node test/justfair-scenarios.test.js`): 25 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key; includes no-signing scan over the extended `dbc-live.js`).
 - DBC single-check suite (`node --test test/dbc.test.js`): 5 PASSED · 0 FAILED (whale outputs unchanged after shared-core refactor).
 - DBC launch-sweep suite (`node --test test/dbc-sweep.test.js`): 19 PASSED · 0 FAILED (grid derivation, parsing/sorting, summary/first-failure pure tests + aggregate precedence unit + live 8%/15%/25% sweeps, policy ownership, capacity-vs-FAIL, UNABLE paths, formatters, mint resolution, no-signing scan).
-- CLI suite (`node --test test/cli.test.js`): 17 PASSED · 0 FAILED (includes `whale --sweep` live sweep + UNABLE paths).
+- CLI suite (`node --test test/cli.test.js`): 18 PASSED · 0 FAILED (includes `whale --sweep` live sweep + UNABLE paths + fresh-scaffold Tessera no-SKIP end-to-end proof).
 - HTTP contract suite (`node test/e2e.test.js`): 16 PASSED · 0 FAILED (includes `/api/v1/dbc/sweep` input validation without network).
 - Playwright Browser test suite (`node test/browser.test.js`): 77 PASSED · 0 FAILED (includes sweep UI test 65 + human-amount tests 65c/65d + 25% aggregate test 65e + mixed-UNABLE test 65f + 390px table test 65b).
 - Tessera suite: 13 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Product-preflight suite: 52 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Streaming suite: 6 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
-- Total: 279 PASSED · 0 FAILED · 1 SKIPPED.
+- Total: 280 PASSED · 0 FAILED · 1 SKIPPED.
 - Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
@@ -420,10 +420,17 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   Proofs this session: naive adapter (reports 1000) → FAIL `TRANSFER_FEE_IGNORED` (expected 998); correct adapter (reports 998) → PASS, diagnosis null; legacy USDC mint → `TESSERA_NOT_TOKEN2022`; garbage → `TESSERA_BAD_MINT` (no network); fee-less Token-2022 mint → `TESSERA_NO_TRANSFER_FEE` (all UNABLE-class, never PASS). No private-key/signing/broadcast path in module (covered by the committed no-signing scan).
   Suite: `test/tessera.test.js` 13/13. Gaps found: none blocking; sample artifact consistent with live state.
   Owner UAT steps: see §35 (CASE A wrong-app FAIL → fix app only → CASE B same-command PASS, adapter untouched). Tessera PASS is NOT claimed; overall FINISHED is NOT marked.
-- TESSERA OWNER UAT ENVIRONMENT = READY, TESSERA OWNER UAT = NOT YET RUN (2026-09-23):
+- TESSERA PUBLIC ONBOARDING FIX PREPARED — 1.0.3 READY FOR OWNER PUBLISH (2026-09-23):
+  Root cause (confirmed from source): `init` scaffold manifest (`src/cli.js` `runInitCommand`) advertised `underlying_price_display` / `prestocks_lifecycle_display` / `token2022_fee_display`, but `TESSERA_TRANSFER_FEE_ACCOUNTING` requires `transfer_fee_accounting` (`src/scenarios/tessera.js:163`); the capability gate (`cli.js` + `scenario.js`) therefore SKIPped Tessera on every fresh untouched scaffold. The scaffold evaluate branch already returned `reportedNetRecipientAmount` — support existed, advertisement missing. (`token2022_fee_display` is required by no scenario and was left untouched for backward compatibility.)
+  Fix: one-line manifest addition (`transfer_fee_accounting`); existing capabilities preserved; no scenario/engine/protocol change.
+  Regression (`test/cli.test.js`, 18/18 with the new test): fresh `init` → manifest parses with the capability + Tessera evaluate branch present → spawned untouched scaffold serves manifest → real in-process run (`--tessera-mint T-OpenAI`, live 20 bps) returns FAIL (expected 998, reported 1000), explicitly NOT skipped. Full `cli` suite green.
+  Version: 1.0.2 → 1.0.3 via `npm version patch --no-git-tag-version` (package.json + lock consistent). Pack: 51 files, 237.5 kB, shasum `9e11b06eb22f51483fc1c555b6714621c4701a39`, allowlist-clean, no secrets/tests/evidence/tokens.
+  Clean packed proof (fresh dir outside repo, own install of the 1.0.3 tarball): `init` generates the fixed manifest; untouched scaffold → FAIL (not SKIP); fixed-observation simulation → PASS same command; DBC smoke `--sweep --max-impact 25 --json` → CAPACITY 9/0/1/0 (1.0.2 behavior preserved). No repo leakage.
+  Publish state: `npm whoami` = praiseprodigyy (session present), but `npm publish` requires OTP 2FA interaction (EOTP) — STOPPED per standing rule; no credentials handled by builder. Owner action: approve the npm 2FA challenge (or run `npm publish` from this source), then confirm `latest = 1.0.3`.
+  After 1.0.3 is public: regenerate `C:\Users\HomePC\Desktop\JustFair-Tessera-UAT\justfair-adapter.mjs` from public `npx justfair@latest init` (keep its `stock-app.mjs`), rewire the two documented lines (capability already present; point the TESSERA branch at `:4000`), and run Owner UAT with zero manual workaround. TESSERA OWNER UAT = NOT YET RUN; overall FINISHED is NOT marked.
   External workspace `C:\Users\HomePC\Desktop\JustFair-Tessera-UAT` (outside the repo, NOT committed): `stock-app.mjs` (real app on :4000, `APPLY_TRANSFER_FEE = false` bug → reports 1000; fix → computes 998 itself; never imports JustFair), `justfair-adapter.mjs` (from public `npx justfair@latest init`, wired to read `:4000` and return only `reportedNetRecipientAmount`, manifest adds `transfer_fee_accounting`), `justfair.config.js` (generated), `README-UAT.md` (one-action-at-a-time owner steps).
   Builder cold-start proof with public justfair@latest: CASE A → FAIL `TESSERA_TRANSFER_FEE_ACCOUNTING` (`TRANSFER_FEE_IGNORED`, expected 998, reported 1000, 5 replay events); changed ONLY the app line false→true and restarted ONLY the app; CASE B (exact same command, same mint/amount/adapter/package) → PASS 1/0/0. `--open` proven from the public package (local viewer on 127.0.0.1, in-memory, zero cloud uploads). Adapter file untouched between runs (mtime predates both runs; only `stock-app.mjs` modified); workspace contains zero repo paths/imports and no verdict logic.
-  Known onboarding requirement recorded (not a product change): the generic `init` scaffold does not advertise `transfer_fee_accounting`, so the Tessera UAT adapter adds that manifest capability manually; without it the scenario honestly SKIPs on capability gate. Workspace left in INITIAL WRONG state with servers stopped for personal owner execution.
+  Known onboarding requirement recorded at prep time (superseded by the fix below): the 1.0.2 `init` scaffold did not advertise `transfer_fee_accounting`, so the Tessera UAT adapter added that manifest capability manually; without it the scenario honestly SKIPs on capability gate. Source is now fixed for 1.0.3; the workspace adapter will be regenerated from public @latest once 1.0.3 is published. Workspace left in INITIAL WRONG state with servers stopped for personal owner execution.
 - DBC HUMAN-READABLE AMOUNT POLISH — FIX APPLIED, OWNER VISUAL REVALIDATION PENDING (2026-09-22):
   Quote resolution (no hardcoded SOL): decimals read from the REAL mint account (base Mint byte 44, Token + Token-2022 owners only); `SOL` label only for the system native mint; otherwise formatted amount + abbreviated mint; unknown mints fall back to raw units, never a guessed symbol.
   Presentation: per-point `sizeDisplay` + `quoteAsset` on the sweep report (additive fields; classifications, math, sizing, endpoint semantics unchanged); UI shows human-primary (5.48 / 10.96 / 21.92 SOL) with grouped raw secondary (5,480,000,000 quote units) in table, callouts, explanation, and guidance; raw evidence section keeps exact raw units.
@@ -451,7 +458,9 @@ None. All technical, packaging, npm registry distribution, and test validation g
 ## 29. FILES CHANGED RECENTLY
 
 - `public/index.html`: Step 2 actionable per Owner UAT (real `justfair-adapter.mjs` `observations` edit point + verbatim scaffold example + two-ports bullet) and Step 4 note corrected to stale/carry-forward equity prices; earlier `#test-view` onboarding copy truths (headline, scenario mix, `init` skip notice).
-- `package.json` + `package-lock.json`: 1.0.2 (published to registry; uuid override `^11.1.1` for jayson + rpc-websockets subtrees, CJS-safe).
+- `package.json` + `package-lock.json`: 1.0.3 (scaffold `transfer_fee_accounting` capability fix; registry publish pending owner OTP).
+- `src/cli.js`: scaffold manifest now advertises `transfer_fee_accounting` (existing capabilities preserved).
+- `test/cli.test.js`: fresh-scaffold Tessera no-SKIP end-to-end regression (spawned untouched scaffold + live fee state → FAIL, never SKIP).
 - `src/cli.js`: `runInitCommand` next steps teach connect → start app → start adapter → public npx test command (no bare `justfair test`).
 - `test/cli.test.js`: new init next-steps test (no bare command, npx command present, connect-before-start, real-app observations, step order).
 - `public/styles.css`: scoped `.code-body.code-wrap` wrap rule for the Step 2 example only (no global code-style change).
@@ -500,21 +509,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-DBC UPGRADE 001 — DBC UAT PASS, SURFACE RELEASE READY; NPM 1.0.2 PUBLISHED AND PUBLIC-REGISTRY VERIFIED; TESSERA ENVIRONMENT READY, OWNER UAT NOT YET RUN (NOT FINISHED).
+DBC UPGRADE 001 — DBC UAT PASS, SURFACE RELEASE READY; NPM 1.0.2 PUBLISHED AND PUBLIC-REGISTRY VERIFIED; TESSERA ONBOARDING FIX PREPARED AS 1.0.3, OWNER PUBLISH PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-TESSERA OWNER UAT — environment ready at `C:\Users\HomePC\Desktop\JustFair-Tessera-UAT` (WRONG state, servers stopped; full one-action steps also in its `README-UAT.md`). Owner runs OWNER STEP 1 ONLY now:
-
-`node stock-app.mjs` (in that directory; expect `Demo stock app running at http://127.0.0.1:4000`).
-
-Later steps (not yet): start adapter → run the exact Tessera command (CASE A FAIL) → flip ONLY `APPLY_TRANSFER_FEE` false→true in `stock-app.mjs` → restart only the app → rerun same command (CASE B PASS). Full text:
-
-STEP 2 — `node justfair-adapter.mjs` (expect adapter on :3100).
-STEP 3 — `npx justfair@latest test --target http://127.0.0.1:3100 --tessera-mint T-OpenAI --tessera-amount 1000 --scenario TESSERA_TRANSFER_FEE_ACCOUNTING --open` → CASE A FAIL (`TRANSFER_FEE_IGNORED`, expected 998, reported 1000, live_tessera_token2022 evidence).
-STEP 4 — fix ONLY the app line, restart ONLY the app; adapter/command/package untouched.
-STEP 5 — rerun STEP 3 exactly → CASE B PASS.
-Do NOT mark Tessera PASS or overall FINISHED; the human owner/director decides after running them.
+Owner: approve the npm 2FA challenge (or run `npm publish` from this source) to release prepared 1.0.3, then confirm `latest = 1.0.3`. After 1.0.3 is public: regenerate the Tessera UAT adapter from public `npx justfair@latest init` (keep `stock-app.mjs`), rewire its TESSERA branch at `:4000`, then run TESSERA OWNER UAT starting with OWNER STEP 1 ONLY (`node stock-app.mjs` in `C:\Users\HomePC\Desktop\JustFair-Tessera-UAT`). Do NOT mark Tessera PASS or overall FINISHED; the human owner/director decides.
 
 
