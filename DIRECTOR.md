@@ -379,7 +379,21 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   Root cause: engine aggregate rule `(failed>0 || capacity>0) ? FAIL` in `runDbcSweep` collapsed CAPACITY into FAIL; the API passed the engine status through and the UI rendered it, so layers A+B+C were all wrong from one source-of-truth defect.
   Fix at the source: pure `sweepOverallStatus` precedence — FAIL iff ≥1 policy FAIL; else UNABLE_TO_VERIFY iff ≥1 UNABLE point; else CAPACITY iff ≥1 capacity point; else PASS iff ≥1 pass; else UNABLE. (Corrected 2026-09-22: an earlier revision ranked CAPACITY above UNABLE, which would have let a mixed PASS/CAPACITY/UNABLE run read as a clean capacity result; UNABLE now outranks both CAPACITY and PASS.) Applied in `runDbcSweep` and the marginal short-circuit (CAPACITY, not FAIL). API passes the status through unchanged. UI badge maps CAPACITY → "CURVE CAPACITY" and UNABLE → "NOT VERIFIED". CLI exits PASS 0 / UNABLE 2 / any other finding 1. 25% live sweep returns CAPACITY with 9/0/1/0, null firstPolicyFailure, unchanged raw sizes. Points, math, policy behavior, formatting, evidence, and guarantees untouched.
 - DIRECTOR AUDIT — MIXED UNABLE AGGREGATE CORRECTED, OWNER 25% REVALIDATION PENDING (2026-09-22):
-  The CAPACITY fix ranked UNABLE below CAPACITY/PASS, so 9/0/0/1 would have read PASS and 8/0/1/1 as clean CAPACITY — both false completions. Final precedence (above) makes any UNABLE point decisive short of a policy FAIL. Mixed-UNABLE explanation/guidance audited: the "all tested sizes" guidance now requires zero UNABLE, and the pass line degrades to "X quotable sizes stay within policy; N point(s) remain unverified" when UNABLE points exist. Coverage: all 7 precedence shapes as unit tests (8%→FAIL, 15%→FAIL, 25%→CAPACITY, all-pass→PASS, both mixed-UNABLE→UNABLE, FAIL+UNABLE→FAIL) + browser 65f (mixed-UNABLE page reads NOT VERIFIED, no clean-verdict claims). 8%/15%/25% live behavior re-verified unchanged. DBC release-ready and overall FINISHED are NOT marked.
+  The CAPACITY fix ranked UNABLE below CAPACITY/PASS, so 9/0/0/1 would have read PASS and 8/0/1/1 as clean CAPACITY — both false completions. Final precedence (above) makes any UNABLE point decisive short of a policy FAIL. Mixed-UNABLE explanation/guidance audited: the "all tested sizes" guidance now requires zero UNABLE, and the pass line degrades to "X quotable sizes stay within policy; N point(s) remain unverified" when UNABLE points exist.   Coverage: all 7 precedence shapes as unit tests (8%→FAIL, 15%→FAIL, 25%→CAPACITY, all-pass→PASS, both mixed-UNABLE→UNABLE, FAIL+UNABLE→FAIL) + browser 65f (mixed-UNABLE page reads NOT VERIFIED, no clean-verdict claims). 8%/15%/25% live behavior re-verified unchanged. DBC release-ready and overall FINISHED are NOT marked.
+- OWNER UAT — DBC LAUNCH STRESS = PASS (2026-09-23, production final flow):
+  8% → FAIL 7/2/1/0, first failure ~5.48 SOL, capacity ~21.92 SOL.
+  15% → FAIL 8/1/1/0, first failure ~10.96 SOL, capacity unchanged.
+  25% → CURVE CAPACITY 9/0/1/0, no firstPolicyFailure, capacity unchanged, replay "Sweep reached curve capacity".
+  DBC SURFACE = RELEASE READY. Overall JustFair FINISHED is NOT marked.
+- NPM PATCH RECONCILIATION 1.0.2 — PREPARED, VERIFIED, PUBLISH BLOCKED ON OWNER AUTH (2026-09-23):
+  Registry check first: public latest = 1.0.1 (published 2026-09-21), so patch = 1.0.2 (never assumed).
+  Audit: `npm pack --dry-run` + real pack = 51 files, 237.5 kB, shasum `d12c3c577d5c6043da6b95d106e68005aeebde72`; allowlist-limited, no .env/secrets/keys/tests/evidence/screenshots/temp/machine paths; bin `justfair → src/cli.js`; engines node >=20.
+  Version bump via `npm version patch --no-git-tag-version` kept `package.json` + tracked `package-lock.json` consistent at 1.0.2.
+  Pre-publish regression: `npm test` 49/49, `test/dbc.test.js` + `test/dbc-sweep.test.js` 24/24, `test/cli.test.js` 17/17 (init works, no overwrite, npx commands, flagship FAIL-exit-1/PASS-exit-0, DBC 8% FAIL, UNABLE exit 2, CAPACITY exit 1, no signing scan green).
+  Clean tarball proof (fresh dir outside repo, own install): binary resolves, `--help` lists `whale --sweep`, `init` scaffolds corrected steps, installed version 1.0.2, live 25% sweep via packed CLI returns CAPACITY 9/0/1/0 with `~21.92 SOL` + quoteAsset SOL/9 — finalized semantics confirmed in the shippable artifact, zero repo leakage.
+  Publish: `npm publish` FAILED (401 whoami + 404 PUT — stored token invalid, not the owner session). Same standing rule as 1.0.1: builder does not fake release completion.
+  Registry still serves 1.0.1 (older sweep/aggregate semantics). Public-registry proof (npx latest --help/init + version check + live DBC) is PENDING the owner publish.
+  Owner action: `npm login` (owner account) then `npm publish` from this source, then `npm view justfair version` must read 1.0.2.
 - DBC HUMAN-READABLE AMOUNT POLISH — FIX APPLIED, OWNER VISUAL REVALIDATION PENDING (2026-09-22):
   Quote resolution (no hardcoded SOL): decimals read from the REAL mint account (base Mint byte 44, Token + Token-2022 owners only); `SOL` label only for the system native mint; otherwise formatted amount + abbreviated mint; unknown mints fall back to raw units, never a guessed symbol.
   Presentation: per-point `sizeDisplay` + `quoteAsset` on the sweep report (additive fields; classifications, math, sizing, endpoint semantics unchanged); UI shows human-primary (5.48 / 10.96 / 21.92 SOL) with grouped raw secondary (5,480,000,000 quote units) in table, callouts, explanation, and guidance; raw evidence section keeps exact raw units.
@@ -392,7 +406,7 @@ None. All technical, packaging, npm registry distribution, and test validation g
 ## 27. RELEASE / SUBMISSION BLOCKERS
 
 - GITHUB / PUBLIC REPOSITORY: Public repository live at `https://github.com/Techkeyy/justfair`, tracks local `main`, connected to Vercel.
-- NPM REGISTRY DISTRIBUTION: Live and verified at `https://www.npmjs.com/package/justfair` (`justfair@1.0.1`).
+- NPM REGISTRY DISTRIBUTION: `justfair@1.0.2` prepared, packed, and clean-install proven; public registry still serves `1.0.1` — owner `npm login` + `npm publish` pending (stored token invalid, 401/404 on publish attempt 2026-09-23). See §25 reconciliation record.
 - VERCEL PRODUCTION DEPLOYMENT: Live and Git-integrated at `https://justfair-theta.vercel.app`.
 - DEADLINE AWARENESS: Sep 18 4pm ET vs Sep 25 calendar note documented.
 
@@ -407,7 +421,7 @@ None. All technical, packaging, npm registry distribution, and test validation g
 ## 29. FILES CHANGED RECENTLY
 
 - `public/index.html`: Step 2 actionable per Owner UAT (real `justfair-adapter.mjs` `observations` edit point + verbatim scaffold example + two-ports bullet) and Step 4 note corrected to stale/carry-forward equity prices; earlier `#test-view` onboarding copy truths (headline, scenario mix, `init` skip notice).
-- `package.json`: 1.0.1 (init guidance fix; registry publish pending owner auth).
+- `package.json` + `package-lock.json`: 1.0.2 (patch reconciliation; registry publish pending owner auth).
 - `src/cli.js`: `runInitCommand` next steps teach connect → start app → start adapter → public npx test command (no bare `justfair test`).
 - `test/cli.test.js`: new init next-steps test (no bare command, npx command present, connect-before-start, real-app observations, step order).
 - `public/styles.css`: scoped `.code-body.code-wrap` wrap rule for the Step 2 example only (no global code-style change).
@@ -456,11 +470,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-DBC UPGRADE 001 — FUNCTIONAL FLOW PASS; AGGREGATE SEMANTICS FINALIZED (FAIL > UNABLE > CAPACITY > PASS), OWNER 25% REVALIDATION PENDING (NOT FINISHED).
+DBC UPGRADE 001 — DBC UAT PASS, SURFACE RELEASE READY; NPM 1.0.2 PREPARED, PUBLISH PENDING OWNER AUTH (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Present the 25% DBC Launch Stress result at `https://justfair-theta.vercel.app/#dbc` (config `DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU`, YOUR POLICY 25%) to the owner for human revalidation: expect aggregate badge CURVE CAPACITY (never FAIL) with 9 passed · 0 failed · 1 capacity · 0 unable. Do NOT mark DBC PASS or overall FINISHED; the human owner/director decides. npm reconciliation (changes since 1.0.1) stays tracked for the subsequent package release; do NOT publish yet.
+Owner: `npm login` (owner account), then `npm publish` from this source (1.0.2 prepared and tarball-proven), then confirm `npm view justfair version` reads 1.0.2 and revalidate `npx justfair@latest --help` / `init` plus a live DBC sweep from the public package. Do NOT mark overall FINISHED; the human owner/director decides the next product area.
 
 
