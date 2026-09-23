@@ -392,8 +392,13 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   Pre-publish regression: `npm test` 49/49, `test/dbc.test.js` + `test/dbc-sweep.test.js` 24/24, `test/cli.test.js` 17/17 (init works, no overwrite, npx commands, flagship FAIL-exit-1/PASS-exit-0, DBC 8% FAIL, UNABLE exit 2, CAPACITY exit 1, no signing scan green).
   Clean tarball proof (fresh dir outside repo, own install): binary resolves, `--help` lists `whale --sweep`, `init` scaffolds corrected steps, installed version 1.0.2, live 25% sweep via packed CLI returns CAPACITY 9/0/1/0 with `~21.92 SOL` + quoteAsset SOL/9 — finalized semantics confirmed in the shippable artifact, zero repo leakage.
   Publish: `npm publish` FAILED (401 whoami + 404 PUT — stored token invalid, not the owner session). Same standing rule as 1.0.1: builder does not fake release completion.
-  Registry still serves 1.0.1 (older sweep/aggregate semantics). Public-registry proof (npx latest --help/init + version check + live DBC) is PENDING the owner publish.
-  Owner action: `npm login` (owner account) then `npm publish` from this source, then `npm view justfair version` must read 1.0.2.
+  Registry at that time still served 1.0.1 (older sweep/aggregate semantics). Public-registry proof (npx latest --help/init + version check + live DBC) was PENDING the owner publish.
+  Owner action was: `npm login` (owner account) then `npm publish` from this source, then `npm view justfair version` must read 1.0.2.
+- NPM 1.0.2 RELEASE CLOSED — PUBLISHED, PUBLIC REGISTRY VERIFIED, RELEASE COMPLETE (2026-09-23, owner-published after the triage above):
+  Registry: `npm view justfair versions` includes 1.0.2; `dist-tags` = `{ latest: "1.0.2" }`.
+  Fresh public proof (outside repo, `C:\Users\HomePC\AppData\Local\Temp\justfair-public-proof`): `npx justfair@latest --help` installed justfair@1.0.2 and exposes `whale --config` with `--sweep`; `npx justfair@latest init` created `justfair.config.js` + `justfair-adapter.mjs` with the connect-first flow (`npx justfair@latest test --target http://localhost:3100 --open`).
+  Live public-package DBC proof (`npx justfair@latest whale --config DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU --max-impact 25 --sweep --json`): `DBC_LAUNCH_SWEEP`, status CAPACITY, 9 passed / 0 failed / 1 capacity / 0 unable (10 points), firstPolicyFailure null, firstCapacity 21920000000 quote units (~21.92 SOL), quoteAsset So111…11112 / 9 decimals / SOL.
+  Security triage (§25 entry above) and residual dependency findings remain documented, not hidden. Overall JustFair FINISHED is NOT marked.
 - NPM 1.0.2 SECURITY TRIAGE — COMPLETE, OWNER AUTH/PUBLISH STILL DEFERRED (2026-09-23):
   Original install-time report: 11 vulns (4 moderate, 7 high). Repo-tree audit (`npm audit --omit=dev --json`): PRODUCTION 13 entries (6 HIGH, 7 moderate); full tree adds 1 DEV-ONLY moderate (`rpc-websockets` rollup of the uuid advisory below).
   Distinct real advisories (4; the rest are rollup entries):
@@ -407,6 +412,14 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   Post-fix regression (all green): `npm test` 49/49, `cli+dbc+sweep` 41/41, `e2e` 16/16, `browser` 77/77 — including DBC 8% FAIL / 15% FAIL / 25% CAPACITY 9/0/1/0, mixed-UNABLE semantics, exits 0/1/2, and the no-signing scans.
   Repack: 1.0.2 tarball rebuilt (shasum `ad71659b42a8b771e1dd5440292ada62077bb3bd`, 51 files, allowlist-clean, no secrets/tests/evidence/tokens); clean-install proven again from the rebuilt tarball (`init` + live 25% CAPACITY via packed CLI, version 1.0.2, no repo leakage).
   Residual risk summary for Director: 2 unfixable-in-range HIGH sinks (toml.parse, bigint-buffer decode), both proven unreachable-or-bounded above with crash-only worst case and zero custody/funds proximity. RECOMMENDATION: READY FOR OWNER NPM LOGIN/PUBLISH — residual risk accepted with the code-backed proofs recorded here. Director makes the final release decision; overall FINISHED is NOT marked.
+- TESSERA TAKEOVER AUDIT + OWNER UAT PREP (2026-09-23; no code changes required):
+  Thesis: a stock app must account for Token-2022 transfer fees; JustFair reads the LIVE TransferFeeConfig itself and owns the expected result.
+  Implementation map: `src/scenarios/tessera.js` (`getTesseraTransferFeeState` → live decimals/bps/maxFee/epoch + provenance; `calculateNetReceipt` → exact integer ceil+cap math; `buildTesseraScenario` → `TESSERA_TRANSFER_FEE_ACCOUNTING` with exact-string-match assertion + `TRANSFER_FEE_IGNORED` diagnosis) → CLI opt-in (`--tessera-mint SYM|MINT --tessera-amount UNITS --scenario TESSERA_TRANSFER_FEE_ACCOUNTING`, built live per run, never in the default sweep) → generic `runScenario` (manifest gate → observations → JustFair-owned `check()`; adapter `pass`/`verdict` fields never consulted) → Replay Lab detail + committed `public/samples/tessera-fail.json` (FAIL, 20 bps, 998, 5 replay events, SAMPLE-labeled).
+  Live verification (mainnet, chain epoch 1040): T-OpenAI `oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ` = 9 decimals / 20 bps / max u64MAX / feeEpoch 987, epoch verified; T-Kalshi `TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ` = 9 / 20 / u64MAX / feeEpoch 922, verified. Both UNCHANGED from the historical record — nothing hardcoded (docs explain why; chain decides the rate).
+  Invariant: gross 1000 → fee 2 → net 998 (cross-checked equal to official `spl-token calculateFee` across amounts).
+  Proofs this session: naive adapter (reports 1000) → FAIL `TRANSFER_FEE_IGNORED` (expected 998); correct adapter (reports 998) → PASS, diagnosis null; legacy USDC mint → `TESSERA_NOT_TOKEN2022`; garbage → `TESSERA_BAD_MINT` (no network); fee-less Token-2022 mint → `TESSERA_NO_TRANSFER_FEE` (all UNABLE-class, never PASS). No private-key/signing/broadcast path in module (covered by the committed no-signing scan).
+  Suite: `test/tessera.test.js` 13/13. Gaps found: none blocking; sample artifact consistent with live state.
+  Owner UAT steps: see §35 (CASE A wrong-app FAIL → fix app only → CASE B same-command PASS, adapter untouched). Tessera PASS is NOT claimed; overall FINISHED is NOT marked.
 - DBC HUMAN-READABLE AMOUNT POLISH — FIX APPLIED, OWNER VISUAL REVALIDATION PENDING (2026-09-22):
   Quote resolution (no hardcoded SOL): decimals read from the REAL mint account (base Mint byte 44, Token + Token-2022 owners only); `SOL` label only for the system native mint; otherwise formatted amount + abbreviated mint; unknown mints fall back to raw units, never a guessed symbol.
   Presentation: per-point `sizeDisplay` + `quoteAsset` on the sweep report (additive fields; classifications, math, sizing, endpoint semantics unchanged); UI shows human-primary (5.48 / 10.96 / 21.92 SOL) with grouped raw secondary (5,480,000,000 quote units) in table, callouts, explanation, and guidance; raw evidence section keeps exact raw units.
@@ -419,7 +432,7 @@ None. All technical, packaging, npm registry distribution, and test validation g
 ## 27. RELEASE / SUBMISSION BLOCKERS
 
 - GITHUB / PUBLIC REPOSITORY: Public repository live at `https://github.com/Techkeyy/justfair`, tracks local `main`, connected to Vercel.
-- NPM REGISTRY DISTRIBUTION: `justfair@1.0.2` prepared, packed, and clean-install proven; public registry still serves `1.0.1` — owner `npm login` + `npm publish` pending (stored token invalid, 401/404 on publish attempt 2026-09-23). See §25 reconciliation record.
+- NPM REGISTRY DISTRIBUTION: `justfair@1.0.2` published and public-registry verified (`latest = 1.0.2`; triage + residuals documented in §25).
 - VERCEL PRODUCTION DEPLOYMENT: Live and Git-integrated at `https://justfair-theta.vercel.app`.
 - DEADLINE AWARENESS: Sep 18 4pm ET vs Sep 25 calendar note documented.
 
@@ -434,7 +447,7 @@ None. All technical, packaging, npm registry distribution, and test validation g
 ## 29. FILES CHANGED RECENTLY
 
 - `public/index.html`: Step 2 actionable per Owner UAT (real `justfair-adapter.mjs` `observations` edit point + verbatim scaffold example + two-ports bullet) and Step 4 note corrected to stale/carry-forward equity prices; earlier `#test-view` onboarding copy truths (headline, scenario mix, `init` skip notice).
-- `package.json` + `package-lock.json`: 1.0.2 (patch reconciliation; uuid override raised to `^11.1.1` for jayson + rpc-websockets subtrees, CJS-safe; registry publish pending Director-cleared owner auth).
+- `package.json` + `package-lock.json`: 1.0.2 (published to registry; uuid override `^11.1.1` for jayson + rpc-websockets subtrees, CJS-safe).
 - `src/cli.js`: `runInitCommand` next steps teach connect → start app → start adapter → public npx test command (no bare `justfair test`).
 - `test/cli.test.js`: new init next-steps test (no bare command, npx command present, connect-before-start, real-app observations, step order).
 - `public/styles.css`: scoped `.code-body.code-wrap` wrap rule for the Step 2 example only (no global code-style change).
@@ -483,11 +496,21 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-DBC UPGRADE 001 — DBC UAT PASS, SURFACE RELEASE READY; NPM 1.0.2 SECURITY-TRIAGED, PUBLISH PENDING DIRECTOR DECISION (NOT FINISHED).
+DBC UPGRADE 001 — DBC UAT PASS, SURFACE RELEASE READY; NPM 1.0.2 PUBLISHED AND PUBLIC-REGISTRY VERIFIED; TESSERA AUDITED, OWNER UAT PREPARED (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Director decision: clear or reject the 1.0.2 publish on the triage record above (builder recommendation: READY FOR OWNER NPM LOGIN/PUBLISH). If cleared: owner `npm login` → `npm publish` → confirm `npm view justfair version` = 1.0.2 → public-registry proof (`npx justfair@latest --help`/`init` + live DBC sweep). Do NOT mark overall FINISHED; the human owner/director decides the next product area. No `npm login`/`npm publish` performed by builder.
+TESSERA OWNER UAT — prepared, awaiting owner execution. Steps below; one action at a time. Do NOT mark Tessera PASS or overall FINISHED; the human owner/director decides after running them.
+
+PRECONDITIONS (owner machine): Node.js 20+, a localhost stock app that can report what it would credit a recipient for a transfer, and `npx justfair@latest` resolving public 1.0.2.
+
+STEP 1 — Start the real app in WRONG mode (reports the gross transfer amount as the recipient's net, ignoring the Token-2022 fee).
+STEP 2 — Start the observation adapter exposing `transfer_fee_accounting`, reading the app's reported net amount (adapter unchanged for the whole UAT).
+STEP 3 — Run exactly: `npx justfair@latest test --target http://localhost:3100 --tessera-mint T-OpenAI --tessera-amount 1000 --scenario TESSERA_TRANSFER_FEE_ACCOUNTING --open`.
+STEP 4 — Confirm CASE A: FAIL `TESSERA_TRANSFER_FEE_ACCOUNTING` (`TRANSFER_FEE_IGNORED`), expected 998 base units, app reported 1000, root cause + guidance visible, replay intact, evidence `live_tessera_token2022` (20 bps, T-OpenAI mint).
+STEP 5 — Fix ONLY the app: report the fee-adjusted net (998). Do NOT touch the adapter or JustFair.
+STEP 6 — Rerun the EXACT SAME command from STEP 3.
+STEP 7 — Confirm CASE B: PASS, same mint, same amount, same adapter. (Optional negative checks: `--tessera-mint not-a-mint!!` → `TESSERA_BAD_MINT`; a non-Token-2022 mint → `TESSERA_NOT_TOKEN2022`; both UNABLE-class, never PASS.)
 
 
