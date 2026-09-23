@@ -420,6 +420,10 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   Proofs this session: naive adapter (reports 1000) → FAIL `TRANSFER_FEE_IGNORED` (expected 998); correct adapter (reports 998) → PASS, diagnosis null; legacy USDC mint → `TESSERA_NOT_TOKEN2022`; garbage → `TESSERA_BAD_MINT` (no network); fee-less Token-2022 mint → `TESSERA_NO_TRANSFER_FEE` (all UNABLE-class, never PASS). No private-key/signing/broadcast path in module (covered by the committed no-signing scan).
   Suite: `test/tessera.test.js` 13/13. Gaps found: none blocking; sample artifact consistent with live state.
   Owner UAT steps: see §35 (CASE A wrong-app FAIL → fix app only → CASE B same-command PASS, adapter untouched). Tessera PASS is NOT claimed; overall FINISHED is NOT marked.
+- TESSERA OWNER UAT ENVIRONMENT = READY, TESSERA OWNER UAT = NOT YET RUN (2026-09-23):
+  External workspace `C:\Users\HomePC\Desktop\JustFair-Tessera-UAT` (outside the repo, NOT committed): `stock-app.mjs` (real app on :4000, `APPLY_TRANSFER_FEE = false` bug → reports 1000; fix → computes 998 itself; never imports JustFair), `justfair-adapter.mjs` (from public `npx justfair@latest init`, wired to read `:4000` and return only `reportedNetRecipientAmount`, manifest adds `transfer_fee_accounting`), `justfair.config.js` (generated), `README-UAT.md` (one-action-at-a-time owner steps).
+  Builder cold-start proof with public justfair@latest: CASE A → FAIL `TESSERA_TRANSFER_FEE_ACCOUNTING` (`TRANSFER_FEE_IGNORED`, expected 998, reported 1000, 5 replay events); changed ONLY the app line false→true and restarted ONLY the app; CASE B (exact same command, same mint/amount/adapter/package) → PASS 1/0/0. `--open` proven from the public package (local viewer on 127.0.0.1, in-memory, zero cloud uploads). Adapter file untouched between runs (mtime predates both runs; only `stock-app.mjs` modified); workspace contains zero repo paths/imports and no verdict logic.
+  Known onboarding requirement recorded (not a product change): the generic `init` scaffold does not advertise `transfer_fee_accounting`, so the Tessera UAT adapter adds that manifest capability manually; without it the scenario honestly SKIPs on capability gate. Workspace left in INITIAL WRONG state with servers stopped for personal owner execution.
 - DBC HUMAN-READABLE AMOUNT POLISH — FIX APPLIED, OWNER VISUAL REVALIDATION PENDING (2026-09-22):
   Quote resolution (no hardcoded SOL): decimals read from the REAL mint account (base Mint byte 44, Token + Token-2022 owners only); `SOL` label only for the system native mint; otherwise formatted amount + abbreviated mint; unknown mints fall back to raw units, never a guessed symbol.
   Presentation: per-point `sizeDisplay` + `quoteAsset` on the sweep report (additive fields; classifications, math, sizing, endpoint semantics unchanged); UI shows human-primary (5.48 / 10.96 / 21.92 SOL) with grouped raw secondary (5,480,000,000 quote units) in table, callouts, explanation, and guidance; raw evidence section keeps exact raw units.
@@ -496,21 +500,21 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-DBC UPGRADE 001 — DBC UAT PASS, SURFACE RELEASE READY; NPM 1.0.2 PUBLISHED AND PUBLIC-REGISTRY VERIFIED; TESSERA AUDITED, OWNER UAT PREPARED (NOT FINISHED).
+DBC UPGRADE 001 — DBC UAT PASS, SURFACE RELEASE READY; NPM 1.0.2 PUBLISHED AND PUBLIC-REGISTRY VERIFIED; TESSERA ENVIRONMENT READY, OWNER UAT NOT YET RUN (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-TESSERA OWNER UAT — prepared, awaiting owner execution. Steps below; one action at a time. Do NOT mark Tessera PASS or overall FINISHED; the human owner/director decides after running them.
+TESSERA OWNER UAT — environment ready at `C:\Users\HomePC\Desktop\JustFair-Tessera-UAT` (WRONG state, servers stopped; full one-action steps also in its `README-UAT.md`). Owner runs OWNER STEP 1 ONLY now:
 
-PRECONDITIONS (owner machine): Node.js 20+, a localhost stock app that can report what it would credit a recipient for a transfer, and `npx justfair@latest` resolving public 1.0.2.
+`node stock-app.mjs` (in that directory; expect `Demo stock app running at http://127.0.0.1:4000`).
 
-STEP 1 — Start the real app in WRONG mode (reports the gross transfer amount as the recipient's net, ignoring the Token-2022 fee).
-STEP 2 — Start the observation adapter exposing `transfer_fee_accounting`, reading the app's reported net amount (adapter unchanged for the whole UAT).
-STEP 3 — Run exactly: `npx justfair@latest test --target http://localhost:3100 --tessera-mint T-OpenAI --tessera-amount 1000 --scenario TESSERA_TRANSFER_FEE_ACCOUNTING --open`.
-STEP 4 — Confirm CASE A: FAIL `TESSERA_TRANSFER_FEE_ACCOUNTING` (`TRANSFER_FEE_IGNORED`), expected 998 base units, app reported 1000, root cause + guidance visible, replay intact, evidence `live_tessera_token2022` (20 bps, T-OpenAI mint).
-STEP 5 — Fix ONLY the app: report the fee-adjusted net (998). Do NOT touch the adapter or JustFair.
-STEP 6 — Rerun the EXACT SAME command from STEP 3.
-STEP 7 — Confirm CASE B: PASS, same mint, same amount, same adapter. (Optional negative checks: `--tessera-mint not-a-mint!!` → `TESSERA_BAD_MINT`; a non-Token-2022 mint → `TESSERA_NOT_TOKEN2022`; both UNABLE-class, never PASS.)
+Later steps (not yet): start adapter → run the exact Tessera command (CASE A FAIL) → flip ONLY `APPLY_TRANSFER_FEE` false→true in `stock-app.mjs` → restart only the app → rerun same command (CASE B PASS). Full text:
+
+STEP 2 — `node justfair-adapter.mjs` (expect adapter on :3100).
+STEP 3 — `npx justfair@latest test --target http://127.0.0.1:3100 --tessera-mint T-OpenAI --tessera-amount 1000 --scenario TESSERA_TRANSFER_FEE_ACCOUNTING --open` → CASE A FAIL (`TRANSFER_FEE_IGNORED`, expected 998, reported 1000, live_tessera_token2022 evidence).
+STEP 4 — fix ONLY the app line, restart ONLY the app; adapter/command/package untouched.
+STEP 5 — rerun STEP 3 exactly → CASE B PASS.
+Do NOT mark Tessera PASS or overall FINISHED; the human owner/director decides after running them.
 
 
