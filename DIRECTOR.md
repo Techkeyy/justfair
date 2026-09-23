@@ -437,6 +437,12 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   Authoritative fact RE-VERIFIED LIVE this session at `https://prestocks.com/spacex`: "SpaceX has gone public! SpaceX PreStocks tokens must be swapped into $SPCXx or any other token before 11:59pm UTC on 12 March 2027, or they will expire worthless." — byte-consistent with the fixture (deadline, $SPCXx, expire-worthless). Nothing hardcoded beyond the captured fixture, which is labeled `authoritative_event_fixture`, never live data.
   BLOCKER (proven end-to-end, not inferred): fresh untouched public scaffold advertises `underlying_price_display` / `prestocks_lifecycle_display` / `token2022_fee_display` / `transfer_fee_accounting`, but all PreStocks variants require `lifecycle_position_state` (`prestocks.js:115`). Spawned fresh scaffold + `test --scenario PRESTOCKS_EXPIRY_AFTER` → `SKIP PRESTOCKS_EXPIRY_AFTER / Target lacks: lifecycle_position_state`, exit 2. A normal public developer therefore CANNOT run the PreStocks scenario without undocumented manual manifest knowledge — same defect class as the Tessera onboarding bug (fixed for 1.0.3), now blocking PreStocks Owner UAT. Per order: STOPPED here; no external workspace built with a manual workaround, no product-code fix applied (the likely fix mirrors Tessera: advertise `lifecycle_position_state`, presumably +1.0.4 — NOT implemented without an explicit order).
   Gate row for the selected claim — Claim: post-deadline expired holdings lose ordinary valuation. Mechanism: AFTER-variant assertions (`expired-marked`, `no-ordinary-valuation`). Authoritative Boundary: official PreStocks product-page fixture (deadline 2027-03-12T23:59Z), NOT a live lifecycle API. Required Proof: fresh-public owner FAIL→fix→PASS. Current Proof: L2 only (fixture naive/correct engine tests). Status: BLOCKED ON PUBLIC ONBOARDING. Evidence Level: L2. Enforcement: HARD (engine assertions) for the invariant; onboarding path UNENFORCED (proven SKIP) — the blocker.
+- PRESTOCKS EXTERNAL OWNER UAT ENVIRONMENT = READY, OWNER UAT = NOT YET RUN (2026-09-23; built from public 1.0.4 AFTER its publication):
+  Workspace `C:\Users\HomePC\Desktop\JustFair-PreStocks-UAT` (outside repo, NOT committed): public `npx justfair@latest init` (registry confirmed `latest = 1.0.4` before starting); generated scaffold verified (native `lifecycle_position_state`, all 3 branches, unwired refusal, boolean AFTER); untouched public adapter → UNABLE `PRESTOCKS_EXPIRY_AFTER`, exit 2.
+  `stock-app.mjs` (port 4001 — port 4000 is occupied by an unrelated pre-existing process, left untouched): `MARK_EXPIRED = false` reports expired:false + ordinaryValuation:true ("Live holding"); `= true` reports expired:true + ordinaryValuation:false ("Expired"). Never imports JustFair; knows no verdicts.
+  `justfair-adapter.mjs` (generated + ONLY the AFTER branch wired to `:4001/api/position`, observations only; SHA256 `4610B523…` identical across both builder runs).
+  Builder preflight (L3, public 1.0.4 CLI): CASE A → FAIL `PRESTOCKS_EXPIRY_AFTER` (`EXPIRED_REPRESENTATION_TREATED_AS_LIVE`, 0/1/0, exit 1, root cause + guidance + 6-event replay); changed ONLY the app line, restarted ONLY the app; CASE B (exact same command) → PASS 1/0/0, exit 0. Workspace reset to WRONG (`MARK_EXPIRED = false` verified) with both servers stopped; owner steps in its `README-UAT.md`.
+  Gate row update: Current Proof = L3 builder preflight (wired FAIL→app-only-fix→PASS on public 1.0.4); Status = OWNER UAT NOT YET RUN; overall FINISHED is NOT marked.
 - PRESTOCKS PUBLIC ONBOARDING FIX PREPARED — 1.0.4 READY FOR OWNER PUBLISH (2026-09-23):
   The STOP above was correct, and the blocker review exposed TWO deeper scaffold inconsistencies beyond the missing capability: (A) the scaffold had no BEFORE/NEAR branches at all, so merely advertising the capability would claim lifecycle support while two variants returned no required observations; (B) the AFTER branch used numeric `ordinaryValuation = 0` while the contract requires boolean `false`.
   Canonical decision (from source, not convenience): `lifecycle_position_state` stays canonical — all three variants, the engine gate, and the tests use it, and it names the observed domain (`expired`/`ordinaryValuation`/`conversionRequired`/`deadlineUs`); `prestocks_lifecycle_display` is required by nothing and was retained in the scaffold only for backward compatibility.
@@ -462,10 +468,8 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
 
 ## 26. CURRENT BLOCKERS
 
-- Public @latest is 1.0.3 (published); the 1.0.3 publish blockers are resolved.
-- justfair@1.0.4 is prepared but NOT yet published (registry OTP 2FA interaction required; builder stopped per rule).
-- Public @latest is still 1.0.3 (without the PreStocks scaffold fix).
-- PreStocks Owner UAT is BLOCKED until 1.0.4 is public; no workaround workspace built.
+- Public @latest is 1.0.4 (owner-verified published); the 1.0.4 publish blockers are resolved.
+- PreStocks external Owner UAT environment is READY (WRONG state, servers stopped); owner execution pending — the only remaining blocker for the PreStocks Core Outcome.
 
 ### CORE OUTCOME GATE (current state)
 
@@ -486,7 +490,7 @@ Evidence levels used below — L1 unit/deterministic (no network, no owner) · L
 ## 27. RELEASE / SUBMISSION BLOCKERS
 
 - GITHUB / PUBLIC REPOSITORY: Public repository live at `https://github.com/Techkeyy/justfair`, tracks local `main`, connected to Vercel.
-- NPM REGISTRY DISTRIBUTION: `justfair@1.0.3` published and owner-verified (`latest = 1.0.3`; triage + residuals documented in §25). `justfair@1.0.4` prepared, packed, and clean-install proven — publish pending owner OTP (see §26).
+- NPM REGISTRY DISTRIBUTION: `justfair@1.0.4` published and owner-verified (`latest = 1.0.4`).
 - VERCEL PRODUCTION DEPLOYMENT: Live and Git-integrated at `https://justfair-theta.vercel.app`.
 - DEADLINE AWARENESS: Sep 18 4pm ET vs Sep 25 calendar note documented.
 
@@ -554,11 +558,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-TESSERA OWNER UAT = PASS (PUBLIC ONBOARDING PASS, CORE-OUTCOME LEVEL 4); NPM 1.0.3 PUBLIC; PRESTOCKS SCAFFOLD FIX PREPARED AS 1.0.4, OWNER PUBLISH PENDING (NOT FINISHED).
+TESSERA OWNER UAT = PASS (PUBLIC ONBOARDING PASS, CORE-OUTCOME LEVEL 4); NPM 1.0.4 PUBLIC; PRESTOCKS UAT ENVIRONMENT READY, OWNER EXECUTION PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Owner: approve the npm 2FA challenge (or run `npm publish` from this source) to release corrected 1.0.4, then confirm `latest = 1.0.4`. After 1.0.4 is public: build `C:\Users\HomePC\Desktop\JustFair-PreStocks-UAT` from public @latest with zero manual workaround, then run PreStocks Owner UAT (WRONG app → FAIL → app-only fix → same command → PASS). Do NOT mark PreStocks PASS or overall FINISHED; the human owner/director decides.
+Owner runs PreStocks UAT from `C:\Users\HomePC\Desktop\JustFair-PreStocks-UAT` starting with OWNER STEP 1 ONLY (`node stock-app.mjs`; expect app on :4001). Do NOT mark PreStocks PASS or overall FINISHED; the human owner/director decides after running all README-UAT.md steps.
 
 
