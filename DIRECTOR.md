@@ -287,13 +287,13 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
 - Scenario engine suite (`node test/justfair-scenarios.test.js`): 25 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key; includes no-signing scan over the extended `dbc-live.js`).
 - DBC single-check suite (`node --test test/dbc.test.js`): 5 PASSED · 0 FAILED (whale outputs unchanged after shared-core refactor).
 - DBC launch-sweep suite (`node --test test/dbc-sweep.test.js`): 19 PASSED · 0 FAILED (grid derivation, parsing/sorting, summary/first-failure pure tests + aggregate precedence unit + live 8%/15%/25% sweeps, policy ownership, capacity-vs-FAIL, UNABLE paths, formatters, mint resolution, no-signing scan).
-- CLI suite (`node --test test/cli.test.js`): 18 PASSED · 0 FAILED (includes `whale --sweep` live sweep + UNABLE paths + fresh-scaffold Tessera no-SKIP end-to-end proof).
+- CLI suite (`node --test test/cli.test.js`): 20 PASSED · 0 FAILED (includes fresh-scaffold Tessera no-SKIP proof + PreStocks 3-variant no-SKIP/honest-SKIP proofs).
 - HTTP contract suite (`node test/e2e.test.js`): 16 PASSED · 0 FAILED (includes `/api/v1/dbc/sweep` input validation without network).
 - Playwright Browser test suite (`node test/browser.test.js`): 77 PASSED · 0 FAILED (includes sweep UI test 65 + human-amount tests 65c/65d + 25% aggregate test 65e + mixed-UNABLE test 65f + 390px table test 65b).
 - Tessera suite: 13 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Product-preflight suite: 52 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Streaming suite: 6 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
-- Total: 280 PASSED · 0 FAILED · 1 SKIPPED.
+- Total: 282 PASSED · 0 FAILED · 1 SKIPPED.
 - Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
@@ -433,11 +433,18 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   CASE A (workspace `C:\Users\HomePC\Desktop\JustFair-Tessera-UAT`, app `APPLY_TRANSFER_FEE = false`, app reported net 1000, adapter only observed): public command `npx justfair@latest test --target http://127.0.0.1:3100 --tessera-mint T-OpenAI --tessera-amount 1000 --scenario TESSERA_TRANSFER_FEE_ACCOUNTING --open` → FAIL `TESSERA_TRANSFER_FEE_ACCOUNTING`, expected 998, reported 1000, `TRANSFER_FEE_IGNORED`, root cause + fix guidance visible, `live_tessera_token2022` evidence visible, Replay Lab owner-observed.
   CASE B (changed ONLY false→true; adapter/JustFair/package/mint/amount/command unchanged): → PASS, 1 passed · 0 failed · 0 unable; Replay owner-observed expected 998, reportedNetRecipientAmount 998, invariant satisfied.
   Causal loop proven: real app financial bug → JustFair detects it from authoritative live Token-2022 state → explains it → developer fixes only app → exact same workflow verifies correction. Overall JustFair FINISHED is NOT marked and SUBMISSION READY is NOT claimed.
-- PRESTOCKS TAKEOVER AUDIT + OWNER UAT BLOCKER — STOP, PRODUCT BUG REPORTED (2026-09-23; no workaround built, no product code changed):
-  Audit: `src/scenarios/prestocks.js` (BEFORE/NEAR/AFTER variants on the official SpaceX conversion case; AFTER = strongest invariant: post-deadline representation must be `expired === true` with `ordinaryValuation === false`, else `EXPIRED_REPRESENTATION_TREATED_AS_LIVE`) → static registry + CLI `--scenario` selection → capability gate → generic `runScenario` (JustFair-owned verdict) → Replay detail + committed samples + browser/e2e/unit coverage.
+- PRESTOCKS TAKEOVER AUDIT + OWNER UAT BLOCKER — STOP, PRODUCT BUG REPORTED (2026-09-23; no workaround built, no product code changed):  Audit: `src/scenarios/prestocks.js` (BEFORE/NEAR/AFTER variants on the official SpaceX conversion case; AFTER = strongest invariant: post-deadline representation must be `expired === true` with `ordinaryValuation === false`, else `EXPIRED_REPRESENTATION_TREATED_AS_LIVE`) → static registry + CLI `--scenario` selection → capability gate → generic `runScenario` (JustFair-owned verdict) → Replay detail + committed samples + browser/e2e/unit coverage.
   Authoritative fact RE-VERIFIED LIVE this session at `https://prestocks.com/spacex`: "SpaceX has gone public! SpaceX PreStocks tokens must be swapped into $SPCXx or any other token before 11:59pm UTC on 12 March 2027, or they will expire worthless." — byte-consistent with the fixture (deadline, $SPCXx, expire-worthless). Nothing hardcoded beyond the captured fixture, which is labeled `authoritative_event_fixture`, never live data.
   BLOCKER (proven end-to-end, not inferred): fresh untouched public scaffold advertises `underlying_price_display` / `prestocks_lifecycle_display` / `token2022_fee_display` / `transfer_fee_accounting`, but all PreStocks variants require `lifecycle_position_state` (`prestocks.js:115`). Spawned fresh scaffold + `test --scenario PRESTOCKS_EXPIRY_AFTER` → `SKIP PRESTOCKS_EXPIRY_AFTER / Target lacks: lifecycle_position_state`, exit 2. A normal public developer therefore CANNOT run the PreStocks scenario without undocumented manual manifest knowledge — same defect class as the Tessera onboarding bug (fixed for 1.0.3), now blocking PreStocks Owner UAT. Per order: STOPPED here; no external workspace built with a manual workaround, no product-code fix applied (the likely fix mirrors Tessera: advertise `lifecycle_position_state`, presumably +1.0.4 — NOT implemented without an explicit order).
   Gate row for the selected claim — Claim: post-deadline expired holdings lose ordinary valuation. Mechanism: AFTER-variant assertions (`expired-marked`, `no-ordinary-valuation`). Authoritative Boundary: official PreStocks product-page fixture (deadline 2027-03-12T23:59Z), NOT a live lifecycle API. Required Proof: fresh-public owner FAIL→fix→PASS. Current Proof: L2 only (fixture naive/correct engine tests). Status: BLOCKED ON PUBLIC ONBOARDING. Evidence Level: L2. Enforcement: HARD (engine assertions) for the invariant; onboarding path UNENFORCED (proven SKIP) — the blocker.
+- PRESTOCKS PUBLIC ONBOARDING FIX PREPARED — 1.0.4 READY FOR OWNER PUBLISH (2026-09-23):
+  The STOP above was correct, and the blocker review exposed TWO deeper scaffold inconsistencies beyond the missing capability: (A) the scaffold had no BEFORE/NEAR branches at all, so merely advertising the capability would claim lifecycle support while two variants returned no required observations; (B) the AFTER branch used numeric `ordinaryValuation = 0` while the contract requires boolean `false`.
+  Canonical decision (from source, not convenience): `lifecycle_position_state` stays canonical — all three variants, the engine gate, and the tests use it, and it names the observed domain (`expired`/`ordinaryValuation`/`conversionRequired`/`deadlineUs`); `prestocks_lifecycle_display` is required by nothing and was retained in the scaffold only for backward compatibility.
+  Fix (`src/cli.js` scaffold only): manifest advertises `lifecycle_position_state`; BEFORE/NEAR branches return `expired: false` + `conversionRequired: true` + `deadlineUs: inputs.deadlineUs` + `ordinaryValuation: true` (echo starter with replace-with-app comments, same pattern as the existing STALE branch); AFTER corrected to `ordinaryValuation = false`. Observations only, never verdicts.
+  Regression (`test/cli.test.js`, 20/20): fresh `init` → manifest parses with the capability, all 3 branches present, boolean AFTER (numeric 0 absent) → spawned untouched scaffold serves manifest → all 3 variants through the real engine each PASS (never SKIP); plus an honest-SKIP test (capability-less adapter still SKIPs with exit 2). Suites: `npm test` 49/49, `justfair-scenarios` 25+1 skip (PreStocks BEFORE/NEAR/AFTER green), `tessera` 13/13, DBC 25% smoke CAPACITY 9/0/1/0. No browser/e2e rerun (no UI/server change).
+  Version: 1.0.3 → 1.0.4 via `npm version patch` (package.json + lock consistent). Pack: 51 files, 237.7 kB, shasum `25ba04567a681eb63caa17401a63a0e1539891f5`, allowlist-clean, no secrets/tests/evidence/tokens. No dependency change (security record stands).
+  Packed 1.0.4 proof (fresh external dir, own install): `init` generates the fixed manifest + all 3 branches; spawned untouched generated adapter + packed CLI runs BEFORE/NEAR/AFTER → PASS/PASS/PASS, zero SKIP. No repo leakage.
+  Publish state: NOT published by builder (standing OTP rule). Owner action: approve npm 2FA / `npm publish` from this source, confirm `latest = 1.0.4`. After public: build `C:\Users\HomePC\Desktop\JustFair-PreStocks-UAT` from public @latest with zero manual workaround. PreStocks Owner UAT = NOT YET RUN; overall FINISHED is NOT marked.
   External workspace `C:\Users\HomePC\Desktop\JustFair-Tessera-UAT` (outside the repo, NOT committed): `stock-app.mjs` (real app on :4000, `APPLY_TRANSFER_FEE = false` bug → reports 1000; fix → computes 998 itself; never imports JustFair), `justfair-adapter.mjs` (from public `npx justfair@latest init`, wired to read `:4000` and return only `reportedNetRecipientAmount`, manifest adds `transfer_fee_accounting`), `justfair.config.js` (generated), `README-UAT.md` (one-action-at-a-time owner steps).
   Builder cold-start proof with public justfair@latest: CASE A → FAIL `TESSERA_TRANSFER_FEE_ACCOUNTING` (`TRANSFER_FEE_IGNORED`, expected 998, reported 1000, 5 replay events); changed ONLY the app line false→true and restarted ONLY the app; CASE B (exact same command, same mint/amount/adapter/package) → PASS 1/0/0. `--open` proven from the public package (local viewer on 127.0.0.1, in-memory, zero cloud uploads). Adapter file untouched between runs (mtime predates both runs; only `stock-app.mjs` modified); workspace contains zero repo paths/imports and no verdict logic.
   Known onboarding requirement recorded at prep time (superseded by the fix below): the 1.0.2 `init` scaffold did not advertise `transfer_fee_accounting`, so the Tessera UAT adapter added that manifest capability manually; without it the scenario honestly SKIPs on capability gate. Source is now fixed for 1.0.3; the workspace adapter will be regenerated from public @latest once 1.0.3 is published. Workspace left in INITIAL WRONG state with servers stopped for personal owner execution.
@@ -449,9 +456,9 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
 ## 26. CURRENT BLOCKERS
 
 - Public @latest is 1.0.3 (published); the 1.0.3 publish blockers are resolved.
-- PreStocks Owner UAT is BLOCKED: fresh public scaffold lacks `lifecycle_position_state`, so `PRESTOCKS_EXPIRY_*` SKIP with exit 2 on a normal public flow (proven end-to-end 2026-09-23).
-- No PreStocks external UAT workspace exists yet (withheld per order — no manual workaround).
-- Tessera fresh-user Core Outcome is PROVEN (Level 4); no Tessera blockers remain.
+- justfair@1.0.4 is prepared but NOT yet published (registry OTP 2FA interaction required; builder stopped per rule).
+- Public @latest is still 1.0.3 (without the PreStocks scaffold fix).
+- PreStocks Owner UAT is BLOCKED until 1.0.4 is public; no workaround workspace built.
 
 ### CORE OUTCOME GATE (current state)
 
@@ -471,7 +478,7 @@ Evidence levels used below — L1 unit/deterministic (no network, no owner) · L
 ## 27. RELEASE / SUBMISSION BLOCKERS
 
 - GITHUB / PUBLIC REPOSITORY: Public repository live at `https://github.com/Techkeyy/justfair`, tracks local `main`, connected to Vercel.
-- NPM REGISTRY DISTRIBUTION: `justfair@1.0.3` published and owner-verified (`latest = 1.0.3`; triage + residuals documented in §25). `justfair@1.0.3` prepared, packed, and clean-install proven — publish pending owner OTP (see §26).
+- NPM REGISTRY DISTRIBUTION: `justfair@1.0.3` published and owner-verified (`latest = 1.0.3`; triage + residuals documented in §25). `justfair@1.0.4` prepared, packed, and clean-install proven — publish pending owner OTP (see §26).
 - VERCEL PRODUCTION DEPLOYMENT: Live and Git-integrated at `https://justfair-theta.vercel.app`.
 - DEADLINE AWARENESS: Sep 18 4pm ET vs Sep 25 calendar note documented.
 
@@ -486,8 +493,9 @@ Evidence levels used below — L1 unit/deterministic (no network, no owner) · L
 ## 29. FILES CHANGED RECENTLY
 
 - `public/index.html`: Step 2 actionable per Owner UAT (real `justfair-adapter.mjs` `observations` edit point + verbatim scaffold example + two-ports bullet) and Step 4 note corrected to stale/carry-forward equity prices; earlier `#test-view` onboarding copy truths (headline, scenario mix, `init` skip notice).
-- `package.json` + `package-lock.json`: 1.0.3 (scaffold `transfer_fee_accounting` capability fix; registry publish pending owner OTP).
-- `src/cli.js`: scaffold manifest now advertises `transfer_fee_accounting` (existing capabilities preserved).
+- `package.json` + `package-lock.json`: 1.0.4 (PreStocks scaffold consistency fix; registry publish pending owner OTP).
+- `src/cli.js`: scaffold manifest now advertises `transfer_fee_accounting` + `lifecycle_position_state` (existing capabilities preserved); PreStocks BEFORE/NEAR branches added, AFTER corrected to boolean `false`.
+- `test/cli.test.js`: fresh-scaffold Tessera no-SKIP end-to-end regression; PreStocks 3-variant no-SKIP + honest-SKIP regressions.
 - `test/cli.test.js`: fresh-scaffold Tessera no-SKIP end-to-end regression (spawned untouched scaffold + live fee state → FAIL, never SKIP).
 - `src/cli.js`: `runInitCommand` next steps teach connect → start app → start adapter → public npx test command (no bare `justfair test`).
 - `test/cli.test.js`: new init next-steps test (no bare command, npx command present, connect-before-start, real-app observations, step order).
@@ -537,11 +545,11 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-TESSERA OWNER UAT = PASS (PUBLIC ONBOARDING PASS, CORE-OUTCOME LEVEL 4); NPM 1.0.3 PUBLIC; PRESTOCKS OWNER UAT BLOCKED ON SCAFFOLD CAPABILITY BUG (NOT FINISHED).
+TESSERA OWNER UAT = PASS (PUBLIC ONBOARDING PASS, CORE-OUTCOME LEVEL 4); NPM 1.0.3 PUBLIC; PRESTOCKS SCAFFOLD FIX PREPARED AS 1.0.4, OWNER PUBLISH PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Owner order required: fix the scaffold capability mismatch (`lifecycle_position_state` missing → PreStocks SKIP on fresh public flow), almost certainly as a 1.0.4 patch + publish, before any PreStocks external workspace is built. Do NOT build a workaround UAT env, do NOT mark PreStocks PASS, do NOT mark overall FINISHED; the human owner/director decides.
+Owner: approve the npm 2FA challenge (or run `npm publish` from this source) to release prepared 1.0.4, then confirm `latest = 1.0.4`. After 1.0.4 is public: build `C:\Users\HomePC\Desktop\JustFair-PreStocks-UAT` from public @latest with zero manual workaround, then run PreStocks Owner UAT (WRONG app → FAIL → app-only fix → same command → PASS). Do NOT mark PreStocks PASS or overall FINISHED; the human owner/director decides.
 
 

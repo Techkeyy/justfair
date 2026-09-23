@@ -230,6 +230,84 @@ test("fresh scaffold advertises transfer_fee_accounting and runs Tessera without
   }
 });
 
+test("fresh scaffold supports all three PreStocks variants without SKIP", async () => {
+  const { runInitCommand, runScenarioCommand } = await import("../src/cli.js");
+  const { mkdtempSync, rmSync, readFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const path = await import("node:path");
+  const { spawn } = await import("node:child_process");
+
+  const tempDir = mkdtempSync(path.join(tmpdir(), "jf-init-prestocks-"));
+  const PORT = "31996";
+  let child = null;
+  try {
+    await runInitCommand([], tempDir);
+    const adapterContent = readFileSync(path.join(tempDir, "justfair-adapter.mjs"), "utf-8");
+    assert.ok(adapterContent.includes('"lifecycle_position_state"'), "generated manifest must advertise lifecycle_position_state");
+    for (const id of ["PRESTOCKS_EXPIRY_BEFORE", "PRESTOCKS_EXPIRY_NEAR", "PRESTOCKS_EXPIRY_AFTER"]) {
+      assert.ok(adapterContent.includes(id), `generated adapter must handle ${id}`);
+    }
+    assert.ok(adapterContent.includes("ordinaryValuation = false"), "AFTER branch must use the boolean contract");
+    assert.ok(!adapterContent.includes("ordinaryValuation = 0"), "AFTER branch must not use numeric 0");
+
+    // End-to-end: serve the untouched generated scaffold and run every
+    // PreStocks variant through the real scenario engine. The scaffold
+    // echoes the required shapes, so each variant must evaluate (PASS),
+    // never SKIP on capability mismatch.
+    child = spawn(process.execPath, ["justfair-adapter.mjs"], {
+      cwd: tempDir,
+      env: { ...process.env, PORT },
+      stdio: "ignore"
+    });
+    const baseUrl = `http://127.0.0.1:${PORT}`;
+    let ready = false;
+    for (let i = 0; i < 50 && !ready; i++) {
+      try {
+        const res = await fetch(`${baseUrl}/justfair/v1/manifest`);
+        ready = res.ok;
+      } catch {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+    assert.ok(ready, "generated adapter must serve its manifest");
+
+    const savedCode = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      for (const id of ["PRESTOCKS_EXPIRY_BEFORE", "PRESTOCKS_EXPIRY_NEAR", "PRESTOCKS_EXPIRY_AFTER"]) {
+        const r = await runScenarioCommand(["test", "--target", baseUrl, "--scenario", id], { keepAlive: false });
+        assert.ok(!r.artifact.summary.skipped.includes(id), `fresh scaffold must not SKIP ${id}`);
+        assert.equal(r.artifact.results.length, 1);
+        assert.equal(r.artifact.results[0].status, "PASS", `${id} must evaluate against the scaffold starter shapes`);
+      }
+      assert.equal(process.exitCode, 0);
+    } finally {
+      process.exitCode = savedCode;
+    }
+  } finally {
+    if (child) {
+      child.kill();
+      await new Promise((r) => {
+        child.on("exit", r);
+        setTimeout(r, 5000);
+      });
+    }
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("adapter lacking lifecycle_position_state honestly SKIPs PreStocks", async () => {
+  const h = await startFixtureTarget({ behavior: "naive" });
+  try {
+    const r = await runCLIInProcess(["test", "--target", h.baseUrl, "--scenario", "PRESTOCKS_EXPIRY_AFTER"]);
+    assert.equal(r.code, 2);
+    assert.ok(r.stdout.includes("SKIP") && r.stdout.includes("PRESTOCKS_EXPIRY_AFTER"));
+    assert.ok(r.stdout.includes("lifecycle_position_state"));
+  } finally {
+    await closeFixtureTarget(h);
+  }
+});
+
 test("cli init scaffolds justfair.config.js and justfair-adapter.mjs without overwriting", async () => {
   const { runInitCommand } = await import("../src/cli.js");
   const { mkdtempSync, rmSync, readFileSync, existsSync } = await import("node:fs");

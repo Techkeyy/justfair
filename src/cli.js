@@ -162,7 +162,8 @@ const MANIFEST = {
     "underlying_price_display",
     "prestocks_lifecycle_display",
     "token2022_fee_display",
-    "transfer_fee_accounting"
+    "transfer_fee_accounting",
+    "lifecycle_position_state"
   ]
 };
 
@@ -193,7 +194,12 @@ const server = http.createServer(async (req, res) => {
         } else if (scenarioId === "PRESTOCKS_EXPIRY_AFTER") {
           observations.expired = true;
           observations.conversionRequired = true;
-          observations.ordinaryValuation = 0;
+          observations.ordinaryValuation = false; // boolean: no ordinary valuation once expired
+        } else if (scenarioId === "PRESTOCKS_EXPIRY_BEFORE" || scenarioId === "PRESTOCKS_EXPIRY_NEAR") {
+          observations.expired = false;
+          observations.conversionRequired = true; // replace with whether YOUR app surfaces the conversion requirement
+          observations.deadlineUs = inputs?.deadlineUs ?? null; // replace with the deadline YOUR app displays
+          observations.ordinaryValuation = true; // pre-deadline ordinary holding
         } else if (scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING") {
           const gross = Number(inputs?.transferAmountUnits || 1000);
           observations.reportedNetRecipientAmount = gross; // Return net received amount
