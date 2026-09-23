@@ -287,13 +287,13 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
 - Scenario engine suite (`node test/justfair-scenarios.test.js`): 25 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key; includes no-signing scan over the extended `dbc-live.js`).
 - DBC single-check suite (`node --test test/dbc.test.js`): 5 PASSED · 0 FAILED (whale outputs unchanged after shared-core refactor).
 - DBC launch-sweep suite (`node --test test/dbc-sweep.test.js`): 19 PASSED · 0 FAILED (grid derivation, parsing/sorting, summary/first-failure pure tests + aggregate precedence unit + live 8%/15%/25% sweeps, policy ownership, capacity-vs-FAIL, UNABLE paths, formatters, mint resolution, no-signing scan).
-- CLI suite (`node --test test/cli.test.js`): 20 PASSED · 0 FAILED (includes fresh-scaffold Tessera no-SKIP proof + PreStocks 3-variant no-SKIP/honest-SKIP proofs).
+- CLI suite (`node --test test/cli.test.js`): 26 PASSED · 0 FAILED (includes result-artifact persistence: FAIL/PASS/UNABLE preserved, `--open` same-report, repeat-replace, honest write-failure, no-upload path).
 - HTTP contract suite (`node test/e2e.test.js`): 16 PASSED · 0 FAILED (includes `/api/v1/dbc/sweep` input validation without network).
-- Playwright Browser test suite (`node test/browser.test.js`): 77 PASSED · 0 FAILED (includes sweep UI test 65 + human-amount tests 65c/65d + 25% aggregate test 65e + mixed-UNABLE test 65f + 390px table test 65b).
+- Playwright Browser test suite (`node test/browser.test.js`): 78 PASSED · 0 FAILED (includes artifact-workflow test 61e).
 - Tessera suite: 13 PASSED · 0 FAILED (re-verified on current source during triage + audit; live 20 bps state).
 - Product-preflight suite: 52 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Streaming suite: 6 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
-- Total: 282 PASSED · 0 FAILED · 1 SKIPPED.
+- Total: 289 PASSED · 0 FAILED · 1 SKIPPED.
 - Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
@@ -457,6 +457,11 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   Four states now distinct and tested: CAPABILITY ABSENT → SKIP (exit 2) · PRESENT-BUT-UNWIRED → UNABLE (exit 2, wired reason) · OBSERVED+INCORRECT → FAIL (exit 1) · OBSERVED+CORRECT → PASS (exit 0).
   Wired external proof (temp dir outside repo, packed 1.0.4 CLI, NOT the final UAT folder): untouched generated adapter → UNABLE ×3 (BEFORE proven in repo test, AFTER live here); wired to a tiny wrong app (expired:false + ordinary valuation post-deadline) → FAIL `EXPIRED_REPRESENTATION_TREATED_AS_LIVE`, exit 1; fixed ONLY the app (expired:true, ordinaryValuation:false), restarted ONLY the app → same command → PASS, exit 0. (Proof env noted: an unrelated pre-existing process squats on :4000 — left untouched; proof used :4001.)
   Repack: 1.0.4 rebuilt after the fix (shasum `70757ba079b2c9e96fb5ea456b01471450d2fbe0`, 51 files, allowlist-clean). No dependency change. Overall FINISHED is NOT marked; PreStocks Owner UAT = NOT YET RUN.
+- RESULT-ARTIFACT WORKFLOW FIX PREPARED AS 1.0.5, OWNER PUBLISH PENDING (2026-09-23):
+  Root cause (confirmed from source): `test` runs persisted NOTHING unless `--out` was passed (`cli.js`: single conditional write), so Replay Lab's "upload justfair-result.json" had no normal producer — the manual-upload path was orphaned. README even named a different file (`report.json`).
+  Fix (`src/cli.js` only, schema/semantics untouched): every completed run persists the exact in-memory artifact to `./justfair-result.json` (cwd; `--out <file>` overrides, single file per run); absolute saved-path line printed in both human and `--json` (stderr, stdout stays pipeable) modes; `--open` serves the identical in-memory report; write failure prints an honest WARNING without touching verdict/exit codes (scenario semantics decide exits, unchanged).
+  UI/docs: Step 1 terminal-in-app-root + creates-inside-that-project; Step 4 terminal/save/auto-open sentence; Step 5 exact-command rerun; Replay Lab two-mode copy (auto vs reopen, local-only, no server upload implication); README canonical filename + default-save paragraph; `.gitignore` covers local artifacts.
+  Tests: 6 new CLI artifact tests (create/parse/identity, FAIL/PASS/UNABLE preservation, `--open` same-report, repeat-replace, honest write-failure via missing dir, no-upload static path check) + browser 61e (workflow copy) — cli 26/26, browser 78/78, e2e 16/16, preflight 49/49, scenarios 25+1 skip. Test harness routes in-process artifacts to OS temp (no repo pollution). Overall FINISHED is NOT marked.
 - FINAL PRE-SUBMISSION AUDIT (2026-09-23; production + claims + rubric; 4 doc/copy fixes applied, no behavior change):
   Production sanity (`https://justfair-theta.vercel.app/` fetched live): loads; crash-testing thesis + HOW IT WORKS + coverage + engine-sampled failure + dev block (`npx justfair@latest`) + Replay Lab + DBC LAUNCH STRESS all present; Test/Replay/DBC routes usable; footer disclaims custody/advice; onboarding points to `npx justfair@latest`. No broken primary UI. Legacy `#app` Steps view still served but unlinked (tests depend on it) — known, not a blocker.
   Claim audit fixes applied: (1) sponsor-proof subtitle implied every scenario reads live state → now "judges your app from labeled evidence — live chain state, authoritative events, or simulations — with proof before the verdict"; (2) final CTA "Run your first scenario in minutes." (unproven time promise) → "Run your first scenario locally. No account, no funds, no custody."; (3) README test counts refreshed to verified values (cli 20, browser 77, e2e 16, +sweep 19); (4) README DBC entry updated to Launch Stress (config + YOUR POLICY sweep, no size input). Labels: README scenario table PROVEN (simulated/fixture/live correctly labeled); `docs/` legacy product files (PRODUCT/HACKATHON/EVIDENCE/BUILD_TRACKER) are historical working notes, not submission surfaces — left untouched. No submission text exists in-repo yet (submission packaging work remains, not a product blocker). Prohibited items verified absent: no fixture-called-live, no observed-March-2027 claim, no custody/trade-execution claim, no arbitrary-remote-target claim (localhost-only documented), no FINISHED/SUBMISSION-READY claim.
@@ -518,11 +523,16 @@ Evidence levels used below — L1 unit/deterministic (no network, no owner) · L
 ## 29. FILES CHANGED RECENTLY
 
 - `public/index.html`: Step 2 actionable per Owner UAT (real `justfair-adapter.mjs` `observations` edit point + verbatim scaffold example + two-ports bullet) and Step 4 note corrected to stale/carry-forward equity prices; earlier `#test-view` onboarding copy truths (headline, scenario mix, `init` skip notice).
-- `package.json` + `package-lock.json`: 1.0.4 (PreStocks scaffold consistency fix; registry publish pending owner OTP).
+- `package.json` + `package-lock.json`: 1.0.5 (result-artifact workflow fix; registry publish pending owner OTP).
 - `src/cli.js`: scaffold manifest now advertises `transfer_fee_accounting` + `lifecycle_position_state` (existing capabilities preserved); PreStocks wiring templates with explicit `unwired()` 502 refusal (never fabricate; engine reports UNABLE).
 - `src/scenarios/adapter.js`: non-OK adapter responses surface the capped body in the error (`Adapter HTTP <status>: <body>`), same code/path.
 - `test/cli.test.js`: fresh-scaffold Tessera no-SKIP end-to-end regression (spawned untouched scaffold + live fee state → FAIL, never SKIP); PreStocks untouched=UNABLE ×3 + honest-SKIP regressions.
-- `test/browser.test.js`: test 65 rewritten for sweep UI + 65b (390px overflow) + 65c/65d (human amounts, non-SOL labeling) + 65e (25% CURVE CAPACITY aggregate) + 65f (mixed-UNABLE NOT VERIFIED); `test/e2e.test.js`: sweep endpoint validation; `test/cli.test.js`: `whale --sweep` live + UNABLE tests.
+- `src/cli.js`: every completed `test` run persists the exact report to `./justfair-result.json` (cwd; `--out` overrides) with a printed absolute path; write failure warns honestly without changing verdict/exit semantics; `--open` serves the same in-memory report.
+- `public/index.html`: Step 1 terminal-in-app-root, Step 4 terminal+save+auto-open flow, Step 5 exact-command rerun, Replay Lab two-mode copy (auto vs `justfair-result.json` reopen, local-only).
+- `README.md`: canonical `justfair-result.json` (was `report.json`) + default-save paragraph.
+- `.gitignore`: local `justfair-result.json` artifacts ignored.
+- `test/cli.test.js`: artifact persistence suite (create/parse/identity, FAIL/PASS/UNABLE preservation, `--open` same-report, repeat-replace, honest write-failure, no-upload path); harness routes artifacts to OS temp.
+- `test/browser.test.js`: artifact-workflow copy test 61e.
 - `src/cli.js`: `runInitCommand` next steps teach connect → start app → start adapter → public npx test command (no bare `justfair test`).
 - `test/cli.test.js`: new init next-steps test (no bare command, npx command present, connect-before-start, real-app observations, step order).
 - `public/styles.css`: scoped `.code-body.code-wrap` wrap rule for the Step 2 example only (no global code-style change).
@@ -575,11 +585,13 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-TESSERA OWNER UAT = PASS (PUBLIC ONBOARDING PASS, CORE-OUTCOME LEVEL 4); NPM 1.0.4 PUBLIC; PRESTOCKS OWNER UAT = PASS (WORKFLOW L4, EVENT FIXTURE LABELED); PRODUCT FROZEN, SUBMISSION PACKAGE READY FOR OWNER REVIEW (NOT SUBMITTED).
+TESSERA OWNER UAT = PASS (PUBLIC ONBOARDING PASS, CORE-OUTCOME LEVEL 4); NPM 1.0.4 PUBLIC; PRESTOCKS OWNER UAT = PASS (WORKFLOW L4, EVENT FIXTURE LABELED); RESULT-ARTIFACT WORKFLOW PREPARED AS 1.0.5, OWNER PUBLISH PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Owner reviews `SUBMISSION.md` + `docs/DEMO_SCRIPT.md` + `docs/RECORDING_CHECKLIST.md`, records the demo video, and submits via the Stocklana form using PROVEN claims only. Do NOT mark SUBMISSION READY or submitted; the human owner/director decides. No product changes without a critical submission-blocking defect.
+## 35. EXACT NEXT ACTION
+
+Owner: approve the npm 2FA challenge (or run `npm publish` from this source) to release prepared 1.0.5 — which includes all cleared 1.0.4 content — then confirm `latest = 1.0.5`. After 1.0.5 is public: build `C:\Users\HomePC\Desktop\JustFair-PreStocks-UAT` from public @latest with zero manual workaround, run PreStocks Owner UAT (WRONG app → FAIL → app-only fix → same command → PASS), and record the demo against the final workflow. Do NOT mark PreStocks PASS or overall FINISHED; the human owner/director decides.
 
 

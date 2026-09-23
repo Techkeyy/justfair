@@ -315,7 +315,7 @@ Options for 'test':
   --target <url>                 Local adapter URL (e.g. http://localhost:3100)
   --open                         Open local interactive Replay Lab viewer (127.0.0.1)
   --scenario <id>                Run a specific scenario ID only
-  --out <file>                   Write result artifact to a JSON file
+  --out <file>                   Write result artifact to a JSON file (default: ./justfair-result.json)
   --json                         Emit result artifact to stdout as JSON
   --tessera-mint <symbol|mint>   Enable live Tessera Token-2022 transfer fee audit
 `);
@@ -351,6 +351,27 @@ Options for 'test':
     console.log(`Simulation: Mode=${result.simulation.mode} -> Status=${result.simulation.status}`);
   } else {
     console.error(`ERROR: ${result.reason}`);
+  }
+}
+
+/**
+ * Local result artifact filename. Every completed `test` run persists the
+ * exact in-memory report here (relative to the caller's working directory)
+ * unless `--out <file>` names a different path. Local file only — Replay
+ * Lab uploads stay in the browser; nothing is uploaded anywhere.
+ */
+export const DEFAULT_RESULT_FILENAME = "justfair-result.json";
+
+/**
+ * Persist the exact in-memory result artifact to disk (local only — no
+ * upload, no telemetry). Returns { ok, path, error }. Never throws.
+ */
+export function persistResultArtifact(artifact, filePath) {
+  try {
+    writeFileSync(filePath, JSON.stringify(artifact, null, 2) + "\n");
+    return { ok: true, path: filePath, error: null };
+  } catch (err) {
+    return { ok: false, path: filePath, error: err.message };
   }
 }
 
@@ -476,8 +497,19 @@ export async function runScenarioCommand(flagArgs, options = {}) {
 
   if (outFile) writeFileSync(outFile, JSON.stringify(artifact, null, 2) + "\n");
 
+  // Persist the exact report locally so it can be reopened later in Replay
+  // Lab without re-running. `--out <file>` names the path instead.
+  const cwd = options.cwd || process.cwd();
+  const artifactPath = outFile ? path.resolve(cwd, outFile) : path.join(cwd, DEFAULT_RESULT_FILENAME);
+  const saved = persistResultArtifact(artifact, artifactPath);
+
   if (asJson) {
     console.log(JSON.stringify(artifact, null, 2));
+    if (saved.ok) {
+      console.error(`[JustFair] Result saved to:\n${saved.path}`);
+    } else {
+      console.error(`[JustFair] WARNING: could not save result artifact to ${saved.path}: ${saved.error}`);
+    }
   } else {
     console.log("\nJUSTFAIR\n");
     for (const r of results) {
@@ -493,6 +525,11 @@ export async function runScenarioCommand(flagArgs, options = {}) {
     }
     for (const s of skipped) console.log(`SKIP  ${s.id}\n  Target lacks: ${s.requiresCapabilities.filter(c => !manifest.capabilities.includes(c)).join(", ")}\n`);
     console.log(`${passed} passed · ${failed} failed · ${unable} unable${skipped.length ? ` · ${skipped.length} skipped` : ""}\n`);
+    if (saved.ok) {
+      console.log(`[JustFair] Result saved to:\n${saved.path}\n`);
+    } else {
+      console.log(`[JustFair] WARNING: could not save result artifact to ${saved.path}: ${saved.error}\n`);
+    }
   }
 
   let viewerResult = null;
@@ -514,7 +551,7 @@ export async function runScenarioCommand(flagArgs, options = {}) {
   else if (unable > 0 || passed === 0) process.exitCode = 2;
   else process.exitCode = 0;
 
-  return { artifact, viewer: viewerResult };
+  return { artifact, viewer: viewerResult, artifactPath: saved.path, artifactSaved: saved.ok, artifactError: saved.error };
 }
 
 function describeObserved(result) {

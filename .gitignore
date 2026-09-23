@@ -14,3 +14,5 @@ coverage/
 docs/evidence/ui/videos/
 # Local one-off research/proof scripts (not product tooling, not test suites)
 scratch/
+# Local JustFair run artifacts (created by `justfair test` in the cwd)
+justfair-result.json

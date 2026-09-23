@@ -67,6 +67,11 @@ npx justfair@latest test --target http://localhost:3100 --open
 
 `--open` launches Replay Lab locally on `127.0.0.1` with zero cloud telemetry.
 
+Every completed run also saves the exact report to `./justfair-result.json`
+in the directory where you ran the command (replaced on each run, `--out`
+names a different path), so a previous result can be reopened later in
+Replay Lab without rerunning.
+
 ---
 
 ## Contributing to JustFair
@@ -86,7 +91,7 @@ node src/cli.js test --target http://127.0.0.1:3000 --open
 npm test
 ```
 
-Open `report.json` in Replay Lab (upload stays strictly in the browser with zero cloud telemetry) or explore interactive samples.
+Open `justfair-result.json` in Replay Lab (upload stays strictly in the browser with zero cloud telemetry) or explore interactive samples.
 
 ## Adapter contract (v1)
 

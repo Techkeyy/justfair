@@ -2765,6 +2765,25 @@ async function runBrowserTests() {
       }
     });
 
+    await test("61e. Test page teaches the coherent artifact workflow", async () => {
+      await page.click("#tab-test-btn");
+      await page.waitForSelector("#test-view:not(.hidden)", { timeout: 10000 });
+      const body = await page.textContent("#test-view");
+      if (!body.includes("root folder of the stock app you want to test")) {
+        throw new Error("Step 1 must tell the developer to open a terminal in their app root");
+      }
+      for (const n of ["justfair-result.json", "terminal", "--open"]) {
+        if (!body.includes(n)) throw new Error(`Step 4 must explain the artifact flow ("${n}")`);
+      }
+      if (!body.includes("rerun the exact same command")) throw new Error("Step 5 must teach rerunning the exact command");
+      await page.click("#tab-replay-btn");
+      await page.waitForSelector("#replay-view:not(.hidden)", { timeout: 10000 });
+      const empty = await page.textContent("#replay-empty-state");
+      if (!empty.includes("no upload needed")) throw new Error("Replay Lab must state --open needs no upload");
+      if (!empty.includes("justfair-result.json")) throw new Error("Replay Lab must name the CLI artifact file");
+      if (!empty.includes("stays local")) throw new Error("Replay Lab must state reports stay local");
+    });
+
     await test("61c. Step 2 code example reads without clipping or horizontal scroll", async () => {
       await page.click("#tab-test-btn");
       await page.waitForSelector("#step2-example-code:not(.hidden)", { timeout: 10000 });

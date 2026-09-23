@@ -669,12 +669,12 @@
                 <div class="onboarding-step-badge">STEP 1</div>
                 <h3 class="onboarding-step-title">Set up JustFair in your project</h3>
               </div>
-              <p class="onboarding-step-desc">Initialize configuration and a clean protocol adapter scaffold in your project without cloning JustFair. No repo clone required, no account required, no funds, and no private keys.</p>
+              <p class="onboarding-step-desc">Open a terminal in the root folder of the stock app you want to test, then initialize configuration and a clean protocol adapter scaffold in that project without cloning JustFair. No repo clone required, no account required, no funds, and no private keys.</p>
               <div class="code-snippet-box">
                 <code class="code-snippet-text" id="cmd-init">npx justfair@latest init</code>
                 <button type="button" class="btn btn-secondary btn-sm copy-snippet-btn" data-target="cmd-init">Copy</button>
               </div>
-              <p class="onboarding-step-note">Creates <code>justfair.config.js</code> and <code>justfair-adapter.mjs</code> in your current directory. Existing files are never overwritten.</p>
+              <p class="onboarding-step-note">Creates <code>justfair.config.js</code> and <code>justfair-adapter.mjs</code> inside that project folder. Existing files are never overwritten.</p>
             </div>
 
             <!-- Step 2 -->
@@ -741,7 +741,7 @@
                 <div class="onboarding-step-badge">STEP 4</div>
                 <h3 class="onboarding-step-title">Run the financial crash test</h3>
               </div>
-              <p class="onboarding-step-desc">Execute scenarios against your running adapter. Compatible scenarios run, incompatible scenarios skip honestly, invariants are evaluated with zero funds and zero signing, and Replay Lab launches locally at <code>127.0.0.1</code>.</p>
+              <p class="onboarding-step-desc">Execute scenarios against your running adapter. Compatible scenarios run, incompatible scenarios skip honestly, invariants are evaluated with zero funds and zero signing. JustFair prints the quick PASS / FAIL / UNABLE result in your terminal, saves the detailed report locally as <code>justfair-result.json</code>, and with <code>--open</code> automatically opens that same report in Replay Lab.</p>
               <div class="code-snippet-box">
                 <code class="code-snippet-text" id="test-cli-cmd">npx justfair@latest test --target http://localhost:3100 --open</code>
                 <button type="button" class="btn btn-secondary btn-sm copy-snippet-btn" id="test-copy-cmd-btn" data-target="test-cli-cmd">Copy</button>
@@ -755,7 +755,7 @@
                 <div class="onboarding-step-badge">STEP 5</div>
                 <h3 class="onboarding-step-title">Fix &rarr; Rerun &rarr; Pass</h3>
               </div>
-              <p class="onboarding-step-desc">When an invariant fails, see the exact breakdown: <strong>FAIL &rarr; WHAT HAPPENED &rarr; EXPECTED VS YOUR APP &rarr; ROOT CAUSE &rarr; FIX GUIDANCE &rarr; REPLAY</strong>. Fix your stock app, run the exact same command, and watch it turn green.</p>
+              <p class="onboarding-step-desc">When an invariant fails, see the exact breakdown: <strong>FAIL &rarr; WHAT HAPPENED &rarr; EXPECTED VS YOUR APP &rarr; ROOT CAUSE &rarr; FIX GUIDANCE &rarr; REPLAY</strong>. Fix your app and rerun the exact same command, then watch it turn green.</p>
               <div class="onboarding-action-row">
                 <button type="button" class="btn btn-secondary btn-sm" id="test-open-replay-btn">Open Replay Lab</button>
                 <span class="onboarding-step-note">Upload your <code>justfair-result.json</code> artifact manually or explore interactive sample failures.</span>
@@ -808,7 +808,7 @@
               </div>
               <h3 class="replay-empty-title">Have a JustFair result?</h3>
               <p class="replay-empty-desc">
-                Using <code>npx justfair@latest test --open</code>? Your result opens automatically and stays local. Or select an artifact or sample above.
+                Using <code>npx justfair@latest test --open</code>? Your latest result opens automatically — no upload needed. Want to reopen a previous run? Select the <code>justfair-result.json</code> created by the CLI, or explore a sample above. Everything stays local in this browser.
               </p>
             </div>
           </div>

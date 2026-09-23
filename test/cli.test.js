@@ -6,8 +6,10 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
 
-import { runScenarioCommand, runWhaleCommand } from "../src/cli.js";
+import { runScenarioCommand, runWhaleCommand, persistResultArtifact, DEFAULT_RESULT_FILENAME } from "../src/cli.js";
 import { startFixtureTarget, startLifecycleTarget, startFeeTarget, closeFixtureTarget } from "./fixtures/adapter-targets.js";
 
 const WHALE_CONFIG = "DLa32CJBWDp3YveqD3A8jexkUUzeTZPjEquf3Ur6BwEU";
@@ -29,7 +31,7 @@ async function runWhaleInProcess(args) {
     process.exitCode = savedCode;
   }
 }
-async function runCLIInProcess(args) {
+async function runCLIInProcess(args, opts = {}) {
   const lines = [];
   const origLog = console.log;
   const origErr = console.error;
@@ -38,8 +40,10 @@ async function runCLIInProcess(args) {
   const savedCode = process.exitCode;
   process.exitCode = undefined;
   try {
-    await runScenarioCommand(args);
-    return { code: process.exitCode ?? 0, stdout: lines.join("\n") };
+    // Keep test runs out of the repo checkout: artifacts land in the OS temp
+    // dir unless the caller passes an explicit cwd (mirrors "repeat replaces").
+    const r = await runScenarioCommand(args, { cwd: os.tmpdir(), ...opts });
+    return { code: process.exitCode ?? 0, stdout: lines.join("\n"), artifact: r?.artifact ?? null };
   } finally {
     console.log = origLog;
     console.error = origErr;
@@ -87,7 +91,9 @@ test("cli --scenario filters, --json emits the result artifact", async () => {
   try {
     const r = await runCLIInProcess(["test", "--target", h.baseUrl, "--scenario", "PRESTOCKS_EXPIRY_AFTER", "--json"]);
     assert.equal(r.code, 0);
-    const artifact = JSON.parse(r.stdout);
+    // --json prints the artifact to stdout; the saved-file line goes to
+    // stderr (kept separate so stdout stays pipeable JSON).
+    const artifact = JSON.parse(r.stdout.split("[JustFair]")[0]);
     assert.ok(typeof artifact.runId === "string" && artifact.runId.length > 0);
     assert.equal(artifact.summary.passed, 1);
     assert.equal(artifact.results.length, 1);
@@ -209,7 +215,7 @@ test("fresh scaffold advertises transfer_fee_accounting and runs Tessera without
     try {
       const r = await runScenarioCommand(
         ["test", "--target", baseUrl, "--tessera-mint", "T-OpenAI", "--tessera-amount", "1000", "--scenario", "TESSERA_TRANSFER_FEE_ACCOUNTING"],
-        { keepAlive: false }
+        { keepAlive: false, cwd: tempDir }
       );
       assert.ok(!r.artifact.summary.skipped.includes("TESSERA_TRANSFER_FEE_ACCOUNTING"), "fresh scaffold must not SKIP the Tessera scenario");
       assert.equal(r.artifact.results.length, 1);
@@ -274,7 +280,7 @@ test("fresh scaffold reports all three PreStocks variants UNABLE until wired", a
     process.exitCode = undefined;
     try {
       for (const id of ["PRESTOCKS_EXPIRY_BEFORE", "PRESTOCKS_EXPIRY_NEAR", "PRESTOCKS_EXPIRY_AFTER"]) {
-        const r = await runScenarioCommand(["test", "--target", baseUrl, "--scenario", id], { keepAlive: false });
+        const r = await runScenarioCommand(["test", "--target", baseUrl, "--scenario", id], { keepAlive: false, cwd: tempDir });
         assert.ok(!r.artifact.summary.skipped.includes(id), `fresh scaffold must not SKIP ${id}`);
         assert.equal(r.artifact.results.length, 1);
         assert.equal(r.artifact.results[0].status, "UNABLE_TO_VERIFY", `untouched scaffold must not decide ${id}`);
@@ -282,7 +288,7 @@ test("fresh scaffold reports all three PreStocks variants UNABLE until wired", a
         assert.equal(process.exitCode, 2);
         process.exitCode = undefined;
       }
-      const counts = await runScenarioCommand(["test", "--target", baseUrl, "--scenario", "PRESTOCKS_EXPIRY_AFTER"], { keepAlive: false });
+      const counts = await runScenarioCommand(["test", "--target", baseUrl, "--scenario", "PRESTOCKS_EXPIRY_AFTER"], { keepAlive: false, cwd: tempDir });
       assert.equal(counts.artifact.summary.passed, 0, "untouched scaffold must record 0 PASS");
     } finally {
       process.exitCode = savedCode;
@@ -425,14 +431,129 @@ test("cli test --open starts local report viewer and exits cleanly", async () =>
   const h = await startFixtureTarget({ behavior: "correct" });
   try {
     const { runScenarioCommand } = await import("../src/cli.js");
-    const r = await runScenarioCommand(["--target", h.baseUrl, "--open"], { keepAlive: false });
-    assert.ok(r.artifact);
-    assert.equal(r.artifact.summary.passed, 1);
-    assert.ok(r.viewer);
-    assert.ok(r.viewer.url.startsWith("http://127.0.0.1:"));
-    await r.viewer.close();
+    const { mkdtempSync, readFileSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const dir = mkdtempSync(path.join(tmpdir(), "jf-open-test-"));
+    try {
+      const r = await runScenarioCommand(["--target", h.baseUrl, "--open"], { keepAlive: false, cwd: dir });
+      assert.ok(r.artifact);
+      assert.equal(r.artifact.summary.passed, 1);
+      assert.ok(r.viewer);
+      assert.ok(r.viewer.url.startsWith("http://127.0.0.1:"));
+      // --open serves the same in-memory report that was persisted to disk.
+      const disk = JSON.parse(readFileSync(path.join(dir, DEFAULT_RESULT_FILENAME), "utf-8"));
+      assert.equal(disk.runId, r.artifact.runId, "--open must open the same report it saved");
+      await r.viewer.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   } finally {
     await closeFixtureTarget(h);
   }
+});
+
+test("completed FAIL run persists justfair-result.json with the exact report", async () => {
+  const h = await startFixtureTarget({ behavior: "naive" });
+  const { mkdtempSync, rmSync, readFileSync, existsSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(path.join(tmpdir(), "jf-artifact-fail-"));
+  try {
+    const r = await runCLIInProcess(["test", "--target", h.baseUrl], { cwd: dir });
+    assert.equal(r.code, 1);
+    const file = path.join(dir, DEFAULT_RESULT_FILENAME);
+    assert.ok(existsSync(file), "artifact file must exist");
+    const disk = JSON.parse(readFileSync(file, "utf-8"));
+    assert.equal(disk.runId, r.artifact.runId, "file must be the actual generated run");
+    assert.deepEqual(disk.summary, r.artifact.summary);
+    assert.equal(disk.results[0].status, "FAIL", "FAIL verdict must survive persistence");
+    assert.ok(r.stdout.includes("Result saved to:"), "CLI must print the artifact line");
+    assert.ok(r.stdout.includes(file), "CLI must print the exact path");
+  } finally {
+    await closeFixtureTarget(h);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("completed PASS run persists justfair-result.json with PASS preserved", async () => {
+  const h = await startFixtureTarget({ behavior: "correct" });
+  const { mkdtempSync, rmSync, readFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(path.join(tmpdir(), "jf-artifact-pass-"));
+  try {
+    const r = await runCLIInProcess(["test", "--target", h.baseUrl], { cwd: dir });
+    assert.equal(r.code, 0);
+    const disk = JSON.parse(readFileSync(path.join(dir, DEFAULT_RESULT_FILENAME), "utf-8"));
+    assert.equal(disk.results[0].status, "PASS");
+    assert.equal(disk.summary.passed, 1);
+  } finally {
+    await closeFixtureTarget(h);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("UNABLE result persists as UNABLE, never rewritten", async () => {
+  const http = await import("node:http");
+  const srv = http.createServer((req, res) => {
+    if (req.url.endsWith("/manifest")) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ adapterVersion: "1", name: "Flaky", capabilities: ["underlying_price_display"] }));
+    } else {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "boom" }));
+    }
+  });
+  await new Promise((resolve) => srv.listen(0, "127.0.0.1", resolve));
+  const { mkdtempSync, rmSync, readFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(path.join(tmpdir(), "jf-artifact-unable-"));
+  try {
+    const r = await runCLIInProcess(["test", "--target", `http://127.0.0.1:${srv.address().port}`], { cwd: dir });
+    assert.equal(r.code, 2);
+    const disk = JSON.parse(readFileSync(path.join(dir, DEFAULT_RESULT_FILENAME), "utf-8"));
+    assert.equal(disk.results[0].status, "UNABLE_TO_VERIFY");
+    assert.equal(disk.summary.unable, 1);
+  } finally {
+    await new Promise((resolve) => srv.close(resolve));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("repeat runs safely replace the latest artifact", async () => {
+  const h = await startFixtureTarget({ behavior: "correct" });
+  const { mkdtempSync, rmSync, readFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(path.join(tmpdir(), "jf-artifact-repeat-"));
+  try {
+    const first = await runCLIInProcess(["test", "--target", h.baseUrl], { cwd: dir });
+    const second = await runCLIInProcess(["test", "--target", h.baseUrl], { cwd: dir });
+    assert.notEqual(first.artifact.runId, second.artifact.runId);
+    const disk = JSON.parse(readFileSync(path.join(dir, DEFAULT_RESULT_FILENAME), "utf-8"));
+    assert.equal(disk.runId, second.artifact.runId, "file must hold the latest run");
+  } finally {
+    await closeFixtureTarget(h);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("artifact write failure is reported honestly without changing the verdict", async () => {
+  const h = await startFixtureTarget({ behavior: "naive" });
+  try {
+    const missingDir = path.join(os.tmpdir(), `jf-no-such-dir-${Date.now()}`);
+    const r = await runCLIInProcess(["test", "--target", h.baseUrl], { cwd: missingDir });
+    assert.equal(r.code, 1, "scenario FAIL verdict must stand despite write failure");
+    assert.ok(r.stdout.includes("WARNING") && r.stdout.includes("could not save"), "CLI must report the write failure");
+    assert.ok(!r.stdout.includes("Result saved to:"), "CLI must not falsely claim the artifact was saved");
+  } finally {
+    await closeFixtureTarget(h);
+  }
+});
+
+test("artifact persistence performs no network upload", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../src/cli.js", import.meta.url), "utf-8");
+  const start = src.indexOf("export function persistResultArtifact");
+  assert.ok(start !== -1);
+  const body = src.slice(start, src.indexOf("\n}\n", start) + 3);
+  assert.ok(!/fetch\(|http\.request|XMLHttpRequest|upload/i.test(body), "persistence path must not touch the network");
 });
 
