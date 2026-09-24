@@ -59,14 +59,5 @@
   },
   "devDependencies": {
     "playwright": "^1.63.0"
-  },
-  "directories": {
-    "doc": "docs",
-    "example": "examples",
-    "test": "test"
-  },
-  "bugs": {
-    "url": "https://github.com/Techkeyy/justfair/issues"
-  },
-  "homepage": "https://github.com/Techkeyy/justfair#readme"
+  }
 }
