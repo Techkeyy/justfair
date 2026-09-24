@@ -71,8 +71,16 @@ Node.js 20+ CLI distributed via npm (`justfair`, bin `justfair`); vanilla JS/CSS
 
 - GITHUB: https://github.com/Techkeyy/justfair
 - LIVE PRODUCT: https://justfair-theta.vercel.app
-- NPM: justfair@1.0.5 — https://www.npmjs.com/package/justfair
+- NPM: public latest `justfair@1.0.5` at this audit point; repository release candidate `1.0.6` pending owner publication — https://www.npmjs.com/package/justfair
 - DEMO VIDEO: (placeholder — no video URL exists yet; at least one of GitHub / live demo / video satisfies the known form requirement)
+
+## RELEASE STATE AT THIS AUDIT
+
+The repository is version `1.0.6` and contains the Tessera epoch-RPC
+fail-closed fix. Public `justfair@latest` still resolves to `1.0.5` until the
+owner publishes the release candidate. The public 1.0.5 owner records below
+remain historical evidence and are not upgraded into post-fix public proof by
+this repository reconciliation.
 
 ## MISSING PLATFORM FIELD
 
@@ -84,7 +92,7 @@ The recorded Stocklana form requirements (`docs/HACKATHON.md`) document only: pr
 
 | # | Material claim (as worded above or implied) | Label | Evidence |
 |---|---|---|---|
-| 1 | Public npm workflow exists (`init`/`test`, no clone) | PROVEN | Registry justfair@1.0.5; owner-executed fresh installs; committed CLI tests |
+| 1 | Public npm workflow exists (`init`/`test`, no clone) | PROVEN | Registry `justfair@1.0.5` at this audit point; repository `1.0.6` patch pending owner publication; owner-executed fresh installs; committed CLI tests |
 | 2 | External app FAIL → app-only fix → same-command PASS | PROVEN | Public owner causal loops for T-OpenAI and T-Kalshi; separate PreStocks fixture-bounded loop; observed Replays |
 | 3 | Tessera uses live Token-2022 transfer-fee state | PROVEN for T-OpenAI + T-Kalshi | Per-run on-chain reads (decimals/bps/maxFee/epoch verified); math cross-checked vs official `spl-token calculateFee`; not a claim about every Tessera asset |
 | 4 | DBC uses live market/config evidence | PROVEN for tested compatible classes | Live mainnet config reads + SDK quote math; three additional real configs at 8% produced materially different results and truthful capacity findings; not every historical DBC variant |

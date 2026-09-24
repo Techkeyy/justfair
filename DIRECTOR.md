@@ -66,7 +66,8 @@ UNABLE_TO_VERIFY → justfair-result.json → Replay Lab → expected vs actual
 node src/cli.js test --target http://localhost:3000 --out justfair-result.json
 ```
 
-(Contributor path runs from the repo root. Public developer path uses the published package `justfair@1.0.0` via `npx justfair@latest ...`; see §25.)
+(Contributor path runs from the repo root. Public developer path uses the
+published package via `npx justfair@latest ...`; see §25.)
 
 ## 8. CURRENT ARCHITECTURE
 
@@ -294,7 +295,7 @@ Verified counts from the final pre-owner-UAT audit (2026-09-24). Older release c
 - Product-preflight suite: 52 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Streaming suite: 6 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Total: 290 PASSED · 0 FAILED · 1 SKIPPED across 291 discovered cases.
-- Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
+- Historical public NPM registry proof (the disposable script was removed during repository slimming):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
   3. `justfair --help` and `justfair init` verified in clean isolated directory.
@@ -590,12 +591,12 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-TESSERA OWNER UAT = PASS (PUBLIC ONBOARDING PASS, CORE-OUTCOME LEVEL 4); NPM 1.0.5 PUBLIC; T-KALSHI PUBLIC LOOP = PASS (L4); DBC MULTI-CONFIG OWNER EVIDENCE = PASS FOR TESTED COMPATIBLE CLASSES; PRESTOCKS REMAINS A FUTURE-EVENT FIXTURE; FINAL OWNER UAT WORKSPACE READY, OWNER RUN PENDING (NOT FINISHED).
+REPOSITORY RELEASE CANDIDATE = 1.0.6 (Tessera epoch-RPC fail-closed fix plus approved documentation/evidence slimming); NPM 1.0.5 PUBLIC AND PRE-PATCH; T-KALSHI PUBLIC LOOP = PASS (L4 historical evidence); DBC MULTI-CONFIG OWNER EVIDENCE = PASS FOR TESTED COMPATIBLE CLASSES; PRESTOCKS REMAINS A FUTURE-EVENT FIXTURE; FINAL OWNER UAT WORKSPACE READY, OWNER RUN PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Owner: perform the blind final public workflow from `C:\Users\HomePC\Desktop\JustFair-Final-UAT` after starting its sample app with `node stock-app.mjs`. Follow the product's own `npx justfair@latest` directions, record where the fresh-user flow is clear or blocked, and decide separately whether to record the demo. Do not modify JustFair, publish again, deploy manually, or claim the PreStocks March 2027 event as live.
+Owner: publish repository release candidate 1.0.6, verify `npm view justfair@latest version` returns 1.0.6, then perform the blind final public workflow from `C:\Users\HomePC\Desktop\JustFair-Final-UAT` after starting its sample app with `node stock-app.mjs`. Follow the product's own `npx justfair@latest` directions, record where the fresh-user flow is clear or blocked, and decide separately whether to record the demo. Do not modify JustFair, deploy manually, or claim the PreStocks March 2027 event as live.
 
 ## 36. FINAL PRE-OWNER-UAT AUDIT (2026-09-24)
 
@@ -647,3 +648,17 @@ mint reads to mainnet and forces the epoch read to fail; the focused suite is
 small standalone sample app, starts with `node stock-app.mjs`, is reset to its
 initial incorrect state, contains no expected answers or result artifacts, and
 has not been run by the builder as the final owner test.
+
+## 37. FINAL RELEASE RECONCILIATION AND SLIMMING (2026-09-24)
+
+- The repository contains the fail-closed Tessera epoch-RPC fix in `1.0.6`.
+  The public `justfair@1.0.5` tarball predates that fix and remains the current
+  registry `latest` until owner publication. No npm publish or owner UAT was
+  performed in this audit.
+- Approved slimming removed obsolete generated UI screenshots and videos,
+  seven one-off scratch scripts, and the unused product-registry revalidation
+  script whose output was a historical scratch artifact. Current runtime,
+  tests, package files, retained docs, and proof surfaces remain.
+- The final post-change regression, pack-only artifact audit, dependency audit,
+  and remote-tree checks are the release gate. Blind owner UAT remains blocked
+  until the owner publishes `1.0.6` and re-verifies the public package.

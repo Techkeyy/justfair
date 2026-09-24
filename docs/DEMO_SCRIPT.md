@@ -74,4 +74,6 @@ Homepage + npm visible. Say:
 "Public npm, local-first Replay, zero custody. Break your stock app before
 the market does."
 
-End card: GitHub URL, live product URL, npm `justfair@1.0.5`.
+End card: GitHub URL, live product URL, and the npm package URL. Before
+recording, verify `npm view justfair@latest version` returns `1.0.6`; do not
+record this script against the pre-patch public `1.0.5` package.

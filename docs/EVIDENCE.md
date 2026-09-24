@@ -86,14 +86,7 @@ This document contains live, unedited verification evidence from Solana Mainnet,
 ## 5. Real Browser Proof: Playwright Visual Test Suite (Order 006)
 * **Test Runner:** Playwright Chromium Headless (`test/browser.test.js`)
 * **Test Results:** 6/6 PASS (0 Failures)
-* **Visual Artifacts Captured (`docs/evidence/ui/`):**
-  1. `01_initial_page.png` — Hero banner, default AAPLx/USDC inputs, zero-jargon headline, non-custodial safety assurance.
-  2. `02_aaplx_usdc_result.png` — Big 3 plain-money metric tiles ($ Spend, Expected Shares, Cost per Share), MEASURED status banner.
-  3. `03_market_closed_measured_result.png` — Truthful market session indicator (CLOSED/WEEKEND) and benchmark freshness.
-  4. `04_expanded_trade_details.png` — Technical disclosure accordion showing Token-2022 multiplier, Jupiter V2 order latency, and DEX steps.
-  5. `05_exact_simulation_result.png` — Exact simulation mode badge with Solana RPC simulation confirmation (`err: null`, 77,731 CUs).
-  6. `06_failure_state.png` — Human-actionable error card for invalid amount input.
-  7. `07_mobile_viewport.png` — Clean 375x812 iPhone viewport with zero horizontal overflow.
+* **Visual artifacts:** Playwright assertions and live route checks are the retained proof. Generated screenshot captures from this historical pass are not retained in the repository.
 
 ---
 
@@ -105,14 +98,7 @@ This document contains live, unedited verification evidence from Solana Mainnet,
   * Verified zero long dashes and accessible text floor (>=14px for product text) via `audit_ui_text.py`.
 * **Playwright Automated Browser Proof (`test/browser.test.js`):**
   * **Test Summary:** 7/7 PASS (0 Failures)
-  * **Visual Artifacts Captured (`docs/evidence/ui/`):**
-    1. `01_dashboard_desktop.png` — Dashboard landing with hero headline, value cards, step-by-step sequence, and API banner.
-    2. `02_app_desktop.png` — Clean application workspace with stock selectors, payment tabs, and non-custodial safety banner.
-    3. `03_app_result.png` — Live trade result rendering locked 3-metric hierarchy (`YOU'RE SPENDING`, `EXPECTED [STOCK] EXPOSURE`, `DIFFERENCE`).
-    4. `04_app_unable_to_verify.png` — Verdict state banner showing `CAN'T VERIFY RIGHT NOW` / `MEASURED` with semantic SVG icons.
-    5. `05_app_simulation.png` — Exact simulation mode badge with Solana RPC simulation confirmation (`err: null`).
-    6. `06_dashboard_mobile.png` — Dashboard landing on 375x812 mobile viewport with zero horizontal overflow.
-    7. `07_app_mobile.png` — Application workspace on 375x812 mobile viewport with zero horizontal overflow.
+  * **Visual artifacts:** The retained proof is the Playwright suite and production smoke checks. Generated screenshot captures from this historical pass are not retained in the repository.
 * **Live Production Deployment:**
   * **Live Production URL:** `https://justfair-theta.vercel.app`
   * **Deployment Id:** `dpl_2GB5muwLGKFBzyex4uyWMzwMUfr6`
@@ -351,3 +337,18 @@ must not be described as observed live.
 The final audit run discovered 291 cases: 290 passed, 1 intentional Pyth live
 probe was skipped without an entitled API key, and 0 failed. This aggregate is
 not a claim that all live providers are permanently available.
+
+## 13. Final Release Reconciliation (2026-09-24)
+
+- The repository release candidate is `1.0.6` and contains the Tessera
+  epoch-RPC fail-closed fix: an epoch read failure now produces coded
+  `TESSERA_FETCH_FAILED` evidence and maps to `UNABLE`, rather than selecting a
+  fee schedule from unresolved evidence.
+- The public `justfair@1.0.5` package was inspected and does not contain that
+  fix. Public 1.0.5 owner evidence above remains valid historical workflow
+  evidence for the successful runs it records, but it is not post-fix public
+  release proof.
+- The approved repository slimming removed obsolete generated screenshots and
+  videos, one-off scratch/revalidation scripts, and their dangling artifact
+  references. The owner must publish 1.0.6 and verify `npm view
+  justfair@latest version` before blind UAT.

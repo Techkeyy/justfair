@@ -23,6 +23,8 @@ coaching.
 
 ## Commands (exact, rehearsed once off-camera)
 
+- [ ] `npm view justfair@latest version` returns `1.0.6`; owner publication is
+      complete before recording begins.
 - [ ] `npx justfair@latest test --target http://localhost:3100 --tessera-mint T-OpenAI --tessera-amount 1000 --scenario TESSERA_TRANSFER_FEE_ACCOUNTING --open`
 - [ ] One-line app fix + app-only restart rehearsed (know the exact line).
 - [ ] Same command rerun → PASS observed in rehearsal.

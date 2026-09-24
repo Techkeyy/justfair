@@ -42,7 +42,7 @@
     * `#app-view`: Pre-Trade Safety Inspector workspace with tokenized stock selector chips, payment tabs, non-custodial safety banner (`PREVIEW ONLY · NO FUNDS MOVED`), wallet/simulation drawer, locked 3-metric result card (`YOU'RE SPENDING`, `EXPECTED [STOCK] EXPOSURE`, `DIFFERENCE`), and expandable route evidence accordion.
   * Eliminate all raw emojis across HTML and dynamic JS scripts, substituting semantic inline SVG icons.
   * Enforce zero long dashes and accessible text floor (>=14px for product text) verified via `audit_ui_text.py`.
-  * Expand Playwright automated browser suite to 7 assertions capturing visual evidence in `docs/evidence/ui/`.
+  * Expand Playwright automated browser suite to 7 assertions; generated visual captures are ephemeral and are not retained as repository proof.
   * Redeploy and verify live on Vercel production edge (`https://justfair-theta.vercel.app`).
 
 ## Decision 008: Multi-Issuer Product Preflight (FinePrint) & Underlying Architecture Lock
@@ -97,7 +97,7 @@
   * **Metadata Reason Codes Added:**
     * `METADATA_UNAVAILABLE`, `METADATA_DECODE_FAILURE`, `METADATA_POINTER_UNAVAILABLE`.
   * **Issuer-Specific Name Identity Validation:** `validateMetadataNameIdentity` ensures on-chain names match expected underlying security aliases without rejecting legitimate issuer-specific branding (e.g. `"Apple xStock"` for `AAPLx` or `"Apple (Ondo Tokenized)"` for `AAPLon`).
-  * **Reproducible Revalidation Pipeline:** Created [`scripts/revalidate-product-registry.js`](file:///c:/Users/HomePC/desktop/JustFair/scripts/revalidate-product-registry.js) generating deterministic evidence at [`scratch/product_registry_revalidation.json`](file:///c:/Users/HomePC/desktop/JustFair/scratch/product_registry_revalidation.json) with 24/24 observable matches and 0 mismatches.
+  * **Reproducible Revalidation Pipeline:** Historical revalidation produced deterministic evidence with 24/24 observable matches and 0 mismatches. The one-off script and generated scratch output were removed during the approved repository slimming pass.
 
 ## Decision 013: Expectation Matcher Engine & Product Preflight Consumer API (Phase 13 / Order 012)
 * **Context:** Director Order 012 establishes Phase 13, creating the deterministic Expectation Matcher engine and the `POST /api/v1/product-preflight` consumer API endpoint. Product Preflight evaluates user requirement profiles against verified product facts without subjective scores, rankings, or AI hallucinations.
@@ -127,7 +127,6 @@
     4. *Step 4 — Check the Trade:* User explicitly selects a representation (`AAPLx`) to hand off an immutable object to Layer 2 Execution Preflight ($500 USDC / SOL trade inspector). For unintegrated representations (`AAPLon`), an informational boundary button explicitly notes that Ondo GM trading pool integration is in progress without auto-switching.
   * **Strict State Isolation:** Changing company resets product results and handoffs; toggling expectations updates guidance dynamically without leaking state.
   * **Equal Prominence & Neutral Presentation:** Representations are presented side-by-side without subjective rankings or arbitrary scores.
-  * **Automated Verification Battery:** 92/92 tests passing across unit, integration, streaming, and Playwright browser suites (11/11 browser test flows with screenshots captured in `docs/evidence/ui/`).
+  * **Automated Verification Battery:** 92/92 tests passing across unit, integration, streaming, and Playwright browser suites (11/11 browser test flows; generated screenshots and videos are not retained).
   * **Production Deployment:** Live on Vercel at `https://justfair-theta.vercel.app`.
-
 
