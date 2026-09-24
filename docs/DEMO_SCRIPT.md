@@ -38,8 +38,11 @@ Terminal A: stock app running (wrong state). Terminal B: adapter running.
 3. Replay Lab opens — scroll WHAT HAPPENED → EXPECTED vs YOUR APP → root
    cause → fix guidance. Say: "JustFair reads the live Token-2022 fee
    config itself and calculates 998. The app said 1000."
-4. Edit exactly one line in the app (fee flag false → true). Restart ONLY
-   the app. Say: "Only the app changes. Same adapter, same command."
+4. Point to the stock app's fee flag and edit exactly one line (false → true).
+   Restart ONLY the app. Say: "A developer fixes only the stock app. Same
+   adapter, same command." Do not narrate that the owner discovered this line
+   unaided; the final owner correction was guided, while the diagnosis was
+   independent.
 5. Rerun the exact same command. Hold on PASS (1 passed · 0 failed).
 
 ## 1:25–1:55 — DBC LAUNCH STRESS breadth
@@ -76,4 +79,4 @@ the market does."
 
 End card: GitHub URL, live product URL, and the npm package URL. Before
 recording, verify `npm view justfair@latest version` returns `1.0.7`; do not
-record this script against the pre-patch public `1.0.6` package.
+record this script against the historical pre-patch public `1.0.6` package.

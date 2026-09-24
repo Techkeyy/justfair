@@ -591,17 +591,18 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-REPOSITORY RELEASE CANDIDATE = 1.0.7 (Tessera epoch-RPC fail-closed fix plus config-driven onboarding and no-applicable-tests guard); NPM 1.0.6 PUBLIC AND PRE-PATCH; T-KALSHI PUBLIC LOOP = PASS (L4 historical evidence); DBC MULTI-CONFIG OWNER EVIDENCE = PASS FOR TESTED COMPATIBLE CLASSES; PRESTOCKS REMAINS A FUTURE-EVENT FIXTURE; FINAL OWNER UAT WORKSPACE READY, OWNER RUN PENDING (NOT FINISHED).
-Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
+REPOSITORY RELEASE = 1.0.7 (Tessera epoch-RPC fail-closed fix plus config-driven onboarding and no-applicable-tests guard); NPM `justfair@latest` = 1.0.7 PUBLIC; T-KALSHI PUBLIC LOOP = PASS (L4 evidence); DBC MULTI-CONFIG OWNER EVIDENCE = PASS FOR TESTED COMPATIBLE CLASSES; PRESTOCKS REMAINS A FUTURE-EVENT FIXTURE; FINAL PUBLIC OWNER UAT CAUSAL LOOP = PASS (L4, blind onboarding/diagnosis with guided app correction); FINAL RECORDING PENDING; SUBMISSION NOT COMPLETE.
+Do not report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY. Final recording and its audit remain separate gates.
 
 ## 35. EXACT NEXT ACTION
 
-Owner: publish repository release candidate 1.0.7, verify `npm view justfair@latest version` returns 1.0.7, then perform the blind final public workflow from `C:\Users\HomePC\Desktop\JustFair-Final-UAT` after starting its sample app with `node stock-app.mjs`. Follow the product's own `npx justfair@latest` directions, record where the fresh-user flow is clear or blocked, and decide separately whether to record the demo. Do not modify JustFair, deploy manually, or claim the PreStocks March 2027 event as live.
+Next action: decide and, if approved separately, record the final demo from a clean external workspace. The public 1.0.7 owner UAT is complete: onboarding and diagnosis were blind, while the stock-app correction was guided because the owner is not a developer. Do not rerun owner UAT, modify JustFair, deploy manually, publish again, submit the hackathon, or claim the PreStocks March 2027 event as live.
 
 ## 36. FINAL PRE-OWNER-UAT AUDIT (2026-09-24)
 
-This is the current audit record. It does not mark the project FINISHED,
-SUBMISSION READY, or READY TO SUBMIT.
+This was the pre-owner audit record at the time. Section 39 is the current
+post-UAT release record. It does not mark the project FINISHED, SUBMISSION
+READY, or READY TO SUBMIT.
 
 ### Evidence refresh
 
@@ -647,23 +648,23 @@ mint reads to mainnet and forces the epoch read to fail; the focused suite is
 `C:\Users\HomePC\Desktop\JustFair-Final-UAT` is outside the repository, uses a
 small standalone sample app, starts with `node stock-app.mjs`, is reset to its
 initial incorrect state, contains no expected answers or result artifacts, and
-has not been run by the builder as the final owner test.
+had not been run by the builder as the final owner test at this checkpoint.
 
 ## 37. FINAL RELEASE RECONCILIATION AND SLIMMING (2026-09-24)
 
-- The repository contains the fail-closed Tessera epoch-RPC fix in `1.0.6`.
-  The public `justfair@1.0.5` tarball predates that fix and remains the current
-  registry `latest` until owner publication. No npm publish or owner UAT was
-  performed in this audit.
+- At this historical checkpoint, the repository contained the fail-closed
+  Tessera epoch-RPC fix in `1.0.6`, while the public `justfair@1.0.5` tarball
+  predates that fix and remained the registry `latest`. No npm publish or
+  owner UAT was performed in that audit.
 - Approved slimming removed obsolete generated UI screenshots and videos,
   seven one-off scratch scripts, and the unused product-registry revalidation
   script whose output was a historical scratch artifact. Current runtime,
   tests, package files, retained docs, and proof surfaces remain.
 - The final post-change regression, pack-only artifact audit, dependency audit,
-  and remote-tree checks are the release gate. Blind owner UAT remains blocked
-  until the owner publishes `1.0.6` and re-verifies the public package.
+  and remote-tree checks were the release gate at that time. The later public
+  `1.0.7` owner UAT and its qualification are recorded in §39.
 
-## 38. CURRENT 1.0.7 ONBOARDING RELEASE GATE (2026-09-24)
+## 38. PRE-OWNER 1.0.7 ONBOARDING RELEASE GATE (2026-09-24)
 
 - Root cause: `justfair.config.js` was scaffolded with target/scenario fields,
   but `test` ignored that config. Tessera was only selected by explicit flags,
@@ -680,11 +681,89 @@ has not been run by the builder as the final owner test.
   UNABLE precedence, generated-scaffold onboarding, and empty-artifact Replay.
 - Fresh canonical verification discovered 294 cases: 293 passed, 1 intentional
   Pyth live-probe skip, and 0 failed.
-- Repository candidate is `1.0.7`; registry `justfair@latest` was verified as
-  `1.0.6` before this candidate was prepared. The owner must publish 1.0.7 and
-  then perform the final blind UAT; no owner UAT is claimed here.
+- At this pre-owner checkpoint, the repository candidate was `1.0.7`; registry
+  `justfair@latest` was verified as `1.0.6`. The owner had not yet published
+  1.0.7 or performed the final UAT, so no owner UAT was claimed in this section.
 - External workspace `C:\Users\HomePC\Desktop\JustFair-Final-UAT` remains
   outside the repository. Its stock app was separately verified reachable with
   the initial incorrect observation, its adapter reads the app endpoint, and
   its config now selects the T-OpenAI flow without expected-answer spoilers or
-  committed artifacts. The builder did not run the final owner UAT.
+  committed artifacts. This pre-owner status is superseded by the final public
+  owner evidence in §39.
+
+## 39. FINAL PUBLIC 1.0.7 OWNER UAT (2026-09-24)
+
+This is the current release and owner-evidence record. It does not mark the
+project FINISHED, SUBMISSION READY, or READY TO SUBMIT.
+
+### Release state
+
+- `npm view justfair version` returned `1.0.7`.
+- `npm view justfair dist-tags --json` returned `{ "latest": "1.0.7" }`.
+- The audited public release is `justfair@1.0.7`; the repository source for it
+  is already committed and pushed.
+- Final recording remains pending, and submission is not complete.
+
+### Final owner causal loop
+
+- External workspace: `C:\Users\HomePC\Desktop\JustFair-Final-UAT`, outside the
+  repository. The owner started it with `node stock-app.mjs`.
+- The initial app state was `APPLY_TRANSFER_FEE = false`, reporting
+  `netRecipientUnits = 1000`.
+- The owner used the public `npx justfair@latest` workflow, which resolved to
+  `1.0.7`, and independently reached configured
+  `TESSERA_TRANSFER_FEE_ACCOUNTING` against live Tessera / Token-2022 evidence.
+- First run: expected `998`, observed `1000`, result `FAIL`, with
+  `TRANSFER_FEE_IGNORED`. JustFair explained that a fee-bearing Token-2022
+  transfer had been treated as fee-free and instructed the app to apply the
+  active `TransferFeeConfig`. Replay launched locally and the artifact was
+  automatically saved in the external workspace.
+- Blind onboarding/discovery = PASS. The owner independently reached the
+  applicable financial scenario through the public workflow.
+- Blind financial diagnosis = PASS. JustFair independently identified expected
+  `998`, observed `1000`, and explained the Token-2022 fee cause. The owner
+  also reported that the instructions were understandable despite not being a
+  developer.
+- App-side correction = GUIDED. The director explicitly pointed out the one
+  stock-app change, `APPLY_TRANSFER_FEE = false` → `true`. The full UAT is not
+  described as blind; changing a developer's own application remains normal
+  developer work.
+- Second run: only the stock application changed. JustFair, the adapter,
+  config, mint, scenario, expected value, and verdict logic did not change.
+  The same public workflow returned `1 passed · 0 failed · 0 unable`, with
+  `reportedNetRecipientAmount: 998`, expected fee-adjusted net `998`, and
+  evidence `TESSERA_TOKEN2022_TRANSFER_FEE` plus `live_tessera_token2022`.
+  Replay confirmed scenario issued, manifest accepted, observations collected,
+  invariant compared, invariant satisfied, and PASS.
+- Core Outcome status = PASS, evidence level L4 for the public final-release
+  causal loop. The qualification is blind onboarding/diagnosis plus guided
+  app correction, not a claim of fully blind end-to-end code editing.
+
+### Low-severity finding
+
+Node printed `[MODULE_TYPELESS_PACKAGE_JSON]` because the external project did
+not declare module type while `justfair.config.js` uses ES module syntax. This
+is LOW / POLISH / NON-BLOCKING: it did not affect config loading, scenario
+selection, live evidence, verdict, artifact creation, Replay, or completion
+of the FAIL → app-fix → PASS loop. No `1.0.8` is created for this finding.
+
+### Refreshed claim ledger
+
+| Claim | Mechanism | Authoritative boundary | Required proof | Current proof | Status |
+|---|---|---|---|---|---|
+| Public audited release exists | Published package and public CLI | npm registry | `justfair@latest = 1.0.7` | `npm view` version and dist-tags both resolve to 1.0.7 | PROVEN |
+| Core Tessera causal loop works | Public invariant engine over observations | Live Token-2022 `TransferFeeConfig` plus JustFair engine | 1000 → FAIL → app-only correction → 998 → PASS | Final public 1.0.7 owner run with Tessera and Replay evidence | PROVEN / L4 |
+| Fresh-user onboarding reaches diagnosis | Config-driven `init` / `test` workflow | Public 1.0.7 package and external target | Owner reaches an applicable financial run without a manual scenario workaround | Owner independently reached configured Tessera FAIL | PROVEN for onboarding/diagnosis; app edit GUIDED |
+| All-skipped safety is explicit | CLI summary, artifact, and Replay `NO_APPLICABLE_TESTS` boundary | JustFair CLI / artifact / Replay | Nothing tested must not resemble successful verification | 1.0.7 regression and packed-package proof | PROVEN |
+| Tessera multi-asset coverage | Live fee-accounting scenario | Tested T-OpenAI and T-Kalshi assets | Separate public causal loops, without generalizing all assets | Existing T-OpenAI plus T-Kalshi owner evidence | PROVEN for tested assets |
+| Meteora DBC breadth | Live config reads, quote math, bounded sweep | Tested compatible DBC classes | Multiple real configs with materially different outcomes and honest capacity | Existing multi-config owner evidence | PROVEN for tested compatible classes |
+| PreStocks lifecycle boundary | AFTER invariant over published terms | `authoritative_event_fixture`, not a live lifecycle API | Fixture-bounded crash test with explicit future-event limitation | Published future expiry terms; March 2027 event not observed | PROVEN as fixture-bounded; live event NOT CLAIMED |
+
+### Historical release failure preserved
+
+The prior `1.0.6` fresh-user gate remains historical evidence: its generic
+command selected no applicable financial scenario, produced all SKIPs, and
+gave insufficient onboarding guidance. The 1.0.7 changes to project-config
+loading, configured scenario selection, Tessera config handling,
+`NO_APPLICABLE_TESTS`, and project-root instructions remain the documented
+response to that real owner-UAT failure.

@@ -71,16 +71,18 @@ Node.js 20+ CLI distributed via npm (`justfair`, bin `justfair`); vanilla JS/CSS
 
 - GITHUB: https://github.com/Techkeyy/justfair
 - LIVE PRODUCT: https://justfair-theta.vercel.app
-- NPM: public latest `justfair@1.0.6` at this audit point; repository release candidate `1.0.7` pending owner publication — https://www.npmjs.com/package/justfair
+- NPM: audited public latest `justfair@1.0.7` — https://www.npmjs.com/package/justfair
 - DEMO VIDEO: (placeholder — no video URL exists yet; at least one of GitHub / live demo / video satisfies the known form requirement)
 
 ## RELEASE STATE AT THIS AUDIT
 
-The repository is version `1.0.7` and contains the Tessera epoch-RPC fail-closed
-fix plus the config-driven onboarding and no-applicable-tests guard. Public
-`justfair@latest` resolves to `1.0.6` at this audit point; the 1.0.5 and 1.0.6
-owner records below remain historical evidence and are not upgraded into
-post-fix public proof by this repository reconciliation.
+The repository and audited public package are version `1.0.7` and contain the
+Tessera epoch-RPC fail-closed fix plus the config-driven onboarding and
+no-applicable-tests guard. Public `justfair@latest` resolves to `1.0.7`.
+The 1.0.5 and 1.0.6 owner records below remain historical evidence. The final
+public owner causal loop is PASS at L4: onboarding and financial diagnosis
+were blind, the stock-app correction was guided, and the same public workflow
+then verified PASS. Final recording and submission remain pending.
 
 ## MISSING PLATFORM FIELD
 
@@ -92,7 +94,7 @@ The recorded Stocklana form requirements (`docs/HACKATHON.md`) document only: pr
 
 | # | Material claim (as worded above or implied) | Label | Evidence |
 |---|---|---|---|
-| 1 | Public npm workflow exists (`init`/`test`, no clone) | PROVEN | Registry `justfair@1.0.6` at this audit point; repository `1.0.7` pending owner publication; owner-executed fresh installs; committed CLI tests |
+| 1 | Public npm workflow exists (`init`/`test`, no clone) | PROVEN | Registry `justfair@latest = 1.0.7`; owner-executed fresh install and final UAT; committed CLI tests |
 | 2 | External app FAIL → app-only fix → same-command PASS | PROVEN | Public owner causal loops for T-OpenAI and T-Kalshi; separate PreStocks fixture-bounded loop; observed Replays |
 | 3 | Tessera uses live Token-2022 transfer-fee state | PROVEN for T-OpenAI + T-Kalshi | Per-run on-chain reads (decimals/bps/maxFee/epoch verified); math cross-checked vs official `spl-token calculateFee`; not a claim about every Tessera asset |
 | 4 | DBC uses live market/config evidence | PROVEN for tested compatible classes | Live mainnet config reads + SDK quote math; three additional real configs at 8% produced materially different results and truthful capacity findings; not every historical DBC variant |
@@ -105,4 +107,4 @@ The recorded Stocklana form requirements (`docs/HACKATHON.md`) document only: pr
 | 11 | JustFair executes/signs/broadcasts trades or handles funds | LIMITATION | It does not; must never be claimed |
 | 12 | AGENT SAFETY scenario breadth | PLANNED | Coverage card states scenarios land as adapters mature; not a current capability |
 | 13 | Market-data stale-reference path | SUPPORTED | Works end-to-end; evidence is explicitly labeled simulated (not live equity data) |
-| 14 | Current automated verification run | SUPPORTED | 291 discovered cases: 290 passed, 1 intentional Pyth skip, 0 failed; live suites depend on real networks |
+| 14 | Current automated verification run | SUPPORTED | 294 discovered cases: 293 passed, 1 intentional Pyth skip, 0 failed; live suites depend on real networks |

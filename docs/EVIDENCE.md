@@ -272,10 +272,11 @@ All 24 token representations verified directly against Solana Mainnet Beta via R
 
 ---
 
-## 12. Current Public 1.0.5 Owner Evidence (2026-09-24)
+## 12. Historical Public 1.0.5 Owner Evidence (2026-09-24)
 
-This section is the current release record. Older release entries above are
-retained as dated historical evidence and are not current release claims.
+This section records the public 1.0.5 release at the time. Older release
+entries above and this section are retained as dated historical evidence; §15
+is the current public 1.0.7 release record.
 
 ### 12.1 Public workflow and local Replay
 
@@ -338,7 +339,7 @@ The final audit run discovered 291 cases: 290 passed, 1 intentional Pyth live
 probe was skipped without an entitled API key, and 0 failed. This aggregate is
 not a claim that all live providers are permanently available.
 
-## 13. Final Release Reconciliation (2026-09-24)
+## 13. Historical Final Release Reconciliation (2026-09-24)
 
 - The repository release candidate is `1.0.6` and contains the Tessera
   epoch-RPC fail-closed fix: an epoch read failure now produces coded
@@ -353,10 +354,10 @@ not a claim that all live providers are permanently available.
   references. The owner must publish 1.0.6 and verify `npm view
   justfair@latest version` before blind UAT.
 
-## 14. Current 1.0.7 Onboarding Correction (2026-09-24)
+## 14. Pre-owner 1.0.7 Onboarding Correction (2026-09-24)
 
 - Registry verification before this candidate: `npm view justfair@latest version`
-  returned `1.0.6`.
+  returned `1.0.6`; this was the pre-owner checkpoint.
 - Root cause: the scaffolded `justfair.config.js` was not consumed by `test`,
   so configured scenarios and Tessera inputs were ignored; the default list did
   not include the dynamically built Tessera scenario. A zero-result all-SKIP
@@ -372,7 +373,76 @@ not a claim that all live providers are permanently available.
 - This is generic config-driven behavior. It contains no Final-UAT path,
   stock-app branch, or sponsor-specific hardcoding. Historical 1.0.5 and 1.0.6
   owner evidence above remains historical and is not upgraded by this entry.
-- External workspace `C:\Users\HomePC\Desktop\JustFair-Final-UAT` remains
+- External workspace `C:\Users\HomePC\Desktop\JustFair-Final-UAT` was
   outside the repository. Its stock app is reset to the initial incorrect
   observation, its adapter reads the app endpoint, and its config selects the
-  T-OpenAI Tessera flow. No final owner UAT was performed.
+  T-OpenAI Tessera flow. No final owner UAT had been performed at that
+  checkpoint; the completed public 1.0.7 UAT is recorded below.
+
+## 15. Final Public 1.0.7 Owner UAT (2026-09-24)
+
+This is the current public release and final owner-evidence record. It does
+not claim that the submission is complete or that the full UAT was blind.
+
+### 15.1 Public release and fresh-user path
+
+- `npm view justfair version` returned `1.0.7`; dist-tags returned
+  `{ "latest": "1.0.7" }`.
+- The owner worked in the external workspace
+  `C:\Users\HomePC\Desktop\JustFair-Final-UAT`, started with
+  `node stock-app.mjs`, and used public `npx justfair@latest`.
+- The initial stock app had `APPLY_TRANSFER_FEE = false` and reported
+  `netRecipientUnits = 1000`.
+- Blind onboarding/discovery = PASS: the owner independently reached the
+  configured `TESSERA_TRANSFER_FEE_ACCOUNTING` scenario through the normal
+  public workflow. Blind financial diagnosis = PASS: JustFair independently
+  identified expected `998`, observed `1000`, and explained the live
+  Token-2022 transfer-fee cause.
+
+### 15.2 Public causal loop
+
+- First run: live Tessera / Token-2022 evidence, expected `998`, observed
+  `1000`, `FAIL`, `TRANSFER_FEE_IGNORED`. JustFair explained that the app had
+  treated a fee-bearing transfer as fee-free and instructed it to apply the
+  active `TransferFeeConfig`.
+- Replay launched locally and the result artifact was automatically saved in
+  the external workspace.
+- The app-side correction was GUIDED because the owner is not a developer:
+  the director pointed out `APPLY_TRANSFER_FEE = false` → `true`. Do not call
+  the entire end-to-end UAT blind; the target audience's own app correction
+  remains normal developer work.
+- Second run changed only the stock application. JustFair, adapter, config,
+  mint, scenario, expected value, and verdict logic were unchanged. The same
+  public workflow returned `1 passed · 0 failed · 0 unable`, with
+  `reportedNetRecipientAmount: 998`, evidence
+  `TESSERA_TOKEN2022_TRANSFER_FEE` and `live_tessera_token2022`, and a Replay
+  timeline showing scenario issued, manifest accepted, observations
+  collected, invariant compared, invariant satisfied, and PASS.
+- Core Outcome = PASS, L4 for the public final-release causal loop, with the
+  explicit qualification of blind onboarding/diagnosis plus guided app edit.
+
+### 15.3 Low-severity finding and boundaries
+
+- Node printed `[MODULE_TYPELESS_PACKAGE_JSON]` because the external project
+  did not declare module type while `justfair.config.js` uses ES module syntax.
+  It was LOW / POLISH / NON-BLOCKING and did not affect config loading,
+  scenario selection, financial evidence, verdict, artifact, Replay, or the
+  FAIL → app-fix → PASS completion. No `1.0.8` was created for it.
+- The prior 1.0.6 all-SKIP fresh-user failure remains historical evidence and
+  explains the 1.0.7 config-loading, configured-scenario, Tessera-config,
+  `NO_APPLICABLE_TESTS`, and onboarding/project-root corrections.
+- The PreStocks claim remains bounded to published future expiry terms and an
+  `authoritative_event_fixture`; the March 2027 event has not occurred and is
+  not claimed as observed live.
+
+### 15.4 Current claim ledger
+
+| Claim | Boundary | Proof | Status |
+|---|---|---|---|
+| Public audited release exists | npm registry | `justfair@latest = 1.0.7` | PROVEN |
+| Core Tessera causal loop works | Live Token-2022 `TransferFeeConfig` plus public JustFair invariant engine | `1000 → FAIL → stock-app-only correction → 998 → PASS` in final public 1.0.7 UAT | PROVEN / L4 |
+| Fresh-user onboarding reaches an applicable diagnosis | Public 1.0.7 workflow and external target | Owner independently reached configured Tessera FAIL | PROVEN for onboarding/diagnosis; app correction GUIDED |
+| All-skipped safety is explicit | CLI summary, artifact, and Replay | 1.0.7 `NO_APPLICABLE_TESTS` regression and packed-package proof | PROVEN |
+| Tessera multi-asset coverage | Tested T-OpenAI and T-Kalshi assets | Separate owner causal-loop evidence | PROVEN for tested assets |
+| Meteora DBC breadth | Tested compatible live mainnet config classes | Existing multi-config owner evidence with honest capacity outcomes | PROVEN for tested compatible classes |
+| PreStocks lifecycle boundary | Published terms fixture, not a live lifecycle API | Future-event crash test; March 2027 not observed | PROVEN as fixture-bounded; live event NOT CLAIMED |
