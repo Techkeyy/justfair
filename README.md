@@ -83,9 +83,9 @@ execution, or financial advice.
 npx justfair@latest init
 ```
 
-At this audit point, the public registry still resolves `justfair@latest` to
-1.0.5. This repository contains the unreleased 1.0.6 patch that makes Tessera
-epoch-RPC failure fail closed; the owner must publish 1.0.6 before blind UAT.
+This command installs the current public release. The repository package version
+audited here is `1.0.6`; using `justfair@latest` keeps the public quickstart
+valid as the published package advances.
 
 ### Configure and health-check
 
@@ -254,7 +254,7 @@ secrets must never be committed.
 
 ## Current verification
 
-The post-cleanup 1.0.6 release-candidate audit found 291 cases: 290 passed, 1
+The post-cleanup `1.0.6` package audit found 291 cases: 290 passed, 1
 intentional Pyth skip, and 0 failed. Live-network availability can affect
 whether a run is conclusive.
 
