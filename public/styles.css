@@ -4404,6 +4404,24 @@ body {
   color: var(--text-muted);
 }
 
+.replay-no-applicable {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e0b04b;
+  border-radius: var(--radius-md);
+  background: #fff8e6;
+  color: #704f00;
+  font-size: 13px;
+}
+
+.replay-no-applicable strong {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
 .replay-scenario-list {
   display: flex;
   flex-direction: column;
@@ -4852,4 +4870,3 @@ body {
   margin-bottom: 12px;
   gap: 12px;
 }
-

@@ -2898,6 +2898,32 @@ async function runBrowserTests() {
       if (/failure/i.test(hero)) throw new Error(`UNABLE hero must not describe a failure: ${hero}`);
       if (hero.trim() !== "Understand what could not be verified.") throw new Error(`UNABLE hero mismatch: ${hero}`);
 
+      // No applicable tests: empty results are a valid explicit non-success,
+      // never an empty PASS report.
+      const noApplicableArtifact = {
+        runId: "test-no-applicable",
+        target: { url: "http://127.0.0.1:3100", name: "Capability Mismatch", adapterVersion: "1" },
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        status: "NO_APPLICABLE_TESTS",
+        summary: { passed: 0, failed: 0, unable: 0, skipped: ["PRESTOCKS_EXPIRY_AFTER"], noApplicableTests: true, status: "NO_APPLICABLE_TESTS" },
+        results: []
+      };
+      await page.setInputFiles("#replay-file-input", {
+        name: "no-applicable.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify(noApplicableArtifact))
+      });
+      await page.waitForSelector("#replay-no-applicable:not(.hidden)", { timeout: 10000 });
+      hero = await page.textContent("#replay-hero-title");
+      if (hero.trim() !== "Nothing was verified.") throw new Error(`No-applicable hero mismatch: ${hero}`);
+      const noApplicableNotice = await page.textContent("#replay-no-applicable");
+      if (!noApplicableNotice.includes("NO APPLICABLE TESTS") || !noApplicableNotice.includes("Nothing was financially verified")) {
+        throw new Error(`No-applicable notice is incomplete: ${noApplicableNotice}`);
+      }
+      const noApplicableCards = await page.$$(".replay-scenario-card");
+      if (noApplicableCards.length !== 0) throw new Error("No-applicable report must not render a scenario card");
+
       // Closing the report restores the neutral heading.
       await page.click("#replay-close-report-btn");
       await page.waitForSelector("#replay-empty-state:not(.hidden)", { timeout: 10000 });

@@ -75,5 +75,5 @@ Homepage + npm visible. Say:
 the market does."
 
 End card: GitHub URL, live product URL, and the npm package URL. Before
-recording, verify `npm view justfair@latest version` returns `1.0.6`; do not
-record this script against the pre-patch public `1.0.5` package.
+recording, verify `npm view justfair@latest version` returns `1.0.7`; do not
+record this script against the pre-patch public `1.0.6` package.

@@ -34,7 +34,7 @@ Software that compiles, returns HTTP 200, executes a transaction, or shows a bal
 
 ## SOLUTION
 
-A public npm-distributed crash-testing workflow (`npx justfair@latest init` → connect adapter → `npx justfair@latest test --target <localhost> --open`) plus a local Replay Lab, backed by deterministic scenario assertions over honestly labeled evidence, with strict PASS / FAIL / UNABLE semantics and zero custody.
+A public npm-distributed crash-testing workflow (`npx justfair@latest init` → connect adapter → `npx justfair@latest test --open`) plus a local Replay Lab, backed by deterministic scenario assertions over honestly labeled evidence, with strict PASS / FAIL / UNABLE semantics and zero custody.
 
 ## WHO IT IS FOR
 
@@ -49,7 +49,7 @@ The financial behavior under test lives on Solana: Token-2022 transfer fees and 
 1. `npx justfair@latest init` scaffolds `justfair.config.js` and `justfair-adapter.mjs` (existing files never overwritten).
 2. The developer connects the adapter's observation hooks to values their app actually calculates or displays.
 3. The app runs on any localhost port; the adapter reads from it and exposes JustFair's two test endpoints on its own localhost port.
-4. `npx justfair@latest test --target http://localhost:3100 --open` runs scenarios; Replay Lab opens locally with zero cloud telemetry.
+4. `npx justfair@latest test --open` runs the configured scenarios; Replay Lab opens locally with zero cloud telemetry.
 5. On FAIL: inspect WHAT HAPPENED, EXPECTED vs YOUR APP, root cause, fix guidance, and replay. Fix only the app. Rerun the same command to PASS.
 
 ## WHAT IS ACTUALLY LIVE
@@ -71,16 +71,16 @@ Node.js 20+ CLI distributed via npm (`justfair`, bin `justfair`); vanilla JS/CSS
 
 - GITHUB: https://github.com/Techkeyy/justfair
 - LIVE PRODUCT: https://justfair-theta.vercel.app
-- NPM: public latest `justfair@1.0.5` at this audit point; repository release candidate `1.0.6` pending owner publication — https://www.npmjs.com/package/justfair
+- NPM: public latest `justfair@1.0.6` at this audit point; repository release candidate `1.0.7` pending owner publication — https://www.npmjs.com/package/justfair
 - DEMO VIDEO: (placeholder — no video URL exists yet; at least one of GitHub / live demo / video satisfies the known form requirement)
 
 ## RELEASE STATE AT THIS AUDIT
 
-The repository is version `1.0.6` and contains the Tessera epoch-RPC
-fail-closed fix. Public `justfair@latest` still resolves to `1.0.5` until the
-owner publishes the release candidate. The public 1.0.5 owner records below
-remain historical evidence and are not upgraded into post-fix public proof by
-this repository reconciliation.
+The repository is version `1.0.7` and contains the Tessera epoch-RPC fail-closed
+fix plus the config-driven onboarding and no-applicable-tests guard. Public
+`justfair@latest` resolves to `1.0.6` at this audit point; the 1.0.5 and 1.0.6
+owner records below remain historical evidence and are not upgraded into
+post-fix public proof by this repository reconciliation.
 
 ## MISSING PLATFORM FIELD
 
@@ -92,7 +92,7 @@ The recorded Stocklana form requirements (`docs/HACKATHON.md`) document only: pr
 
 | # | Material claim (as worded above or implied) | Label | Evidence |
 |---|---|---|---|
-| 1 | Public npm workflow exists (`init`/`test`, no clone) | PROVEN | Registry `justfair@1.0.5` at this audit point; repository `1.0.6` patch pending owner publication; owner-executed fresh installs; committed CLI tests |
+| 1 | Public npm workflow exists (`init`/`test`, no clone) | PROVEN | Registry `justfair@1.0.6` at this audit point; repository `1.0.7` pending owner publication; owner-executed fresh installs; committed CLI tests |
 | 2 | External app FAIL → app-only fix → same-command PASS | PROVEN | Public owner causal loops for T-OpenAI and T-Kalshi; separate PreStocks fixture-bounded loop; observed Replays |
 | 3 | Tessera uses live Token-2022 transfer-fee state | PROVEN for T-OpenAI + T-Kalshi | Per-run on-chain reads (decimals/bps/maxFee/epoch verified); math cross-checked vs official `spl-token calculateFee`; not a claim about every Tessera asset |
 | 4 | DBC uses live market/config evidence | PROVEN for tested compatible classes | Live mainnet config reads + SDK quote math; three additional real configs at 8% produced materially different results and truthful capacity findings; not every historical DBC variant |

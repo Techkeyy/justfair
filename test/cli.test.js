@@ -116,6 +116,80 @@ test("cli multiple-scenario summary counts passes and skips honestly", async () 
   }
 });
 
+test("cli all-skipped selection is unmistakable non-success and JSON-safe", async () => {
+  const h = await startFixtureTarget({
+    manifest: { adapterVersion: "1", name: "No Applicable Wallet", capabilities: [] }
+  });
+  const { mkdtempSync, rmSync, readFileSync } = await import("node:fs");
+  const dir = mkdtempSync(path.join(os.tmpdir(), "jf-all-skipped-"));
+  try {
+    const human = await runCLIInProcess(["test", "--target", h.baseUrl], { cwd: dir });
+    assert.equal(human.code, 2);
+    assert.ok(human.stdout.includes("NO APPLICABLE TESTS"));
+    assert.ok(human.stdout.includes("Nothing was financially verified"));
+    assert.equal(human.artifact.status, "NO_APPLICABLE_TESTS");
+    assert.equal(human.artifact.summary.noApplicableTests, true);
+    assert.equal(human.artifact.summary.passed, 0);
+    assert.equal(human.artifact.summary.failed, 0);
+    assert.equal(human.artifact.summary.unable, 0);
+    assert.ok(human.artifact.summary.skipped.length > 0);
+    assert.deepEqual(JSON.parse(readFileSync(path.join(dir, DEFAULT_RESULT_FILENAME), "utf-8")).summary, human.artifact.summary);
+
+    const machine = await runCLIInProcess(["test", "--target", h.baseUrl, "--json"], { cwd: dir });
+    assert.equal(machine.code, 2);
+    const machineArtifact = JSON.parse(machine.stdout.split("[JustFair]")[0]);
+    assert.equal(machineArtifact.summary.noApplicableTests, true);
+    assert.equal(machineArtifact.status, "NO_APPLICABLE_TESTS");
+    assert.ok(!machine.stdout.slice(machine.stdout.indexOf("{")).includes("NO APPLICABLE TESTS"), "--json stdout must remain machine-readable");
+  } finally {
+    await closeFixtureTarget(h);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cli uses project config to select Tessera and its target-specific inputs", async () => {
+  const h = await startFeeTarget({ behavior: "naive" });
+  const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+  const dir = mkdtempSync(path.join(os.tmpdir(), "jf-config-tessera-"));
+  try {
+    writeFileSync(path.join(dir, "justfair.config.js"), `export default {
+  target: ${JSON.stringify(h.baseUrl)},
+  scenarios: ["TESSERA_TRANSFER_FEE_ACCOUNTING"],
+  tessera: { mint: "T-OpenAI", amount: "1000" }
+};\n`);
+    const r = await runCLIInProcess(["test"], { cwd: dir });
+    assert.equal(r.code, 1);
+    assert.equal(r.artifact.results.length, 1);
+    assert.equal(r.artifact.results[0].scenarioId, "TESSERA_TRANSFER_FEE_ACCOUNTING");
+    assert.equal(r.artifact.results[0].status, "FAIL");
+    assert.deepEqual(r.artifact.summary.skipped, []);
+    assert.ok(r.stdout.includes("998"));
+  } finally {
+    await closeFixtureTarget(h);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cli refuses configured Tessera without a mint instead of guessing or passing", async () => {
+  const h = await startFeeTarget({ behavior: "naive" });
+  const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+  const dir = mkdtempSync(path.join(os.tmpdir(), "jf-config-missing-tessera-"));
+  try {
+    writeFileSync(path.join(dir, "justfair.config.js"), `export default {
+  target: ${JSON.stringify(h.baseUrl)},
+  scenarios: ["TESSERA_TRANSFER_FEE_ACCOUNTING"]
+};\n`);
+    const r = await runCLIInProcess(["test"], { cwd: dir });
+    assert.equal(r.code, 2);
+    assert.ok(r.stdout.includes("tessera.mint"));
+    assert.ok(r.stdout.includes("--tessera-mint"));
+    assert.equal(r.artifact, null);
+  } finally {
+    await closeFixtureTarget(h);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("cli whale exits 0 on within-policy opening (live config)", async () => {
   const r = await runWhaleInProcess(["whale", "--config", WHALE_CONFIG, "--size", "1000000000", "--max-impact", "8"]);
   assert.equal(r.code, 0);
@@ -369,7 +443,7 @@ test("cli init next-steps teach the public npx flow with connect first", async (
   assert.ok(!stdout.includes("justfair test"), "init output must not contain bare 'justfair test'");
   // Must teach the real public command.
   assert.ok(
-    stdout.includes("npx justfair@latest test --target http://localhost:3100 --open"),
+    stdout.includes("npx justfair@latest test --open"),
     "init output must contain the public npx test command"
   );
   // Must tell the user to connect/edit the adapter before starting it.
@@ -378,11 +452,16 @@ test("cli init next-steps teach the public npx flow with connect first", async (
   assert.ok(/connect/i.test(stdout), "init output must tell the user to connect the adapter");
   // Must reference the real application values.
   assert.ok(/real app/i.test(stdout), "init output must mention the real app values");
+  assert.ok(/code editor/i.test(stdout), "init output must direct edits to a code editor");
+  assert.ok(/PowerShell/i.test(stdout), "init output must prevent pasting JavaScript into a shell");
+  assert.ok(/project root/i.test(stdout), "init output must identify the project root");
+  assert.ok(/JustFair owns the verdict/i.test(stdout), "init output must preserve the observation-only boundary");
+  assert.ok(/Result artifact:/i.test(stdout), "init output must identify the artifact location");
   // Required order: connect -> start app -> start adapter -> test.
   const idxConnect = stdout.search(/connect/i);
   const idxStartApp = stdout.indexOf("Start your app");
   const idxStartAdapter = stdout.indexOf("Start the observation adapter");
-  const idxTest = stdout.indexOf("Run the financial crash test");
+  const idxTest = stdout.indexOf("Run the public financial crash test");
   assert.ok(idxConnect !== -1 && idxStartApp !== -1 && idxStartAdapter !== -1 && idxTest !== -1, "all four next steps must be present");
   assert.ok(
     idxConnect < idxStartApp && idxStartApp < idxStartAdapter && idxStartAdapter < idxTest,
@@ -556,4 +635,3 @@ test("artifact persistence performs no network upload", async () => {
   const body = src.slice(start, src.indexOf("\n}\n", start) + 3);
   assert.ok(!/fetch\(|http\.request|XMLHttpRequest|upload/i.test(body), "persistence path must not touch the network");
 });
-

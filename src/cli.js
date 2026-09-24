@@ -9,7 +9,7 @@ import { existsSync, writeFileSync, readFileSync, statSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import http from "node:http";
 import path, { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 
 const args = process.argv.slice(2);
@@ -136,9 +136,13 @@ export default {
   scenarios: [
     "STALE_CARRIED_FORWARD_EQUITY",
     "PRESTOCKS_EXPIRY_AFTER",
-    "DBC_OPENING_WHALE",
     "TESSERA_TRANSFER_FEE_ACCOUNTING"
-  ]
+  ],
+  tessera: {
+    // Fill in the real product symbol or mint before running the Tessera check.
+    mint: "",
+    amount: "1000"
+  }
 };
 `;
     writeFileSync(configPath, configContent, "utf-8");
@@ -244,16 +248,19 @@ server.listen(PORT, "127.0.0.1", () => {
   }
 
   console.log("\nJustFair Scaffold Ready.");
-  console.log("\nNext steps:");
-  console.log("  1. Connect the adapter to your app:");
-  console.log("     Open justfair-adapter.mjs and point the observations inside");
-  console.log("     POST /justfair/v1/evaluate at the values your real app calculates");
-  console.log("     or displays.");
-  console.log("  2. Start your app normally (e.g. on port 4000).");
-  console.log("  3. Start the observation adapter:");
+  console.log("\nNext steps (run these from this project root):");
+  console.log("  1. Open justfair.config.js in a code editor and set the real app target");
+  console.log("     plus tessera.mint when using TESSERA_TRANSFER_FEE_ACCOUNTING.");
+  console.log("     Do not paste JavaScript into PowerShell or another shell prompt.");
+  console.log("  2. Open justfair-adapter.mjs in a code editor and connect each observation");
+  console.log("     inside POST /justfair/v1/evaluate to values your real app calculates");
+  console.log("     or displays. JustFair owns the verdict; the adapter returns observations only.");
+  console.log("  3. Start your app normally (for example, on port 4000).");
+  console.log("  4. Start the observation adapter in this same project root:");
   console.log("     node justfair-adapter.mjs");
-  console.log("  4. Run the financial crash test:");
-  console.log("     npx justfair@latest test --target http://localhost:3100 --open\n");
+  console.log("  5. Run the public financial crash test:");
+  console.log("     npx justfair@latest test --open");
+  console.log(`  Result artifact: ${path.join(cwd, DEFAULT_RESULT_FILENAME)}\n`);
   process.exitCode = 0;
   return { createdConfig, createdAdapter, configPath, adapterPath };
 }
@@ -306,18 +313,18 @@ async function main() {
 
 Commands:
   init                           Scaffold justfair.config.js and justfair-adapter.mjs
-  test --target <url> [--open]   Run scenario audit against local adapter
+  test [--target <url>] [--open] Run scenario audit against local adapter/config
   whale --config <addr> ...      Run Meteora DBC opening liquidity stress test (add --sweep for a launch stress sweep)
   doctor                         Run diagnostic health checks
   check [--input S] [--stock S]  Run preflight quote verification
 
 Options for 'test':
-  --target <url>                 Local adapter URL (e.g. http://localhost:3100)
+  --target <url>                 Optional override; otherwise use justfair.config.js
   --open                         Open local interactive Replay Lab viewer (127.0.0.1)
   --scenario <id>                Run a specific scenario ID only
   --out <file>                   Write result artifact to a JSON file (default: ./justfair-result.json)
   --json                         Emit result artifact to stdout as JSON
-  --tessera-mint <symbol|mint>   Enable live Tessera Token-2022 transfer fee audit
+  --tessera-mint <symbol|mint>   Override config and enable live Tessera fee audit
 `);
     return;
   }
@@ -363,6 +370,27 @@ Options for 'test':
 export const DEFAULT_RESULT_FILENAME = "justfair-result.json";
 
 /**
+ * Load the optional project configuration from the caller's working directory.
+ * The config selects scenarios and supplies target-specific inputs, but never
+ * supplies a verdict or expected result.
+ */
+export async function loadProjectConfig(cwd = process.cwd()) {
+  const configPath = path.join(cwd, "justfair.config.js");
+  if (!existsSync(configPath)) return { config: null, path: configPath };
+  try {
+    const version = statSync(configPath).mtimeMs;
+    const imported = await import(`${pathToFileURL(configPath).href}?v=${encodeURIComponent(String(version))}`);
+    const config = imported.default ?? imported;
+    if (!config || typeof config !== "object" || Array.isArray(config)) {
+      throw new Error("default export must be an object");
+    }
+    return { config, path: configPath };
+  } catch (err) {
+    throw new Error(`Could not load ${configPath}: ${err.message}`);
+  }
+}
+
+/**
  * Persist the exact in-memory result artifact to disk (local only — no
  * upload, no telemetry). Returns { ok, path, error }. Never throws.
  */
@@ -383,12 +411,14 @@ export function persistResultArtifact(artifact, filePath) {
  * Exported for in-process testing (same code path as the CLI).
  */
 export async function runScenarioCommand(flagArgs, options = {}) {
+  const cwd = options.cwd || process.cwd();
   let target = null;
   let scenarioId = null;
   let asJson = false;
   let outFile = null;
   let tesseraMint = null;
   let tesseraAmount = "1000";
+  let tesseraAmountProvided = false;
   let openViewer = false;
   const takeValue = (idx) => {
     const next = flagArgs[idx + 1];
@@ -406,10 +436,32 @@ export async function runScenarioCommand(flagArgs, options = {}) {
       tesseraMint = r.value || "T-OpenAI";
       i = r.nextIndex;
     }
-    else if (flagArgs[i] === "--tessera-amount") { const r = takeValue(i); if (r.value) tesseraAmount = r.value; i = r.nextIndex; }
+    else if (flagArgs[i] === "--tessera-amount") { const r = takeValue(i); if (r.value) { tesseraAmount = r.value; tesseraAmountProvided = true; } i = r.nextIndex; }
+  }
+  let projectConfig = null;
+  let configPath = path.join(cwd, "justfair.config.js");
+  try {
+    ({ config: projectConfig, path: configPath } = await loadProjectConfig(cwd));
+  } catch (err) {
+    if (asJson) console.log(JSON.stringify({ status: "UNABLE_TO_VERIFY", error: err.message }, null, 2));
+    else console.error(`[JustFair] ${err.message}`);
+    process.exitCode = 2;
+    return;
+  }
+  if (!target && typeof projectConfig?.target === "string" && projectConfig.target.trim()) {
+    target = projectConfig.target.trim();
+  }
+  const configTessera = projectConfig?.tessera && typeof projectConfig.tessera === "object"
+    ? projectConfig.tessera
+    : {};
+  if (!tesseraMint && typeof configTessera.mint === "string" && configTessera.mint.trim()) {
+    tesseraMint = configTessera.mint.trim();
+  }
+  if (!tesseraAmountProvided && configTessera.amount !== undefined && configTessera.amount !== null) {
+    tesseraAmount = String(configTessera.amount);
   }
   if (!target) {
-    console.error("Usage: node src/cli.js test --target http://localhost:PORT [--open] [--scenario ID] [--json] [--out file]");
+    console.error("Usage: npx justfair@latest test [--target http://localhost:PORT] [--open] [--scenario ID] [--json] [--out file]");
     process.exitCode = 2;
     return;
   }
@@ -442,8 +494,32 @@ export async function runScenarioCommand(flagArgs, options = {}) {
     return;
   }
 
-  let selected = SCENARIOS;
-  const wantsTessera = tesseraMint && (!scenarioId || scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING");
+  const configuredScenarioIds = !scenarioId && Array.isArray(projectConfig?.scenarios)
+    ? projectConfig.scenarios
+    : null;
+  let selected = configuredScenarioIds ? [] : SCENARIOS;
+  const configRequestsTessera = configuredScenarioIds?.includes("TESSERA_TRANSFER_FEE_ACCOUNTING") === true;
+  const wantsTessera = Boolean(
+    (tesseraMint && (!scenarioId || scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING"))
+    || configRequestsTessera
+  );
+  if (configuredScenarioIds) {
+    const unsupported = [];
+    for (const id of configuredScenarioIds) {
+      if (id === "TESSERA_TRANSFER_FEE_ACCOUNTING") continue;
+      const found = findScenario(id);
+      if (found) selected.push(found);
+      else unsupported.push(id);
+    }
+    if (unsupported.length > 0) {
+      const commandHint = unsupported.every(id => id.startsWith("DBC_"))
+        ? "DBC launch checks are run with `npx justfair@latest whale`, not `test`."
+        : "Remove unsupported IDs from justfair.config.js and choose a documented scenario.";
+      console.error(`[JustFair] Unsupported scenario(s) in ${configPath}: ${unsupported.join(", ")}. ${commandHint}`);
+      process.exitCode = 2;
+      return;
+    }
+  }
   if (scenarioId && scenarioId !== "TESSERA_TRANSFER_FEE_ACCOUNTING") {
     const found = findScenario(scenarioId);
     if (!found) {
@@ -452,8 +528,8 @@ export async function runScenarioCommand(flagArgs, options = {}) {
       return;
     }
     selected = [found];
-  } else if (scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING" && !tesseraMint) {
-    console.error("TESSERA_TRANSFER_FEE_ACCOUNTING needs live fee state: pass --tessera-mint <symbol|mint> [--tessera-amount UNITS]");
+  } else if ((scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING" || wantsTessera) && !tesseraMint) {
+    console.error("TESSERA_TRANSFER_FEE_ACCOUNTING needs live fee state. Set tessera.mint in justfair.config.js or pass --tessera-mint <symbol|mint> [--tessera-amount UNITS].");
     process.exitCode = 2;
     return;
   } else if (scenarioId === "TESSERA_TRANSFER_FEE_ACCOUNTING") {
@@ -486,12 +562,26 @@ export async function runScenarioCommand(flagArgs, options = {}) {
   const passed = results.filter(r => r.status === "PASS").length;
   const failed = results.filter(r => r.status === "FAIL").length;
   const unable = results.filter(r => r.status === "UNABLE_TO_VERIFY").length;
+  const noApplicableTests = results.length === 0 && passed === 0 && failed === 0 && unable === 0;
+  const outcomeStatus = noApplicableTests
+    ? "NO_APPLICABLE_TESTS"
+    : failed > 0
+      ? "FAIL"
+      : unable > 0
+        ? "UNABLE_TO_VERIFY"
+        : "PASS";
   const artifact = {
     runId: randomUUID(),
     target: { url: target, name: manifest.name, adapterVersion: manifest.adapterVersion },
     startedAt,
     completedAt: new Date().toISOString(),
-    summary: { passed, failed, unable, skipped: skipped.map(s => s.id) },
+    status: outcomeStatus,
+    summary: {
+      passed, failed, unable,
+      skipped: skipped.map(s => s.id),
+      noApplicableTests,
+      status: outcomeStatus
+    },
     results
   };
 
@@ -499,7 +589,6 @@ export async function runScenarioCommand(flagArgs, options = {}) {
 
   // Persist the exact report locally so it can be reopened later in Replay
   // Lab without re-running. `--out <file>` names the path instead.
-  const cwd = options.cwd || process.cwd();
   const artifactPath = outFile ? path.resolve(cwd, outFile) : path.join(cwd, DEFAULT_RESULT_FILENAME);
   const saved = persistResultArtifact(artifact, artifactPath);
 
@@ -524,6 +613,9 @@ export async function runScenarioCommand(flagArgs, options = {}) {
       }
     }
     for (const s of skipped) console.log(`SKIP  ${s.id}\n  Target lacks: ${s.requiresCapabilities.filter(c => !manifest.capabilities.includes(c)).join(", ")}\n`);
+    if (noApplicableTests) {
+      console.log("NO APPLICABLE TESTS\nNothing was financially verified.\n");
+    }
     console.log(`${passed} passed · ${failed} failed · ${unable} unable${skipped.length ? ` · ${skipped.length} skipped` : ""}\n`);
     if (saved.ok) {
       console.log(`[JustFair] Result saved to:\n${saved.path}\n`);
@@ -548,7 +640,7 @@ export async function runScenarioCommand(flagArgs, options = {}) {
   }
 
   if (failed > 0) process.exitCode = 1;
-  else if (unable > 0 || passed === 0) process.exitCode = 2;
+  else if (noApplicableTests || unable > 0 || passed === 0) process.exitCode = 2;
   else process.exitCode = 0;
 
   return { artifact, viewer: viewerResult, artifactPath: saved.path, artifactSaved: saved.ok, artifactError: saved.error };

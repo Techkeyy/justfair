@@ -3867,7 +3867,10 @@ function validateResultArtifact(obj) {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return "Report must be a JSON object.";
   if (typeof obj.runId !== "string" || !obj.runId) return "Report is missing runId.";
   if (!obj.summary || typeof obj.summary !== "object") return "Report is missing summary.";
-  if (!Array.isArray(obj.results) || obj.results.length === 0) return "Report contains no scenario results.";
+  const noApplicableTests = obj.summary?.noApplicableTests === true;
+  if (!Array.isArray(obj.results) || (obj.results.length === 0 && !noApplicableTests)) {
+    return "Report contains no scenario results.";
+  }
   for (const r of obj.results) {
     if (!r || typeof r.scenarioId !== "string") return "A result is missing scenarioId.";
     if (!["PASS", "FAIL", "UNABLE_TO_VERIFY"].includes(r.status)) return `Result ${r.scenarioId} has an unknown status.`;
@@ -3884,6 +3887,7 @@ export const REPLAY_HERO_NEUTRAL = "Understand a result.";
 export const REPLAY_HERO_FAIL = "Understand a failure.";
 export const REPLAY_HERO_PASS = "Verify a passing run.";
 export const REPLAY_HERO_UNABLE = "Understand what could not be verified.";
+export const REPLAY_HERO_NO_APPLICABLE = "Nothing was verified.";
 
 export function replayHeroHeadingForResults(results) {
   const statuses = new Set((results || []).map((r) => r?.status));
@@ -3911,7 +3915,8 @@ export function renderReplayReport(artifact, isSample) {
   if (emptyState) emptyState.classList.add("hidden");
   if (!report) return;
   report.classList.remove("hidden");
-  setReplayHero(replayHeroHeadingForResults(artifact.results));
+  const noApplicableTests = artifact.summary?.noApplicableTests === true;
+  setReplayHero(noApplicableTests ? REPLAY_HERO_NO_APPLICABLE : replayHeroHeadingForResults(artifact.results));
   const badge = document.getElementById("replay-sample-badge");
   if (badge) badge.classList.toggle("hidden", !isSample);
   const counts = artifact.summary || { passed: 0, failed: 0, unable: 0 };
@@ -3920,7 +3925,9 @@ export function renderReplayReport(artifact, isSample) {
   const meta = document.getElementById("replay-run-meta");
   if (meta) meta.textContent = `Run ${artifact.runId} · ${artifact.results.length} scenario${artifact.results.length === 1 ? "" : "s"}`;
   const countsEl = document.getElementById("replay-run-counts");
-  if (countsEl) countsEl.textContent = `${counts.passed ?? 0} passed · ${counts.failed ?? 0} failed · ${counts.unable ?? 0} unable`;
+  if (countsEl) countsEl.textContent = `${counts.passed ?? 0} passed · ${counts.failed ?? 0} failed · ${counts.unable ?? 0} unable${counts.skipped?.length ? ` · ${counts.skipped.length} skipped` : ""}`;
+  const noApplicableEl = document.getElementById("replay-no-applicable");
+  if (noApplicableEl) noApplicableEl.classList.toggle("hidden", !noApplicableTests);
   const list = document.getElementById("replay-scenario-list");
   if (list) {
     list.innerHTML = "";

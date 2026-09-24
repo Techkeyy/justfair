@@ -352,3 +352,27 @@ not a claim that all live providers are permanently available.
   videos, one-off scratch/revalidation scripts, and their dangling artifact
   references. The owner must publish 1.0.6 and verify `npm view
   justfair@latest version` before blind UAT.
+
+## 14. Current 1.0.7 Onboarding Correction (2026-09-24)
+
+- Registry verification before this candidate: `npm view justfair@latest version`
+  returned `1.0.6`.
+- Root cause: the scaffolded `justfair.config.js` was not consumed by `test`,
+  so configured scenarios and Tessera inputs were ignored; the default list did
+  not include the dynamically built Tessera scenario. A zero-result all-SKIP
+  run exited 2 but did not make the non-success state explicit in its artifact
+  or Replay Lab rendering.
+- The 1.0.7 candidate loads project config from the caller's working directory,
+  uses configured target/scenario/Tessera inputs, keeps explicit CLI overrides,
+  refuses missing scenario-required data, and emits `NO_APPLICABLE_TESTS` plus
+  `Nothing was financially verified.` with exit 2. Replay Lab renders the same
+  no-verification state without inventing a PASS.
+- Fresh canonical verification discovered 294 cases: 293 passed, 1 intentional
+  Pyth live-probe skip, and 0 failed.
+- This is generic config-driven behavior. It contains no Final-UAT path,
+  stock-app branch, or sponsor-specific hardcoding. Historical 1.0.5 and 1.0.6
+  owner evidence above remains historical and is not upgraded by this entry.
+- External workspace `C:\Users\HomePC\Desktop\JustFair-Final-UAT` remains
+  outside the repository. Its stock app is reset to the initial incorrect
+  observation, its adapter reads the app endpoint, and its config selects the
+  T-OpenAI Tessera flow. No final owner UAT was performed.

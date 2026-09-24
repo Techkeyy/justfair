@@ -84,7 +84,7 @@ npx justfair@latest init
 ```
 
 This command installs the current public release. The repository package version
-audited here is `1.0.6`; using `justfair@latest` keeps the public quickstart
+audited here is `1.0.7`; using `justfair@latest` keeps the public quickstart
 valid as the published package advances.
 
 ### Configure and health-check
@@ -116,7 +116,7 @@ expected truth and the verdict.
 ### Run
 
 ```sh
-npx justfair@latest test --target http://localhost:3100 --open
+npx justfair@latest test --open
 ```
 
 Exit codes are stable:
@@ -254,7 +254,7 @@ secrets must never be committed.
 
 ## Current verification
 
-The post-cleanup `1.0.6` package audit found 291 cases: 290 passed, 1
+The post-fix `1.0.7` package audit found 294 cases: 293 passed, 1
 intentional Pyth skip, and 0 failed. Live-network availability can affect
 whether a run is conclusive.
 

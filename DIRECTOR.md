@@ -591,12 +591,12 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-REPOSITORY RELEASE CANDIDATE = 1.0.6 (Tessera epoch-RPC fail-closed fix plus approved documentation/evidence slimming); NPM 1.0.5 PUBLIC AND PRE-PATCH; T-KALSHI PUBLIC LOOP = PASS (L4 historical evidence); DBC MULTI-CONFIG OWNER EVIDENCE = PASS FOR TESTED COMPATIBLE CLASSES; PRESTOCKS REMAINS A FUTURE-EVENT FIXTURE; FINAL OWNER UAT WORKSPACE READY, OWNER RUN PENDING (NOT FINISHED).
+REPOSITORY RELEASE CANDIDATE = 1.0.7 (Tessera epoch-RPC fail-closed fix plus config-driven onboarding and no-applicable-tests guard); NPM 1.0.6 PUBLIC AND PRE-PATCH; T-KALSHI PUBLIC LOOP = PASS (L4 historical evidence); DBC MULTI-CONFIG OWNER EVIDENCE = PASS FOR TESTED COMPATIBLE CLASSES; PRESTOCKS REMAINS A FUTURE-EVENT FIXTURE; FINAL OWNER UAT WORKSPACE READY, OWNER RUN PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-Owner: publish repository release candidate 1.0.6, verify `npm view justfair@latest version` returns 1.0.6, then perform the blind final public workflow from `C:\Users\HomePC\Desktop\JustFair-Final-UAT` after starting its sample app with `node stock-app.mjs`. Follow the product's own `npx justfair@latest` directions, record where the fresh-user flow is clear or blocked, and decide separately whether to record the demo. Do not modify JustFair, deploy manually, or claim the PreStocks March 2027 event as live.
+Owner: publish repository release candidate 1.0.7, verify `npm view justfair@latest version` returns 1.0.7, then perform the blind final public workflow from `C:\Users\HomePC\Desktop\JustFair-Final-UAT` after starting its sample app with `node stock-app.mjs`. Follow the product's own `npx justfair@latest` directions, record where the fresh-user flow is clear or blocked, and decide separately whether to record the demo. Do not modify JustFair, deploy manually, or claim the PreStocks March 2027 event as live.
 
 ## 36. FINAL PRE-OWNER-UAT AUDIT (2026-09-24)
 
@@ -662,3 +662,29 @@ has not been run by the builder as the final owner test.
 - The final post-change regression, pack-only artifact audit, dependency audit,
   and remote-tree checks are the release gate. Blind owner UAT remains blocked
   until the owner publishes `1.0.6` and re-verifies the public package.
+
+## 38. CURRENT 1.0.7 ONBOARDING RELEASE GATE (2026-09-24)
+
+- Root cause: `justfair.config.js` was scaffolded with target/scenario fields,
+  but `test` ignored that config. Tessera was only selected by explicit flags,
+  so a fresh user could receive capability SKIPs without running the intended
+  financial scenario. An all-SKIP run already exited 2, but its empty artifact
+  and Replay Lab path did not state that nothing was verified.
+- Fix: `test` now loads config from the caller's project root, uses configured
+  target/scenarios/Tessera inputs, preserves explicit CLI overrides, refuses
+  missing Tessera inputs, and reports `NO_APPLICABLE_TESTS` with exit 2,
+  `Nothing was financially verified.`, and a Replay Lab warning. The solution
+  is generic and contains no final-UAT path or product-specific hardcoding.
+- Regression coverage includes config-selected Tessera FAIL, missing-mint
+  refusal, all-SKIP human and JSON output, mixed PASS/SKIP, FAIL precedence,
+  UNABLE precedence, generated-scaffold onboarding, and empty-artifact Replay.
+- Fresh canonical verification discovered 294 cases: 293 passed, 1 intentional
+  Pyth live-probe skip, and 0 failed.
+- Repository candidate is `1.0.7`; registry `justfair@latest` was verified as
+  `1.0.6` before this candidate was prepared. The owner must publish 1.0.7 and
+  then perform the final blind UAT; no owner UAT is claimed here.
+- External workspace `C:\Users\HomePC\Desktop\JustFair-Final-UAT` remains
+  outside the repository. Its stock app was separately verified reachable with
+  the initial incorrect observation, its adapter reads the app endpoint, and
+  its config now selects the T-OpenAI flow without expected-answer spoilers or
+  committed artifacts. The builder did not run the final owner UAT.
