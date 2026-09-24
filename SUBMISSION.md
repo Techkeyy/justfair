@@ -71,7 +71,7 @@ Node.js 20+ CLI distributed via npm (`justfair`, bin `justfair`); vanilla JS/CSS
 
 - GITHUB: https://github.com/Techkeyy/justfair
 - LIVE PRODUCT: https://justfair-theta.vercel.app
-- NPM: justfair@1.0.4 — https://www.npmjs.com/package/justfair
+- NPM: justfair@1.0.5 — https://www.npmjs.com/package/justfair
 - DEMO VIDEO: (placeholder — no video URL exists yet; at least one of GitHub / live demo / video satisfies the known form requirement)
 
 ## MISSING PLATFORM FIELD
@@ -84,7 +84,7 @@ The recorded Stocklana form requirements (`docs/HACKATHON.md`) document only: pr
 
 | # | Material claim (as worded above or implied) | Label | Evidence |
 |---|---|---|---|
-| 1 | Public npm workflow exists (`init`/`test`, no clone) | PROVEN | Registry justfair@1.0.4; owner-executed fresh installs; committed CLI tests |
+| 1 | Public npm workflow exists (`init`/`test`, no clone) | PROVEN | Registry justfair@1.0.5; owner-executed fresh installs; committed CLI tests |
 | 2 | External app FAIL → app-only fix → same-command PASS | PROVEN | Two owner-executed public causal loops (Tessera, PreStocks) with observed Replays |
 | 3 | Tessera uses live Token-2022 transfer-fee state | PROVEN | Per-run on-chain reads (decimals/bps/maxFee/epoch verified); math cross-checked vs official `spl-token calculateFee` |
 | 4 | DBC uses live market/config evidence | PROVEN | Live mainnet config reads + SDK quote math; owner sweeps at 8/15/25% |

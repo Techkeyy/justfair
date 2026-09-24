@@ -69,4 +69,4 @@ Homepage + npm visible. Say:
 "Public npm, local-first Replay, zero custody. Break your stock app before
 the market does."
 
-End card: GitHub URL, live product URL, npm `justfair@1.0.4`.
+End card: GitHub URL, live product URL, npm `justfair@1.0.5`.
