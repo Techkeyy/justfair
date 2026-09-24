@@ -1,14 +1,14 @@
 # JustFair
 
-**Break your stock app before the market does.**
-
 [Live product](https://justfair-theta.vercel.app) · [GitHub](https://github.com/Techkeyy/justfair) · [npm package](https://www.npmjs.com/package/justfair) · [MIT license](LICENSE)
 
-JustFair is financial-correctness crash testing for stock applications and
-stock-market infrastructure on Solana. It observes what a target application
-calculates or displays, establishes expected financial truth from labeled
-evidence, and reports PASS, FAIL, UNABLE, or CURVE CAPACITY with a replay and
-diagnosis.
+**Break your stock app before the market does.**
+
+JustFair is financial-correctness crash testing for developers building stock
+applications and stock-market infrastructure on Solana. It observes what a
+target application calculates or displays, establishes expected financial truth
+from labeled evidence, and reports PASS, FAIL, UNABLE, or CURVE CAPACITY with a
+replay and diagnosis.
 
 > *"The app executed normally. How do I know the financial result it showed was
 > actually correct?"*
@@ -31,6 +31,19 @@ independent scenario engine. The target app supplies observations. JustFair
 supplies the expectation, compares the invariant, owns the verdict, and saves
 the report. That makes a fee-bearing transfer, expired position, stale
 reference, or DBC launch stress point testable before it reaches users.
+
+```text
+Stock app calculation or display
+              |
+              v
+       Observation adapter       <- app tests often stop here
+              |
+              v
+       JustFair evidence + invariant comparison
+              |
+              v
+          PASS / FAIL / UNABLE
+```
 
 ## What it does
 
