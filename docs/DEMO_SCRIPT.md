@@ -51,6 +51,11 @@ Browser on `#dbc` (production or local). Config prefilled, YOUR POLICY 8.
    FIRST CAPACITY BOUNDARY. Say: "Real mainnet config, the issuer's own
    policy — 8% fails here, 25% reaches capacity. JustFair never invents a
    safe number."
+3. If time allows, show that the same 8% policy was also exercised against
+   three additional real mainnet configurations. Their economics differ, and
+   each reports CURVE CAPACITY when quoting ends rather than becoming a PASS.
+   This breadth is for the tested compatible DBC classes, not every historical
+   DBC variant.
 
 ## 1:55–2:20 — PRESTOCKS breadth (future-event framing, mandatory wording)
 

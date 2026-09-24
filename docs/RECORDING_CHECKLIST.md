@@ -2,6 +2,11 @@
 
 Prepare BEFORE pressing record. Work in a clean directory outside the repo.
 
+For the final blind owner UAT, use `C:\Users\HomePC\Desktop\JustFair-Final-UAT`
+and start its sample app with `node stock-app.mjs`. Then follow the normal
+public JustFair directions without using director notes or expected-result
+coaching.
+
 ## Terminals (three, labeled, no other tabs visible)
 
 - [ ] Terminal A: stock app running in WRONG state (reports gross 1000).

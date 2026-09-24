@@ -284,3 +284,70 @@ All 24 token representations verified directly against Solana Mainnet Beta via R
 * `[8] POST /api/v1/product-preflight` (Validation Suite) -> HTTP 400 for unknown ticker, unknown product ID, unknown expectation, duplicate keys, invalid priority, and mode ambiguity.
 * `[9] Route Regression` -> `GET /api/v1/products` (12 underlyings, 24 products), `GET /api/v1/products/compare/AAPL` (HTTP 200), `POST /api/v1/preflight` (HTTP 200).
 
+---
+
+## 12. Current Public 1.0.5 Owner Evidence (2026-09-24)
+
+This section is the current release record. Older release entries above are
+retained as dated historical evidence and are not current release claims.
+
+### 12.1 Public workflow and local Replay
+
+- Registry latest resolved to `justfair@1.0.5`.
+- Owner independently ran a fresh public `npx justfair@latest init`.
+- The untouched generated PreStocks adapter returned `UNABLE`, not a false
+  financial PASS.
+- `justfair-result.json` was automatically saved.
+- `--open` launched the local Replay Lab; the owner visually confirmed the
+  UNABLE Replay.
+- The workflow used no cloud upload. This proves the public workflow and
+  artifact/Replay path; it does not upgrade the PreStocks lifecycle claim to
+  live event evidence.
+
+### 12.2 Tessera T-Kalshi public causal loop
+
+Evidence level: **L4, fresh public owner proof**.
+
+- Public package: `npx --yes justfair@latest`, resolved to `1.0.5`.
+- Mint: `TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ`.
+- Amount: `1000` base units.
+- Live Token-2022 fee: `20` basis points, so fee `2` and expected net `998`.
+- External app initially reported `1000`; the public JustFair command returned
+  FAIL with `TRANSFER_FEE_IGNORED`, expected `998`, observed `1000`.
+- Only the external app observation changed from `1000` to `998`; the app was
+  restarted and the exact same public command returned PASS.
+- No JustFair source, configuration, scenario, adapter verdict, wallet,
+  signing, funds, trade, or transaction changed.
+
+Together with the existing T-OpenAI owner proof, this supports multi-Tessera
+asset coverage for T-OpenAI and T-Kalshi. It does not claim identical fee
+configuration for every Tessera asset.
+
+### 12.3 Meteora DBC multi-config owner evidence
+
+Evidence level: **L4, fresh public owner proof**. All runs used the deployed
+DBC Stress UI, the same 8% policy, native SOL quote resolution, and no wallet,
+signing, funds, trades, or transactions.
+
+| Configuration | Result | First policy failure | Previous pass | Capacity |
+|---|---|---|---|---|
+| `11FnHNAoEkrM6vHVBdDo91wykV1F2et39NTPVxK9Yk3` | 3 passed, 6 failed, 1 capacity, 0 unable | ~2.125 SOL at 8.523% | ~0.85 SOL | ~170 SOL |
+| `19apCx87ScgiUyCoebSs3woeEXh789ptamxhv2tny3c` | 4 passed, 5 failed, 1 capacity, 0 unable | ~4.25 SOL at 8.312% | ~2.125 SOL | ~170 SOL |
+| `BgPfCrZ4QLcPvC2wPG6aNjpj93T6uD6XNZbjYQ1L7z9` | 4 passed, 5 failed, 1 capacity, 0 unable | ~34.303847042 SOL at 14.158% | ~17.151923521 SOL | ~1372.153881708 SOL |
+
+The results differ materially across independent real configurations, and
+capacity is reported as CURVE CAPACITY rather than a false PASS. The claim is
+bounded to the tested compatible Meteora DBC classes, not every historical
+variant.
+
+### 12.4 PreStocks boundary
+
+PreStocks remains an `authoritative_event_fixture` crash-test based on
+published expiry terms. The March 2027 lifecycle event has not occurred and
+must not be described as observed live.
+
+### 12.5 Current automated verification
+
+The final audit run discovered 291 cases: 290 passed, 1 intentional Pyth live
+probe was skipped without an entitled API key, and 0 failed. This aggregate is
+not a claim that all live providers are permanently available.

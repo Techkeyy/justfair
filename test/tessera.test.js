@@ -62,6 +62,21 @@ test("live T-Kalshi mint carries the same fee program semantics", async () => {
   assert.equal(typeof fee.basisPoints, "number");
 });
 
+test("epoch RPC failure is coded UNABLE and cannot select an unverified fee schedule", async () => {
+  const { Connection } = await import("@solana/web3.js");
+  const real = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+  const brokenEpoch = {
+    getAccountInfo: (...args) => real.getAccountInfo(...args),
+    getEpochInfo: async () => {
+      throw new Error("epoch unavailable");
+    }
+  };
+  await assertRejectsCode(
+    getTesseraTransferFeeState(TESSERA_PRODUCTS["T-Kalshi"].mint, { connection: brokenEpoch }),
+    "TESSERA_FETCH_FAILED"
+  );
+});
+
 test("fee math: 1000 units at 20bps nets 998", () => {
   const r = calculateNetReceipt({ transferAmountUnits: "1000", feeBasisPoints: 20, maximumFeeUnits: "18446744073709551615" });
   assert.equal(r.calculatedFeeUnits, "2");

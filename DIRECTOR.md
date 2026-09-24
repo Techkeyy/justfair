@@ -282,7 +282,7 @@ footer entry.
 
 ## 24. TEST SUITE STATE
 
-Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrade carry 2026-09-18 release counts):
+Verified counts from the final pre-owner-UAT audit (2026-09-24). Older release counts and registry proofs below are retained as historical records; this section is superseded by the current 1.0.5 record in §36.
 - Unit & Preflight suite (`npm test`): 49 PASSED · 0 FAILED.
 - Scenario engine suite (`node test/justfair-scenarios.test.js`): 25 PASSED · 0 FAILED · 1 SKIPPED (Pyth live probe skipped without API key; includes no-signing scan over the extended `dbc-live.js`).
 - DBC single-check suite (`node --test test/dbc.test.js`): 5 PASSED · 0 FAILED (whale outputs unchanged after shared-core refactor).
@@ -290,10 +290,10 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
 - CLI suite (`node --test test/cli.test.js`): 26 PASSED · 0 FAILED (includes result-artifact persistence: FAIL/PASS/UNABLE preserved, `--open` same-report, repeat-replace, honest write-failure, no-upload path).
 - HTTP contract suite (`node test/e2e.test.js`): 16 PASSED · 0 FAILED (includes `/api/v1/dbc/sweep` input validation without network).
 - Playwright Browser test suite (`node test/browser.test.js`): 78 PASSED · 0 FAILED (includes artifact-workflow test 61e).
-- Tessera suite: 13 PASSED · 0 FAILED (re-verified on current source during triage + audit; live 20 bps state).
+- Tessera suite: 14 PASSED · 0 FAILED (includes the epoch-RPC-failure UNABLE regression; live 20 bps state).
 - Product-preflight suite: 52 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
 - Streaming suite: 6 PASSED · 0 FAILED (2026-09-18 release run; area untouched).
-- Total: 289 PASSED · 0 FAILED · 1 SKIPPED.
+- Total: 290 PASSED · 0 FAILED · 1 SKIPPED across 291 discovered cases.
 - Public NPM Registry Outside-Repo Proof (`scratch/test-npm-registry-direct.mjs`):
   1. Registry verification: `npm view justfair` confirmed `name = "justfair"`, `version = "1.0.0"`, `dist-tags = { latest: "1.0.0" }`, published by `praiseprodigyy`.
   2. Direct tarball download from `https://registry.npmjs.org/justfair/-/justfair-1.0.0.tgz` (229,299 bytes, shasum `9b6c8a7a462e9c1cb6f67f23663fc7ebf405a20b`) into a clean temp directory outside the repository.
@@ -304,6 +304,9 @@ Verified counts (DBC Upgrade 001 run, 2026-09-22; areas untouched by this upgrad
   7. Phase 2 (Fixed App): Developer app corrected to `isLive: false` -> exact same test command rerun -> exited `0` (PASS `STALE_CARRIED_FORWARD_EQUITY`), invariant held.
 
 ## 25. OWNER UAT STATE
+
+The older entries in this section are dated historical records. Current public
+1.0.5 evidence and the remaining owner gate are recorded in §36.
 
 - UAT STEP 1 — PASS (homepage coherence: one product, no legacy narrative).
 - UAT STEP 2 — PASS (technical developer journey proof complete & verified).
@@ -569,7 +572,9 @@ Evidence levels used below — L1 unit/deterministic (no network, no owner) · L
 `C:\Users\HomePC\Desktop\skill\`. Materially applied this session:
 - `build-process`: verified public npm release, ran real developer app FAIL -> Fix -> PASS lifecycle against registry package, and executed complete multi-suite regression.
 - `project-understanding`: restored developer mental model and seamless no-clone onboarding flow across production surfaces.
-- `audit-skill`: verified registry tarball manifest, confirmed zero secret leaks, and validated all test suites.
+- `audit-skill`: applied the claim ledger, tracked-tree and ignored-state review, package allowlist review, secret scan, dependency reachability review, adversarial false-PASS checks, production read-only sanity, and exact current test accounting. The epoch-RPC false-PASS finding drove the narrow fail-closed fix and regression test.
+- `perfect-readme`: applied the proof-link bar, problem/why-before-how structure, numbered public workflow, result-status meanings, architecture table, evidence boundaries, tested-asset limits, copy-paste commands, current counts, limitations, and linked MIT license.
+- Intentionally not applicable: the skill's platform-issue feedback section was not added because this audit found no new platform issue to file; the competitive-field section was not expanded beyond verified project reality; no formatter or linter was claimed because the repository exposes no such configured script.
 
 ## 32. OFFICIAL DOCS / SOURCES THAT GOVERN CURRENT IMPLEMENTATION
 
@@ -585,13 +590,60 @@ Zero-custody boundaries (§20); Token-2022 math vs official docs; unsigned-sim i
 
 ## 34. CURRENT BUILD STATUS
 
-TESSERA OWNER UAT = PASS (PUBLIC ONBOARDING PASS, CORE-OUTCOME LEVEL 4); NPM 1.0.4 PUBLIC; PRESTOCKS OWNER UAT = PASS (WORKFLOW L4, EVENT FIXTURE LABELED); RESULT-ARTIFACT WORKFLOW PREPARED AS 1.0.5, OWNER PUBLISH PENDING (NOT FINISHED).
+TESSERA OWNER UAT = PASS (PUBLIC ONBOARDING PASS, CORE-OUTCOME LEVEL 4); NPM 1.0.5 PUBLIC; T-KALSHI PUBLIC LOOP = PASS (L4); DBC MULTI-CONFIG OWNER EVIDENCE = PASS FOR TESTED COMPATIBLE CLASSES; PRESTOCKS REMAINS A FUTURE-EVENT FIXTURE; FINAL OWNER UAT WORKSPACE READY, OWNER RUN PENDING (NOT FINISHED).
 Never report DONE, FINISHED, PRODUCTION READY, or SUBMISSION READY — owner human UAT is final authority.
 
 ## 35. EXACT NEXT ACTION
 
-## 35. EXACT NEXT ACTION
+Owner: perform the blind final public workflow from `C:\Users\HomePC\Desktop\JustFair-Final-UAT` after starting its sample app with `node stock-app.mjs`. Follow the product's own `npx justfair@latest` directions, record where the fresh-user flow is clear or blocked, and decide separately whether to record the demo. Do not modify JustFair, publish again, deploy manually, or claim the PreStocks March 2027 event as live.
 
-Owner: approve the npm 2FA challenge (or run `npm publish` from this source) to release prepared 1.0.5 — which includes all cleared 1.0.4 content — then confirm `latest = 1.0.5`. After 1.0.5 is public: build `C:\Users\HomePC\Desktop\JustFair-PreStocks-UAT` from public @latest with zero manual workaround, run PreStocks Owner UAT (WRONG app → FAIL → app-only fix → same command → PASS), and record the demo against the final workflow. Do NOT mark PreStocks PASS or overall FINISHED; the human owner/director decides.
+## 36. FINAL PRE-OWNER-UAT AUDIT (2026-09-24)
 
+This is the current audit record. It does not mark the project FINISHED,
+SUBMISSION READY, or READY TO SUBMIT.
 
+### Evidence refresh
+
+- Public npm latest is `justfair@1.0.5`.
+- Public owner evidence covers T-OpenAI and T-Kalshi FAIL → app-only fix →
+  same-command PASS loops. T-Kalshi used mint
+  `TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ`, 1000 base units, live 20 bps,
+  fee 2, and net 998.
+- Deployed DBC Stress owner testing covered three additional real configs at
+  the same 8% policy. Results varied materially and reported CURVE CAPACITY,
+  not false PASS. The claim is bounded to the tested compatible classes.
+- The owner verified fresh public `init`, untouched PreStocks UNABLE,
+  automatic `justfair-result.json` persistence, local `--open` Replay Lab,
+  and zero cloud upload. This is workflow evidence, not live PreStocks event
+  evidence.
+
+### Code audit finding and fix
+
+One HIGH correctness issue was found and fixed narrowly. A failed Tessera epoch
+RPC had been treated as advisory, causing the newer fee schedule to be selected
+and allowing a possible false PASS with unverified active-epoch evidence. The
+Tessera reader now returns coded `TESSERA_FETCH_FAILED` and the CLI maps that
+condition to UNABLE. `test/tessera.test.js` adds a regression that delegates
+mint reads to mainnet and forces the epoch read to fail; the focused suite is
+14/14.
+
+### Current verification
+
+- 291 discovered automated cases: 290 passed, 1 intentional Pyth skip, 0
+  failed.
+- `npm audit` remains bounded by the existing dependency record: 6 high and 3
+  moderate rollup advisories, with the documented runtime reachability limits
+  and no blind `npm audit fix --force`.
+- The package audit is allowlist-clean for runtime users; after adding the
+  promised MIT `LICENSE`, the pack includes 52 user-facing files and excludes
+  tests, evidence, scratch, UAT workspaces, result artifacts, and secrets.
+- Production read-only probes returned HTTP 200 for the site, health, and
+  stock routes; no stale 1.0.4 language was found in the deployed primary
+  surfaces.
+
+### Final owner workspace
+
+`C:\Users\HomePC\Desktop\JustFair-Final-UAT` is outside the repository, uses a
+small standalone sample app, starts with `node stock-app.mjs`, is reset to its
+initial incorrect state, contains no expected answers or result artifacts, and
+has not been run by the builder as the final owner test.

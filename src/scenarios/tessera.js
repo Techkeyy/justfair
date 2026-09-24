@@ -88,19 +88,22 @@ export async function getTesseraTransferFeeState(mint, { rpcUrl = TESSERA_RPC_UR
     err.code = "TESSERA_NO_TRANSFER_FEE";
     throw err;
   }
-  let epoch = null;
+  let epoch;
   try {
     epoch = (await conn.getEpochInfo()).epoch;
-  } catch {
-    epoch = null; // epoch is advisory; selection below still reported
+  } catch (err) {
+    const wrapped = new Error(`Epoch read failed: ${err.message}`);
+    wrapped.code = "TESSERA_FETCH_FAILED";
+    throw wrapped;
   }
   const newer = feeConfig.newerTransferFee;
   const older = feeConfig.olderTransferFee;
   // Official selection rule (spl-token getEpochFee): epoch >= newer.epoch
-  // uses newer, otherwise older. Unknown chain epoch assumes newer (the
-  // latest schedule) and says so.
-  const epochVerified = epoch !== null;
-  const active = (epochVerified && Number(epoch) < Number(newer.epoch)) ? older : newer;
+  // uses newer, otherwise older. A missing epoch is an UNABLE condition:
+  // selecting a fee schedule without verifying the active epoch could cause
+  // a false PASS.
+  const epochVerified = true;
+  const active = Number(epoch) < Number(newer.epoch) ? older : newer;
   return {
     mint: address,
     program: TOKEN_2022_PROGRAM_ID,

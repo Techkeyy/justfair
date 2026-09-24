@@ -54,14 +54,14 @@ The financial behavior under test lives on Solana: Token-2022 transfer fees and 
 
 ## WHAT IS ACTUALLY LIVE
 
-- Tessera scenarios read the LIVE Token-2022 TransferFeeConfig of real T-Tokens on Solana mainnet (fee parameters and epoch verified per run).
-- DBC sweeps read LIVE Meteora bonding-curve configs on mainnet and run real SDK quote math read-only (no signing, no funds, no trades).
+- Tessera scenarios read the LIVE Token-2022 TransferFeeConfig of real T-Tokens on Solana mainnet (fee parameters and epoch verified per run); public owner proof covers T-OpenAI and T-Kalshi, not every Tessera asset.
+- DBC sweeps read LIVE Meteora bonding-curve configs on mainnet and run real SDK quote math read-only (no signing, no funds, no trades). Owner testing covered three additional real configurations at the same 8% policy, with materially different economics and truthful CURVE CAPACITY results; this is bounded to the tested compatible DBC classes.
 - PreStocks lifecycle scenarios test the PUBLISHED future expiry condition from the official PreStocks SpaceX conversion terms (deadline 12 March 2027 23:59 UTC), explicitly labeled as an authoritative event fixture — this is a crash test of published terms, not a live lifecycle feed, and the March 2027 event has not occurred.
 - Market-data stale-reference scenarios are explicitly labeled simulations.
 
 ## CORE PROOF
 
-Using only the public package against real external apps, the owner twice demonstrated the full causal loop: wrong app → JustFair FAIL with diagnosis → fix ONLY the app → exact same command → PASS. (1) Token-2022 fee ignored (reported 1000 vs fee-adjusted 998, live 20 bps state). (2) Expired holding shown as live (post-deadline ordinary valuation vs expired marking, published expiry terms). DBC sweeps additionally proved issuer-policy control: the same config yields FAIL at 8%, FAIL at 15%, and CURVE CAPACITY at 25%.
+Using only the public package against real external apps, the owner demonstrated the full causal loop for two tested Tessera assets: T-OpenAI and T-Kalshi each went from a wrong fee-free observation to JustFair FAIL with diagnosis, then an app-only correction and the exact same command to PASS. The public T-Kalshi proof used mint `TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ`, 1000 base units, live 20 bps, expected fee 2, and expected net 998. A separate PreStocks loop remains a crash test of published future expiry terms, not a live March 2027 event. DBC sweeps additionally proved issuer-policy control and multi-config behavior: the same policy produced different results across independent real configurations, including FAIL findings and CURVE CAPACITY rather than false PASS.
 
 ## TECH STACK
 
@@ -85,9 +85,9 @@ The recorded Stocklana form requirements (`docs/HACKATHON.md`) document only: pr
 | # | Material claim (as worded above or implied) | Label | Evidence |
 |---|---|---|---|
 | 1 | Public npm workflow exists (`init`/`test`, no clone) | PROVEN | Registry justfair@1.0.5; owner-executed fresh installs; committed CLI tests |
-| 2 | External app FAIL → app-only fix → same-command PASS | PROVEN | Two owner-executed public causal loops (Tessera, PreStocks) with observed Replays |
-| 3 | Tessera uses live Token-2022 transfer-fee state | PROVEN | Per-run on-chain reads (decimals/bps/maxFee/epoch verified); math cross-checked vs official `spl-token calculateFee` |
-| 4 | DBC uses live market/config evidence | PROVEN | Live mainnet config reads + SDK quote math; owner sweeps at 8/15/25% |
+| 2 | External app FAIL → app-only fix → same-command PASS | PROVEN | Public owner causal loops for T-OpenAI and T-Kalshi; separate PreStocks fixture-bounded loop; observed Replays |
+| 3 | Tessera uses live Token-2022 transfer-fee state | PROVEN for T-OpenAI + T-Kalshi | Per-run on-chain reads (decimals/bps/maxFee/epoch verified); math cross-checked vs official `spl-token calculateFee`; not a claim about every Tessera asset |
+| 4 | DBC uses live market/config evidence | PROVEN for tested compatible classes | Live mainnet config reads + SDK quote math; three additional real configs at 8% produced materially different results and truthful capacity findings; not every historical DBC variant |
 | 5 | Replay explains expected vs observed + root cause/fix | PROVEN | Owner-observed FAIL and PASS Replays; committed sample artifacts; browser assertions |
 | 6 | Zero-custody product path (no keys/signing/broadcast/funds) | PROVEN | Committed static scans; e2e route checks; localhost-only CLI; constrained inputs |
 | 7 | Localhost adapter workflow | PROVEN | Contract + owner-executed flows on 127.0.0.1 |
@@ -97,4 +97,4 @@ The recorded Stocklana form requirements (`docs/HACKATHON.md`) document only: pr
 | 11 | JustFair executes/signs/broadcasts trades or handles funds | LIMITATION | It does not; must never be claimed |
 | 12 | AGENT SAFETY scenario breadth | PLANNED | Coverage card states scenarios land as adapters mature; not a current capability |
 | 13 | Market-data stale-reference path | SUPPORTED | Works end-to-end; evidence is explicitly labeled simulated (not live equity data) |
-| 14 | 282 automated tests green | SUPPORTED | Verified counts across committed suites (unit + live-network + browser); live suites depend on real networks |
+| 14 | Current automated verification run | SUPPORTED | 291 discovered cases: 290 passed, 1 intentional Pyth skip, 0 failed; live suites depend on real networks |

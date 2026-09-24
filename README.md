@@ -1,228 +1,211 @@
 # JustFair
 
-**Crash-test your stock app before the market does.**
+**Break your stock app before the market does.**
 
-**[Live product](https://justfair-theta.vercel.app)**
+[Live product](https://justfair-theta.vercel.app) | [GitHub](https://github.com/Techkeyy/justfair) | [npm: justfair@1.0.5](https://www.npmjs.com/package/justfair)
 
-A swap can execute cleanly while the financial result is wrong: a stale
-price shown as live, a stock split read as a loss, a dividend silently
-mis-accounted, an expired token still valued. JustFair runs deterministic
-financial scenarios against stock applications, reports PASS / FAIL /
-UNABLE_TO_VERIFY with replay, root cause, and fix guidance — then the same
-scenario re-runs to PASS.
+A stock app can execute cleanly while showing the wrong financial result: a
+stale price presented as live, a Token-2022 transfer fee omitted from the
+recipient amount, an expired tokenized holding still valued, or an opening
+trade size beyond the issuer's own impact policy. JustFair tests those
+observations against labeled evidence and reports PASS, FAIL, or
+UNABLE_TO_VERIFY with replay, root cause, and fix guidance.
 
-## The user
+## Who it is for
 
 Developers and teams building stock wallets, tokenized-stock interfaces,
 DEXes, portfolio and accounting apps, stock-aware lending, trading agents,
-and tokenized-market infrastructure on Solana. No privileged account, no
-prepared demo state, no operator intervention required.
+and tokenized-market infrastructure on Solana.
 
-## The loop
+## Why this exists
 
+HTTP 200, a successful transaction, or a balance displayed by an app does not
+prove that the financial result is correct. JustFair gives the developer a
+small local observation adapter, then independently checks the app's displayed
+or calculated values against deterministic assertions and authoritative
+evidence. The target reports observations only; JustFair owns the verdict.
+
+## Public workflow
+
+Requires Node.js 20 or newer. The public workflow needs no JustFair clone,
+account, funds, private keys, signing, broadcasting, or trade execution.
+
+1. Initialize the adapter scaffold in the project containing the app:
+
+   ```sh
+   npx justfair@latest init
+   ```
+
+   With the current public release, `justfair@latest` resolves to 1.0.5.
+   The command creates `justfair.config.js` and `justfair-adapter.mjs` and
+   never overwrites existing files.
+
+2. Connect the adapter's observation assignments to values the app actually
+   calculates or displays. The adapter exposes the normal JustFair interface:
+   `GET /justfair/v1/manifest` and `POST /justfair/v1/evaluate`.
+
+3. Start the app and then the adapter. The app may use any localhost port;
+   the adapter reads the app and exposes JustFair's two test endpoints on its
+   own localhost port.
+
+4. Run the public package against the adapter:
+
+   ```sh
+   npx justfair@latest test --target http://localhost:3100 --open
+   ```
+
+5. Inspect the result. Every completed run saves the exact report to
+   `./justfair-result.json` by default. `--out` selects another path and
+   `--open` launches the local Replay Lab on `127.0.0.1`; the report stays
+   local and is not uploaded to a cloud service.
+
+6. If the result is FAIL, fix only the app, restart the app, and rerun the
+   same command. The adapter must continue to report observations, never a
+   verdict.
+
+### Result meanings
+
+| Result | Meaning |
+|---|---|
+| `PASS` | The observed value satisfies every assertion supported by the evidence. |
+| `FAIL` | The target supplied an observation that violates an assertion. |
+| `UNABLE_TO_VERIFY` | The target, evidence, or required input was unavailable or ambiguous. This is not a pass. |
+| `CURVE CAPACITY` | A DBC quote reached the live curve's capacity boundary. It is a finding, not a safe-number certification. |
+
+## Architecture
+
+| Component | Responsibility |
+|---|---|
+| Stock app | Calculates or displays the value under test. |
+| Observation adapter | Reads the app and returns observations through the localhost contract. |
+| Scenario evidence | Supplies live chain state, authoritative event terms, or explicitly labeled simulations. |
+| JustFair engine | Computes expectations, runs assertions, owns PASS/FAIL/UNABLE, and creates the replay. |
+| Result artifact and Replay Lab | Preserve the exact report and show expected versus observed values, provenance, diagnosis, and timeline locally. |
+
+## Scenarios and evidence boundaries
+
+| Scenario | What it checks | Evidence boundary |
+|---|---|---|
+| `STALE_CARRIED_FORWARD_EQUITY` | A carried-forward price is not presented as live. | Simulated field semantics, explicitly labeled `simulated`. |
+| `PRESTOCKS_EXPIRY_{BEFORE,NEAR,AFTER}` | Published conversion deadlines and expired-position representation. | Official PreStocks terms captured as an `authoritative_event_fixture`; the March 2027 event itself has not occurred. |
+| `TESSERA_TRANSFER_FEE_ACCOUNTING` | The recipient amount accounts for a Token-2022 transfer fee. | Live Solana `TransferFeeConfig`; public owner proof covers T-OpenAI and T-Kalshi, not every Tessera asset. |
+| `DBC_OPENING_WHALE` and `DBC_LAUNCH_SWEEP` | Opening size and policy stress against a bonding curve. | Live Meteora DBC configuration and SDK quote math; multi-config proof covers tested compatible classes, not every historical DBC variant. |
+
+JustFair keeps evidence labels visible. Live chain state, authoritative event
+fixtures, and simulations are not interchangeable claims.
+
+## Solana integrations
+
+- **Tessera**: live Token-2022 fee state drives the expectation. The verified
+  public owner workflow has covered T-OpenAI and T-Kalshi at 20 basis points;
+  the implementation does not claim identical configuration for all assets.
+- **Meteora DBC**: live mainnet configuration reads and SDK quote simulation
+  stress the issuer-declared impact policy without signing, funds, or trades.
+  Three additional real configurations produced materially different results
+  at the same 8% policy and reported curve capacity instead of a false PASS.
+- **PreStocks**: published future expiry terms are a bounded lifecycle
+  crash-test fixture, not a live March 2027 lifecycle feed.
+
+## Adapter contract
+
+Full specification: [docs/adapter.md](docs/adapter.md).
+
+```text
+GET  /justfair/v1/manifest
+     {"adapterVersion":"1","name":"...","capabilities":[...]}
+
+POST /justfair/v1/evaluate
+     {"scenarioId","scenarioVersion","inputs"}
+     -> observations only
 ```
-ADD SMALL ADAPTER → RUN APP LOCALLY → RUN JUSTFAIR CLI
-→ PASS / FAIL / UNABLE → RESULT ARTIFACT → OPEN IN REPLAY LAB
-→ EXPECTED VS ACTUAL → ROOT CAUSE → FIX GUIDANCE
-→ FIX → RE-RUN → PASS → (OPTIONAL CI)
-```
 
-## Using JustFair (No-Clone Developer Journey)
+Any `pass` or `verdict` field supplied by an adapter is ignored. JustFair
+evaluates the observations itself.
 
-Requires Node.js 20+. No JustFair repository clone, account, funds, or private keys required.
+## Security and local-first behavior
 
-### 1. Initialize configuration and adapter scaffold in your project:
+The product path has no private-key, seed-phrase, fund-custody, signing,
+broadcast, or trade-execution flow. The CLI targets localhost and validates
+constrained addresses and numeric inputs rather than fetching arbitrary URLs.
+Replay reports are parsed and rendered as text in the browser with a 1 MB cap.
+Sponsor credentials, where applicable to the legacy server routes, stay in
+server-side environment variables and are never sent to adapters.
 
-```sh
-npx justfair@latest init
-```
-
-Creates `justfair.config.js` and `justfair-adapter.mjs` in your current directory.
-
-### 2. Connect your observation adapter bridge:
-
-The adapter acts as a bridge querying your application logic on localhost.
-
-```
-YOUR STOCK APP (e.g. port 4000)
-        ↓
-OBSERVATION ADAPTER (e.g. port 3100)
-        ↓
-JUSTFAIR SCENARIO ENGINE
-        ↓
-PASS / FAIL / UNABLE
-```
-
-Start your adapter:
-
-```sh
-node justfair-adapter.mjs
-```
-
-### 3. Crash-test your app:
-
-```sh
-npx justfair@latest test --target http://localhost:3100 --open
-```
-
-`--open` launches Replay Lab locally on `127.0.0.1` with zero cloud telemetry.
-
-Every completed run also saves the exact report to `./justfair-result.json`
-in the directory where you ran the command (replaced on each run, `--out`
-names a different path), so a previous result can be reopened later in
-Replay Lab without rerunning.
-
----
-
-## Contributing to JustFair
-
-If you are developing or contributing to JustFair itself:
+## Development
 
 ```sh
 git clone https://github.com/Techkeyy/justfair.git
 cd justfair
 npm install
 
-# Run against sample target
+# Run the local server, default http://127.0.0.1:3001
+npm start
+```
+
+The repository contributor path may use the local CLI directly:
+
+```sh
 node examples/adapter-basic/server.mjs naive
 node src/cli.js test --target http://127.0.0.1:3000 --open
-
-# Run all test suites
-npm test
 ```
 
-Open `justfair-result.json` in Replay Lab (upload stays strictly in the browser with zero cloud telemetry) or explore interactive samples.
+Environment variables are optional and server-side only: `PORT`,
+`SOLANA_RPC_URL`, `JUPITER_API_KEY`, and `PYTH_API_KEY`. Never commit secrets;
+local `.env` files are ignored.
 
-## Adapter contract (v1)
+## Verification
 
-Your app exposes two localhost endpoints; JustFair judges only what your
-app observably shows. Full spec: `docs/adapter.md`.
-
-`GET /justfair/v1/manifest` →
-`{"adapterVersion": "1", "name": "...", "capabilities": [...]}`
-
-`POST /justfair/v1/evaluate` ←
-`{"scenarioId", "scenarioVersion", "inputs"}` →
-observations only (a `pass`/`verdict` field would be ignored).
-
-## Scenario model
-
-Identity, required capabilities, inputs, authoritative evidence
-(live / historical / simulated / authoritative_event_fixture /
-live_dbc_mainnet / live_tessera_token2022 — always labeled), deterministic
-assertions, result (PASS / FAIL / UNABLE_TO_VERIFY), diagnosis
-(failure code, expected, actual, root cause, guidance), ordered replay
-timeline. Current scenarios:
-
-| ID | Proves | Evidence |
-|---|---|---|
-| `STALE_CARRIED_FORWARD_EQUITY` | carried-forward prices are never shown as live | simulated (Pyth field semantics) |
-| `PRESTOCKS_EXPIRY_{BEFORE,NEAR,AFTER}` | conversion deadlines survive; expired holdings lose ordinary value | authoritative event fixture (official PreStocks page) |
-| `TESSERA_TRANSFER_FEE_ACCOUNTING` | Token-2022 fees are accounted gross-vs-net | live Token-2022 TransferFeeConfig |
-| `DBC_OPENING_WHALE` | opening size stays within the issuer's impact policy | live Meteora DBC config + SDK quote math |
-
-## Sponsor integrations (load-bearing, not logos)
-
-- **PreStocks** — private-market lifecycle correctness (expiry/conversion
-  handling against the official SpaceX conversion case).
-- **Meteora DBC** — market-structure stress (real mainnet config reads +
-  SDK quote simulation; issuer-declared policy, never a JustFair safety
-  number).
-- **Tessera** — T-Token financial behavior (live TransferFeeConfig drives
-  expectations; T-OpenAI preferred).
-
-Historical note: Pyth was investigated in earlier phases (parser, session
-semantics) but no equity-entitled credential exists, so it is not a
-sponsor track and blocks nothing. Earlier market-data code remains as a
-generic simulated sample.
-
-## Why Solana
-
-Token-2022 mints carry the financial behavior under test (scaled-ui
-multipliers, transfer fees) readable on-chain; unsigned `simulateTransaction`
-lets scenarios verify execution semantics without signing, broadcasting,
-custody, or funds.
-
-## Zero-custody / security model
-
-No private keys, seed phrases, fund holding, signing, broadcasting, or
-trade execution anywhere. Sponsor keys are server-env only and never sent
-to adapters. The CLI contacts localhost only. Replay uploads are parsed
-client-side (1 MB cap) and rendered as text, never raw HTML. Server
-endpoints validate constrained inputs (addresses, bounded numbers — never
-URLs or keys) under the existing rate limiter.
-
-## Setup
+Canonical suites run with Node's test runner and Playwright:
 
 ```sh
-npm install
-npm start            # local server, default http://127.0.0.1:3001
+node test/justfair-scenarios.test.js
+node test/tessera.test.js
+node test/dbc.test.js
+node test/dbc-sweep.test.js
+node test/cli.test.js
+node test/e2e.test.js
+node test/preflight.test.js
+node test/product-preflight.test.js
+node test/streaming.test.js
+node test/browser.test.js
+node test/smoke_prod.js
 ```
 
-Environment variables (all optional, server-side only):
+Current audit run: 291 discovered cases, 290 passed, 1 intentional skip, and
+0 failed. The skipped case is the Pyth live probe without an entitled API key.
+The aggregate includes live-network and browser checks, so upstream
+availability can affect whether a run is conclusive.
 
-| Variable | Purpose |
-| :--- | :--- |
-| `PORT` | Local server port (default `3001`) |
-| `SOLANA_RPC_URL` | Solana RPC endpoint (default mainnet-beta) |
-| `JUPITER_API_KEY` | Jupiter API key |
-| `PYTH_API_KEY` | Pyth key (streaming degrades truthfully without it; not required) |
+## Web product
 
-Never commit secrets. `.env` files are git-ignored.
+- **Home**: product thesis, RUN A TEST, and OPEN REPLAY LAB.
+- **Test**: the local workflow, public command, and adapter contract.
+- **Replay Lab**: a local artifact viewer with expected versus observed values,
+  provenance, replay timeline, root cause, and guidance. PASS, FAIL, and
+  UNABLE remain visually distinct.
+- **DBC Launch Stress**: a real-config and issuer-policy sweep with first
+  policy failure and first capacity boundary callouts.
+- **System Health**: read-only service and upstream health information.
 
-## Testing
+## Limitations
 
-```sh
-node test/justfair-scenarios.test.js   # engine + adapter + fixtures
-node test/tessera.test.js              # live T-Token reads + fee math
-node test/dbc.test.js                  # live mainnet DBC reads + whale math
-node test/cli.test.js                  # CLI exit codes + artifacts
-node test/browser.test.js              # Playwright UI incl. Replay Lab
-node test/e2e.test.js                  # deterministic HTTP contracts
-node test/preflight.test.js            # legacy execution engine
-node test/product-preflight.test.js    # legacy product matcher
-node test/streaming.test.js            # streaming infra
-node test/smoke_prod.js                # live production smoke (observational)
-```
-
-Counts at release: scenarios 25 · tessera 13 · dbc 5 · dbc-sweep 19 · cli 20
-· browser 77 · e2e 16 · preflight 49 · product-preflight 52 · streaming 6. Live suites
-hit real networks and report honestly; fixture suites are deterministic.
-
-## The web product
-
-- **Home** — thesis, RUN A TEST, OPEN REPLAY LAB.
-- **Test** — local workflow, real CLI command, inline adapter spec.
-- **Replay Lab** — upload a CLI artifact (stays in-browser), scenario list,
-  expected vs actual, provenance, replay timeline, root cause, guidance;
-  PASS / FAIL / UNABLE kept visually distinct; engine-generated samples
-  labelled SAMPLE.
-- **DBC Launch Stress** — config + YOUR POLICY form running the real sweep
-  scenario server-side (read-only; no signing or funds).
-
-The legacy Steps 1–4 consumer app remains served for its existing tests
-and behavior but is no longer the flagship product.
+- There is no live Pyth equity integration; that scenario uses explicitly
+  labeled simulated semantics.
+- PreStocks lifecycle truth is an authoritative published-terms fixture, not
+  a live lifecycle API, and the March 2027 expiry has not occurred.
+- DBC results follow current pool/config state. Graduated or capacity-limited
+  curves are reported as findings, not converted into PASS.
+- No hosted arbitrary-target execution, accounts, database, cloud history, or
+  CI packaging is provided. The CLI is localhost-only.
+- Public mainnet RPCs can be rate-limited or transiently unavailable; those
+  cases report `UNABLE_TO_VERIFY`, never PASS or FAIL.
 
 ## Deployment
 
-Vercel (`vercel.json` routes `/api/*` to `api/index.js`, everything else
-to `public/`). Node 22 runtime required:
+The public web product is deployed at
+[justfair-theta.vercel.app](https://justfair-theta.vercel.app). Vercel routes
+`/api/*` to `api/index.js` and serves the static product from `public/`.
 
-```sh
-npx vercel --prod --yes
-```
+## License
 
-## Limitations (honest)
-
-- No live Pyth equity integration (no entitled credential); the market-data
-  scenario runs on truthfully labeled simulated semantics.
-- PreStocks lifecycle truth is an authoritative event fixture, not a live
-  lifecycle API; listing data stays separate from lifecycle provenance.
-- DBC quotes follow live pool/config state: graduated pools refuse swaps
-  (reported, not faked); opening-whale uses pre-pool simulation math.
-- No hosted arbitrary-target execution (localhost CLI only), no CI
-  packaging yet, no accounts/database/cloud history.
-- Public mainnet RPC is rate-limited; heavy enumeration is avoided by
-  design (direct reads only).
-- Upstream providers can transiently fail; failures report as
-  UNABLE_TO_VERIFY, never as PASS or FAIL.
+[MIT License](LICENSE)
